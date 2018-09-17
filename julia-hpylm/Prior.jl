@@ -1,4 +1,7 @@
 # module Prior
+# lgamma
+using SpecialFunctions
+
 import Base.show
 
 # export SampledPrior, GammaPrior, BetaPrior, PYPPrior

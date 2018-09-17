@@ -1,5 +1,7 @@
 # module PYP
 using Distributions
+# lgamma
+using SpecialFunctions
 import Base.show
 
 "Represent the uniform distribution. Used as the fallback distribution in the case of `n = 0`."
@@ -120,13 +122,13 @@ end
 
  raw"""
  The `PYP` struct serves as a wrapper around a `CRP` struct, in the particular context of hierarchical Pitman-Yor language model for this project.
- 
+
  As indicated by the formula
- 
+
  ```math
  G_u \sim PY(d_{|u|}, \theta_{|u|}, G_{\pi(u)})
  ```
- 
+
  , for *every context* there is a Pitman-Yor process that serves as its probability distribution. This struct encapsulates such a Pitman-Yor process.
  """
 mutable struct PYP
