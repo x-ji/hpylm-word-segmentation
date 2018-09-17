@@ -13,21 +13,21 @@ import Base.show
 
 # import Base.getindex
 
-# """
-# As stated in Yee 2006 (p.987, formula (3)), given a context u, the probability vector for any word following the context u, ``G_{u}``, is
-# 
-# ```math
-# G_{u} \sim PY(d_{|u|}, \theta_{|u|}, G_{\pi(u)})
-# ```
-# 
-# where ``\pi(u)`` is the suffix of u consisting of all but the earliest word.
-# 
-# Furthermore, ``d_{|u|}`` is the discount and ``\theta_{|u|}`` is the strength; they are both functions of the length ``|u|`` of the context.
-# 
-# Therefore, there are ``2n`` parameters in the model. The *discount* and *strength* parameters, ``d_{|u|}`` and ``\theta_{|u|}``, are shared across all Pitman-Yor processes which have the same ``n`` value.
-# 
-# `PYPLM` serves as the struct that encapsulates several structs which are united around the same `n` value.
-# """
+ raw"""
+ As stated in Yee 2006 (p.987, formula (3)), given a context u, the probability vector for any word following the context u, ``G_{u}``, is
+ 
+ ```math
+ G_{u} \sim PY(d_{|u|}, \theta_{|u|}, G_{\pi(u)})
+ ```
+ 
+ where ``\pi(u)`` is the suffix of u consisting of all but the earliest word.
+ 
+ Furthermore, ``d_{|u|}`` is the discount and ``\theta_{|u|}`` is the strength; they are both functions of the length ``|u|`` of the context.
+ 
+ Therefore, there are ``2n`` parameters in the model. The *discount* and *strength* parameters, ``d_{|u|}`` and ``\theta_{|u|}``, are shared across all Pitman-Yor processes which have the same ``n`` value.
+ 
+ `PYPLM` serves as the struct that encapsulates several structs which are united around the same `n` value.
+ """
 mutable struct PYPLM
     "a `PYPPrior` struct, which contains the *discount* and *strength* parameters."
     prior::PYPPrior
@@ -36,13 +36,13 @@ mutable struct PYPLM
     order::Int
 
     # It's probably bad design to have two totally different types stand in for one field. Let's see if there's something that can be changed about the design.
-    # """
-    # A reference to the `struct` that should be used as the basis of the `backoff` for any `PYP` contained in `models` (i.e. the `struct` on which the ``G_{\pi(u)}`` from the formula above is based).
-    # - In cases where ``n > 0``, it will be another `PYPLM` struct with an `order` of ``n-1``.
-    # - In the case where ``n = 0``, it will be the `Uniform` struct, which corresponds to the "global mean vector" mentioned in the paper (p. 988).
+    raw"""
+    A reference to the `struct` that should be used as the basis of the `backoff` for any `PYP` contained in `models` (i.e. the `struct` on which the ``G_{\pi(u)}`` from the formula above is based).
+    - In cases where ``n > 0``, it will be another `PYPLM` struct with an `order` of ``n-1``.
+    - In the case where ``n = 0``, it will be the `Uniform` struct, which corresponds to the "global mean vector" mentioned in the paper (p. 988).
 
-    # Because two concrete types are both possible, no type annotation is done here. A union type might be a solution though.
-    # """
+    Because two concrete types are both possible, no type annotation is done here. A union type might be a solution though.
+    """
     backoff
 
     "a list of `PYP` structs that have the same ```n`` value but different contexts."

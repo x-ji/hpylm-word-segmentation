@@ -118,31 +118,31 @@ function _unseat_from(crp::CRP, dish::Int, table_index::Int)
     return false
 end
 
-# """
-# The `PYP` struct serves as a wrapper around a `CRP` struct, in the particular context of hierarchical Pitman-Yor language model for this project.
-# 
-# As indicated by the formula
-# 
-# ```math
-# G_u \sim PY(d_{|u|}, \theta_{|u|}, G_{\pi(u)})
-# ```
-# 
-# , for *every context* there is a Pitman-Yor process that serves as its probability distribution. This struct encapsulates such a Pitman-Yor process.
-# """
+ raw"""
+ The `PYP` struct serves as a wrapper around a `CRP` struct, in the particular context of hierarchical Pitman-Yor language model for this project.
+ 
+ As indicated by the formula
+ 
+ ```math
+ G_u \sim PY(d_{|u|}, \theta_{|u|}, G_{\pi(u)})
+ ```
+ 
+ , for *every context* there is a Pitman-Yor process that serves as its probability distribution. This struct encapsulates such a Pitman-Yor process.
+ """
 mutable struct PYP
     "A reference to the `CRP` struct upon which the `PYP` is based."
     crp::CRP
 
-    # """
-    # `base` essentially represents ``G_{\pi(u)}`` in the formula, i.e. the word probability vector for the context, without the earliest word.
+     raw"""
+     `base` essentially represents ``G_{\pi(u)}`` in the formula, i.e. the word probability vector for the context, without the earliest word.
 
-    # For the concrete implementation:
+     For the concrete implementation:
 
-    # - In cases where ``n > 0``, it is represented by a `BackoffBase` struct, which contains a reference to the `PYPLM` struct of order ``n - 1``, plus a specific context of length ``n - 1``, which will be used to look up the actual `PYP` in the `models` field of the referenced `PYPLM` struct.
-    # - In the case where ``n = 0``, it directly points to the `Uniform` struct.
+     - In cases where ``n > 0``, it is represented by a `BackoffBase` struct, which contains a reference to the `PYPLM` struct of order ``n - 1``, plus a specific context of length ``n - 1``, which will be used to look up the actual `PYP` in the `models` field of the referenced `PYPLM` struct.
+     - In the case where ``n = 0``, it directly points to the `Uniform` struct.
 
-    # Because two concrete types are both possible, no type annotation is done here. A union type might be a solution though.
-    # """
+     Because two concrete types are both possible, no type annotation is done here. A union type might be a solution though.
+     """
     base
 
     "This is just a reference to the `PYPPrior` struct contained within the `PYPLM` struct of order ``n``, since as mentioned above, every `PYP` struct of the same order shares the same prior. "
