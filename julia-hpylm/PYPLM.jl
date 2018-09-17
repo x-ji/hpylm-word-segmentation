@@ -60,7 +60,7 @@ mutable struct PYPLM
         p = new()
         p.prior = PYPPrior(1.0, 1.0, 1.0, 1.0, 0.8, 1.0) # discount = 0.8, theta = 1
         p.order = order
-        p.backoff = order == 1? initial_base: PYPLM(order - 1, initial_base)
+        p.backoff = order == 1 ? initial_base : PYPLM(order - 1, initial_base)
         p.models = Dict{Array{Int, 1}, PYP}()
         return p
     end
@@ -83,7 +83,7 @@ function get(pyplm::PYPLM, ctx::Array{Int, 1})
     if !haskey(pyplm.models, ctx)
         # Do I really need a BackoffBase construct?... Anyways let me try to replicate vpyp structure first then.
         # When order is 1, we're guaranteed to have pyplm.backoff to be the same as initial_base.
-        backoffbase = pyplm.order == 1? pyplm.backoff: BackoffBase(pyplm.backoff, ctx[2:end])
+        backoffbase = pyplm.order == 1 ? pyplm.backoff : BackoffBase(pyplm.backoff, ctx[2:end])
         # The whole PYPLM with order shares one prior.
         return PYP(backoffbase, pyplm.prior)
     end

@@ -221,7 +221,7 @@ Note that per p.18 of the technical report, there's no need to keep track of the
 function increment(pyp::PYP, dish::Int, initialize::Bool=false)
     i =
     if initialize
-        !haskey(pyp.crp.tablegroups, dish)? 0: rand(0:length(pyp.crp.tablegroups[dish]))
+        !haskey(pyp.crp.tablegroups, dish) ? 0 : rand(0:length(pyp.crp.tablegroups[dish]))
     else
         _sample_table(pyp, dish)
     end
