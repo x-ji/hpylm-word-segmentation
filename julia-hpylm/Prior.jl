@@ -264,7 +264,7 @@ function parameters(p::SampledPrior)
     return get_parameters(p)
 end
 
-function parameters(p::SampledPrior, parameters::Tuple{Float64, Float64})
-    set_parameters(p, parameters)
+function parameters(p::SampledPrior, params::Tuple{Float64, Float64})
+    set_parameters(p, params)
 end
 # end

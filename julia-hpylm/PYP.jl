@@ -57,22 +57,22 @@ mutable struct CRP
 
     In this model, each table serves only one dish, i.e. the draw of the word that follows the context ``G_u``. However, multiple tables might serve the same dish, i.e. a future draw might come up with the same word as a previous draw.
     """
-    tablegroups::Dict{Int, Array{Int, 1}}
+    tablegroups::Dict{Int,Array{Int,1}}
 
     "This is just a convenient variable to keep track of the total number of table groups, i.e. unique dishes, present in this `CRP` so far."
     ntablegroups::Int
 
     "This is a convenient variable to keep track of the total number of customers for each unique dish. The key of the `Dict` is the dish, while the value of the `Dict` is the total number of customers for this dish."
-    ncustomers::Dict{Int, Int}
+    ncustomers::Dict{Int,Int}
 
     "This is a convenient variable to keep track of the total number of customers in this `CRP`."
     totalcustomers::Int
 
     function CRP()
         crp = new()
-        crp.tablegroups = Dict{Int, Array{Int, 1}}()
+        crp.tablegroups = Dict{Int,Array{Int,1}}()
         crp.ntablegroups = 0
-        crp.ncustomers = Dict{Int, Int}()
+        crp.ncustomers = Dict{Int,Int}()
         crp.totalcustomers = 0
         return crp
     end
@@ -135,7 +135,7 @@ mutable struct PYP
     "A reference to the `CRP` struct upon which the `PYP` is based."
     crp::CRP
 
-     raw"""
+    raw"""
      `base` essentially represents ``G_{\pi(u)}`` in the formula, i.e. the word probability vector for the context, without the earliest word.
 
      For the concrete implementation:
@@ -182,7 +182,7 @@ function _sample_table(pyp::PYP, dish::Int)
     end
 
     # The probability of putting this draw to a new table, as shown in Equation (11) of the technical report.
-    p_new = (theta(pyp)+ d(pyp) * pyp.crp.ntablegroups) * prob(pyp.base, dish)
+    p_new = (theta(pyp) + d(pyp) * pyp.crp.ntablegroups) * prob(pyp.base, dish)
 
     # Equation (11) of the technical report, c_w - dt_w, where c_w is the total number of customers for this dish, t_w is the number of tables serving this dish.
     normalized = p_new + pyp.crp.ncustomers[dish] - d(pyp) * length(pyp.crp.tablegroups[dish])
@@ -266,19 +266,19 @@ end
 
 function log_likelihood(pyp::PYP, full::Bool=false)
     ll = if d(pyp) == 0
-            (lgamma(theta(pyp)) - lgamma(theta(pyp) + pyp.crp.totalcustomers) +
+        (lgamma(theta(pyp)) - lgamma(theta(pyp) + pyp.crp.totalcustomers) +
                 # `tablegroups` is Dict{Int, Array{Int, 1}}
                 sum(lgamma, Iterators.flatten(values(pyp.crp.tablegroups))) +
                 pyp.crp.ntablegroups * log(theta(pyp))
                 )
-        else
-            (lgamma(theta(pyp)) - lgamma(theta(pyp) + pyp.crp.totalcustomers) +
+    else
+        (lgamma(theta(pyp)) - lgamma(theta(pyp) + pyp.crp.totalcustomers) +
                 lgamma(theta(pyp) / d(pyp) + pyp.crp.ntablegroups) -
                 lgamma(theta(pyp) / d(pyp)) +
                 pyp.crp.ntablegroups * (log(d(pyp)) - lgamma(1 - d(pyp))) +
                 sum(map(c -> lgamma(c - d(pyp)), Iterators.flatten(values(pyp.crp.tablegroups))))
                 )
-        end
+    end
 
     # Full log likelihood means adding the log likelihood of the base and the prior as well.
     if full

@@ -46,7 +46,7 @@ mutable struct PYPLM
     backoff
 
     "a list of `PYP` structs that have the same ```n`` value but different contexts."
-    models::Dict{Array{Int, 1}, PYP}
+    models::Dict{Array{Int,1},PYP}
 
     """
     This is only useful for serializing the trained model later. NOT something that really functionally belongs to the struct!
@@ -61,7 +61,7 @@ mutable struct PYPLM
         p.prior = PYPPrior(1.0, 1.0, 1.0, 1.0, 0.8, 1.0) # discount = 0.8, theta = 1
         p.order = order
         p.backoff = order == 1 ? initial_base : PYPLM(order - 1, initial_base)
-        p.models = Dict{Array{Int, 1}, PYP}()
+        p.models = Dict{Array{Int,1},PYP}()
         return p
     end
 end
@@ -69,7 +69,7 @@ end
 "This is one possible type for the `base` field of the `PYP` struct. It contains a reference to the `PYPLM` struct of order ``n - 1``, plus a specific context of length ``n - 1``, which will be used to look up the actual `PYP` in the `models` field of the referenced `PYPLM` struct."
 struct BackoffBase
     backoff::PYPLM
-    ctx::Array{Int, 1}
+    ctx::Array{Int,1}
 end
 
 """
@@ -79,7 +79,7 @@ If there is no such a `PYP` struct with `ctx` context, a new one will be initial
 
 However, note that the `models` field will not be altered in this method! This is because `get` is not supposed to actually cause any changes. The newly initialized `PYP` struct only gets added to `models` in `increment` method.
 """
-function get(pyplm::PYPLM, ctx::Array{Int, 1})
+function get(pyplm::PYPLM, ctx::Array{Int,1})
     if !haskey(pyplm.models, ctx)
         # Do I really need a BackoffBase construct?... Anyways let me try to replicate vpyp structure first then.
         # When order is 1, we're guaranteed to have pyplm.backoff to be the same as initial_base.
@@ -96,7 +96,7 @@ Run `increment` method on the `PYP` struct with context `ctx`, using dish `dish`
 
 If there is no such a `PYP` struct with `ctx` context, a new one will be initialized via `get` method, and then set in `models` field.
 """
-function increment(pyplm::PYPLM, ctx::Array{Int, 1}, dish::Int)
+function increment(pyplm::PYPLM, ctx::Array{Int,1}, dish::Int)
     if !haskey(pyplm.models, ctx)
         pyplm.models[ctx] = get(pyplm, ctx)
     end
@@ -108,7 +108,7 @@ Run `decrement` method on the `PYP` struct with context `ctx`, using dish `dish`
 
 The caller is responsible for ensuring that the `PYP` struct with context `ctx` already exists, and that `dish` already exists in that `PYP`.
 """
-function decrement(pyplm::PYPLM, ctx::Array{Int, 1}, dish::Int)
+function decrement(pyplm::PYPLM, ctx::Array{Int,1}, dish::Int)
     decrement(pyplm.models[ctx], dish)
 end
 
@@ -117,7 +117,7 @@ Run `prob` method on the `PYP` struct with context `ctx`, using dish `dish`, i.e
 
 Note that unlike `decrement`, this method **doesn't require neither the `PYP` nor the `dish` to already exist!** The model is capable of calculating the probability for a previously unseen context/dish.
 """
-function prob(pyplm::PYPLM, ctx::Array{Int, 1}, dish::Int)
+function prob(pyplm::PYPLM, ctx::Array{Int,1}, dish::Int)
     return prob(get(pyplm, ctx), dish)
 end
 

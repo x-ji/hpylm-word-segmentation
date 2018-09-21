@@ -6,7 +6,7 @@ include("PYP.jl")
 include("Corpus.jl")
 include("PYPLM.jl")
 
-function run_sampler(model::PYPLM, corpus::Array{Array{Int, 1},1}, n_iter::Int, mh_iter::Int)
+function run_sampler(model::PYPLM, corpus::Array{Array{Int,1},1}, n_iter::Int, mh_iter::Int)
     n_sentences = length(corpus)
     n_words = sum(length, corpus)
     processed_corpus = map(sentence -> ngrams(sentence, model.order), corpus)
@@ -17,12 +17,11 @@ function run_sampler(model::PYPLM, corpus::Array{Array{Int, 1},1}, n_iter::Int, 
             for ngram in sentence
                 # We first remove the customer before sampling it again, because we need to condition the sampling on the premise of all the other customers, minus itself. See Teh et al. 2006 for details.
                 if it > 1
-                    decrement(model, ngram[1:end-1], ngram[end])
+                    decrement(model, ngram[1:end - 1], ngram[end])
                 end
-                increment(model, ngram[1:end-1], ngram[end])
+                increment(model, ngram[1:end - 1], ngram[end])
             end
         end
-
 
         if it % 10 == 1
             println("Model: $model")
@@ -88,7 +87,7 @@ function train(corpus_path, order, iter, output_path)
     close(out)
 end
 
-function print_ppl(model::PYPLM, corpus::Array{Array{Int, 1}, 1})
+function print_ppl(model::PYPLM, corpus::Array{Array{Int,1},1})
     n_sentences = length(corpus)
     n_words = sum(length, corpus)
     processed_corpus = map(sentence -> ngrams(sentence, model.order), corpus)
@@ -97,7 +96,7 @@ function print_ppl(model::PYPLM, corpus::Array{Array{Int, 1}, 1})
 
     for sentence in processed_corpus
         for ngram in sentence
-            p = prob(model, ngram[1:end-1], ngram[end])
+            p = prob(model, ngram[1:end - 1], ngram[end])
             if p == 0
                 n_oovs += 1
             else

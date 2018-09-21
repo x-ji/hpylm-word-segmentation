@@ -14,10 +14,10 @@ A utility struct for the conversion between words and integer representations (i
 """
 mutable struct Vocabulary
     "The mapping from original words to integers"
-    word2id::Dict{String, Int}
+    word2id::Dict{String,Int}
 
     "The mapping from integers to original words"
-    id2word::Array{String, 1}
+    id2word::Array{String,1}
 
     "Whether new mappings can still be added to the vocabulary"
     frozen::Bool
@@ -25,13 +25,13 @@ mutable struct Vocabulary
     """
     Construct a `Vocabulary` struct. `start_stop` determines whether to initialize the mappings with special `START` and `STOP` symbols as `<s>` and `</s>`, which are normally used in corpora.
     """
-    function Vocabulary(start_stop::Bool=true, init::Array{String, 1}=Array{String, 1}())
+    function Vocabulary(start_stop::Bool=true, init::Array{String,1}=Array{String,1}())
         v = new()
         if start_stop
             v.word2id = Dict("<s>" => START, "</s>" => STOP)
             v.id2word = ["<s>", "</s>"]
         else
-            v.word2id = Dict{String, Int}()
+            v.word2id = Dict{String,Int}()
             v.id2word = []
         end
         v.frozen = false
@@ -100,18 +100,18 @@ function read_corpus(stream::IOStream, vocabulary::Vocabulary)
 end
 
 "Return all ngrams of the specified `order` from the given `sentence`. The return type is array of arrays of integers."
-function ngrams(sentence::Array{Int, 1}, order::Int)
+function ngrams(sentence::Array{Int,1}, order::Int)
     # The deque from Python is really not the same as CircularDeque here. Doesn't support automatic replacement of elements whatsoever.
     # The original implementation in Python uses `yield` but I guess I won't need it here.
 
-    output = Array{Array{Int, 1}, 1}()
+    output = Array{Array{Int,1},1}()
 
-    temp = fill(START, order-1)
+    temp = fill(START, order - 1)
     append!(temp, sentence)
     append!(temp, STOP)
 
     for index in 1:(length(temp) - order + 1)
-        ngram = Array{Int, 1}()
+        ngram = Array{Int,1}()
         for i2 in index:index + (order - 1)
             push!(ngram, temp[i2])
         end
