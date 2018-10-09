@@ -25,8 +25,10 @@ mutable struct Vocabulary
     """
     Construct a `Vocabulary` struct. `start_stop` determines whether to initialize the mappings with special `START` and `STOP` symbols as `<s>` and `</s>`, which are normally used in corpora.
     """
-    function Vocabulary(start_stop::Bool=true, init::Array{String,1}=Array{String,1}())
+    function Vocabulary(start_stop::Bool = true, init::Array{String,1} = Array{String,1}())
         v = new()
+        # This doesn't seem to be useful anymore in the new program? Or not. Well we still do need to have a sentence stop token at least, right?
+        # OK let me still keep them anyways. Doesn't really hurt either way.
         if start_stop
             v.word2id = Dict("<s>" => START, "</s>" => STOP)
             v.id2word = ["<s>", "</s>"]
@@ -51,12 +53,12 @@ function length(v::Vocabulary)
 end
 
 "Get the word string corresponding to the integer representation."
-function get(v::Vocabulary, word::Int)
+function get(v::Vocabulary, word::Int)::String
     return v.id2word[word]
 end
 
 "Get the integer representation for the word string."
-function get(v::Vocabulary, word::String)
+function get(v::Vocabulary, word::String)::Int
     if !haskey(v.word2id, word)
         if v.frozen
             # This thing is actually not used since another way is used to keep track of word count.
@@ -94,9 +96,15 @@ function update(v::Vocabulary, v2::Vocabulary)
 end
 
 "Construct a `Vocabulary` struct from an input stream."
-function read_corpus(stream::IOStream, vocabulary::Vocabulary)
-    # This seems a weird way to do it. Though not sure if we can do it better.
-    return [[get(vocabulary, String(word)) for word in split(line)] for line in readlines(stream)]
+function read_corpus(stream::IOStream, char_vocab::Vocabulary)
+    # Now we need to construct the char_vocab, assuming that in the input everything is stuck together by default.
+    # readlines returns a vector of strings
+    # Discard empty lines
+    # Make sure that everything is stuck together and then interpreted on a char-by-char basis.
+    # The point is that in the target languages such as Chinese and Japanese, there should not be any spaces.
+    # Currently we still need to convert the character to string.
+    # And then we return the integer representation of the character via the vocabulary.
+    return [[get(char_vocab, string(c)) for c in line if !Base.isspace(c)] for line in readlines(stream) if !isempty(line)]
 end
 
 "Return all ngrams of the specified `order` from the given `sentence`. The return type is array of arrays of integers."

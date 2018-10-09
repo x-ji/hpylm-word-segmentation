@@ -66,22 +66,25 @@ Arguments:
             required = true
 """
 function train(corpus_path, order, iter, output_path)
-    vocabulary = Vocabulary()
+    # This is the vocabulary of individual characters.
+    # Essentially it makes no difference whether we already separate the characters in the input file beforehand, or we do it when reading in the file. Let me just assume plain Chinese text input and do it when reading in the file then.
+    char_vocab = Vocabulary()
+    word_vocab = Vocabulary()
 
     println("Reading training corpus")
 
     f = open(corpus_path)
-    training_corpus = read_corpus(f, vocabulary)
+    training_corpus = read_corpus(f, char_vocab)
     close(f)
 
-    initial_base = Uniform(length(vocabulary))
+    initial_base = Uniform(length(char_vocab))
     model = PYPLM(order, initial_base)
 
     println("Training model")
 
     run_sampler(model, training_corpus, iter, 100)
 
-    model.vocabulary = vocabulary
+    model.char_vocab = char_vocab
     out = open(output_path, "w")
     serialize(out, model)
     close(out)

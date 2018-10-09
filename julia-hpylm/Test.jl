@@ -1,12 +1,18 @@
-push!(LOAD_PATH, "./")
-import HPYLM
+# Let me first try to read in the corpus char by char and see if everything works.
+module Test
+using Base.Test
 
-models = ["ptbmodel", "wiki2model", "brownmodel", "lobmodel", "sotumodel"]
-corpora = ["../data/ptb/test.txt", "../data/wikitext-2/wiki.test.tokens", "../data/brown/brown-test.txt", "../data/LOB/LOB_COCOA/test.txt", "../data/sotu/sotu-test-utf8.txt",]
+include("Prior.jl")
+include("PYP.jl")
+include("Corpus.jl")
+include("PYPLM.jl")
 
-for model in models
-    for corpus in corpora
-        println("Model: $model, Corpus: $corpus")
-        HPYLM.evaluate(corpus, model)
-    end
+char_vocab = Vocabulary()
+f = open("../test.txt")
+training_corpus = read_corpus(f, char_vocab)
+close(f)
+
+# display(training_corpus)
+@test training_corpus == [[3, 4, 5, 6], [7, 8, 9, 3, 10, 11, 12]]
+
 end
