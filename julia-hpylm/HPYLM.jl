@@ -8,6 +8,13 @@ include("PYPLM.jl")
 
 import Base.show
 
+# This is the vocabulary of individual characters.
+# Essentially it makes no difference whether we already separate the characters in the input file beforehand, or we do it when reading in the file. Let me just assume plain Chinese text input and do it when reading in the file then.
+# It's now just easier to make them global variables as they are used everywhere.
+# Since there aren't really multithread operations. It should be fine.
+char_vocab = Vocabulary()
+word_vocab = Vocabulary()
+
         end
 
         if it % 10 == 1
@@ -17,6 +24,18 @@ import Base.show
             println("ll=$ll, ppl=$perplexity")
         end
 
+"""
+Helper function to increment
+
+Convert a string (represented in Int) to its sequence of chars (represented in Int)
+"""
+# function string_to_charseq(string::Int, char_vocab::Vocabulary, word_vocab::Vocabulary)::Array{Int,1}
+function string_to_charseq(string::Int)::Array{Int,1}
+    # First: Convert the string from int to its original form
+    word::String = get(global word_vocab, string)
+    # Then: Look up the characters that constitute the word one by one
+    return map(char -> get(global char_vocab, char), word)
+end
         end
     end
 end
