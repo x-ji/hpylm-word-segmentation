@@ -268,7 +268,7 @@ function special_prob(pyp::PYP, dish::Int)
     # One way would be to let each HPYLM struct hold a reference to them.
     # However this will likely create tons of overhead when performing the serialization.
     # Guess I have no other way but to put out some sort of module-level constant? Let me see if that works then.
-    char_seq = string_to_charseq(dish, global char_vocab, global word_vocab)
+    char_seq = string_to_charseq(dish)
     # char_dish = char_seq[end]
     # char_ctx = char_seq[1:end-1]
     # TODO: Still there's a problem in that since we haven't started using an infinite HPYLM yet, and the ctx length can well exceed (or indeed stay below) the actual length of the rigid HPYLM we just assigned there... We would need to do some sort of padding.
@@ -446,10 +446,12 @@ Convert a string (represented in Int) to its sequence of chars (represented in I
 """
 # function string_to_charseq(string::Int, char_vocab::Vocabulary, word_vocab::Vocabulary)::Array{Int,1}
 function string_to_charseq(string::Int)::Array{Int,1}
+    global char_vocab
+    global word_vocab
     # First: Convert the string from int to its original form
-    word::String = get(global word_vocab, string)
+    word::String = get(word_vocab, string)
     # Then: Look up the characters that constitute the word one by one
-    return map(char -> get(global char_vocab, char), word)
+    return map(char -> get(char_vocab, char), word)
 end
 
 # Remember that a dish is a word, here the last word in the ngram.
@@ -606,6 +608,7 @@ function train(corpus_path, order, iter, output_path)
     # npylm.char_vocab = char_vocab
     # npylm.word_vocab = word_vocab
     out = open(output_path, "w")
+    # TODO: Need to serialize the vocabulary structs differently.
     serialize(out, npylm)
     close(out)
 end
@@ -789,11 +792,13 @@ Convert a sequence of characters (represented in Int) to string (represented in 
 """
 # function charseq_to_string(char_seq::Array{Int,1}, char_vocab::Vocabulary, word_vocab::Vocabulary)::Int
 function charseq_to_string(char_seq::Array{Int,1})::Int
+    global char_vocab
+    global word_vocab
     # First: Convert the (int) character sequence back to their original coherent string
     # Wait, if those two are already global, I wouldn't need to pass them in as arguments anymore.
-    string::String = join(map(char_int->get(global char_vocab, char_int), char_seq), "")
+    string::String = join(map(char_int->get(char_vocab, char_int), char_seq), "")
     # Then: Lookup the string in the word vocab
-    string_rep::Int = get(global word_vocab, string)
+    string_rep::Int = get(word_vocab, string)
     return string_rep
 end
 
@@ -899,6 +904,7 @@ function evaluate(corpus_path, model_path)
     close(m_in)
 
     c_in = open(corpus_path)
+    # TODO: Deal with the vocabulary in some way so that it's serialized and loaded properly, and hopefully doesn't have any global variable issues.
     evaluation_corpus = read_corpus(c_in, model.vocabulary)
     close(c_in)
 
