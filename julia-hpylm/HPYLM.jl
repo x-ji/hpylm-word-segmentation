@@ -162,6 +162,134 @@ function remove_sentence_from_model(npylm::PYPContainer, sentence::Array{Int,1})
     end
 end
 
+"""
+Function to the run the forward-backward inference which samples a sentence segmentation.
+
+Sample a segmentation **w** for each string *s*.
+
+p. 104, Figure 5
+"""
+function sample_segmentation(sentence::Array{Int,1}, max_word_length::Int, npylm::PYPContainer)::Array{Int,1}
+    N = length(sentence)
+    # Initialize to a negative value. If we see the value is negative, we know this box has not been filled yet.
+    prob_matrix = fill(-1.0, (N, N))
+    # First run the forward filtering
+    for t in 1:N
+        for k in max(1, t - max_word_length):t
+            forward_filtering(sentence, t, k, prob_matrix, npylm)
+        end
+    end
+
+    segmentation_output = []
+    t = N
+    i = 0
+    # The sentence boundary symbol. Should it be the STOP symbol?
+    # OK are those two even the same thing? The START, STOP defined in Corpus and the sentence boundary symbol. Guess I'll have to look at it a bit more then.
+    w = STOP
+
+    while t > 0
+        # OK I think I get it.
+        # It's a bit messy to implement a function just for this `draw` procedure here. Maybe let's just directly write out the procedures anyways.
+        probabilities = zeros(Array{Float64,1}, max_word_length)
+        # Keep the w and try out different variations of k, so that different segmentations serve as different context words to the w.
+        for k in 1:max_word_length
+            cur_segmentation = sentence[t - k + 1:t]
+            # cur_context = charseq_to_string(cur_segmentation, global char_vocab, global word_vocab)
+            cur_context = charseq_to_string(cur_segmentation)
+            # cur_word = charseq_to_string(w, global char_vocab, global word_vocab)
+            cur_word = charseq_to_string(w)
+            probabilities[k] = prob(npylm, cur_context, cur_word);
+        end
+
+        # Draw value k from the weights calculated above.
+        k = sample(1:max_word_length, Weights(probabilities))
+        # This is now the newest word we sampled.
+        # The word representation should be converted from the char representation then.
+        sampled_word = charseq_to_string(sentence[(t - k + 1):t])
+
+        # Update w which indicates the last segmented word.
+        w = charseq_to_string(sampled_word)
+
+        push!(segmentation_output, sampled_word)
+        t = t - k
+        i += 1
+    end
+
+    # The segmented outputs should be properly output in a reverse order.
+    return reverse(segmentation_output)
+end
+
+"""
+Helper function to sample_segmentation. Forward filtering is a part of the algorithm (line 3)
+
+Algorithm documented in section 4.2 of the Mochihashi paper. Equation (7)
+Compute α[t][k]
+"""
+function forward_filtering(sentence::Array{Int,1}, t::UInt, k::UInt, prob_matrix::Array{Float64,2}, npylm::PYPContainer)::Float64
+    # Base case: α[0][n] = 1
+    # Another way to do it is to just initialize the array as such. But let's just keep it like this for now, as this is more the responsibility of this algorithm?
+    if (t == 0)
+        return 1.0
+    end
+    if (prob_matrix[t][k] >= 0.0)
+        return prob_matrix[t][k]
+    end
+    temp::Float64 = 0.0
+    for j = 1:(t - k)
+        # The probability here refers to the bigram probability of two adjacent words.
+        # Therefore we likely need to convert this thing to word integers first.
+
+        # It's really good that Julia's indexing system makes perfect sense and matches up with the mathematical notation used in the paper perfectly.
+        # string_rep_potential_context = charseq_to_string(sentence[(t - k - j + 1):(t - k)], global char_vocab, global word_vocab)
+        string_rep_potential_context = charseq_to_string(sentence[(t - k - j + 1):(t - k)])
+        # string_rep_potential_word = charseq_to_string(sentence[(t - k + 1):t], global char_vocab, global word_vocab)
+        string_rep_potential_word = charseq_to_string(sentence[(t - k + 1):t])
+        bigram_prob = prob(npylm, string_rep_potential_context, string_rep_potential_word)
+
+        temp += bigram_prob * forward_filtering(sentence, (t - k), j, prob_matrix, npylm)
+    end
+
+    # Store the final value in the DP matrix.
+    prob_matrix[t][k] = temp
+    return temp
+end
+
+"""
+Helper function to forward_filtering
+
+Convert a sequence of characters (represented in Int) to string (represented in Int)
+"""
+# function charseq_to_string(char_seq::Array{Int,1}, char_vocab::Vocabulary, word_vocab::Vocabulary)::Int
+function charseq_to_string(char_seq::Array{Int,1})::Int
+    # First: Convert the (int) character sequence back to their original coherent string
+    # Wait, if those two are already global, I wouldn't need to pass them in as arguments anymore.
+    string::String = join(map(char_int->get(global char_vocab, char_int), char_seq), "")
+    # Then: Lookup the string in the word vocab
+    string_rep::Int = get(global word_vocab, string)
+    return string_rep
+end
+
+
+"""
+Helper function to sample_segmentation
+
+Function to proportionally draw a k given the prob matrix and indices.
+
+p. 104, Figure 5, line 8
+
+The real thing to do is to actually just draw the thing by:
+- Fixing the "dish" (word)
+- Changing the context by gradually increasing k
+"""
+# function draw(sentence::Array{Int, 1}, i::Int, t::Int, w::Int, max_word_length::Int, prob_matrix::Array{Float64,2}, npylm::PYPContainer)
+#     probabilities = zeros(Array{Float64,1}, max_word_length)
+#     # Keep the w and try out different variations of k, so that different segmentations serve as different context words to the w.
+#     for k in 1:max_word_length
+#         curr_segmentation = 
+#     prob = prob()
+#     end
+# end
+
     n_sentences = length(corpus)
     n_words = sum(length, corpus)
     processed_corpus = map(sentence -> ngrams(sentence, model.order), corpus)
