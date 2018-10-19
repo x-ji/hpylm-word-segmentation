@@ -451,7 +451,7 @@ function string_to_charseq(string::Int)::Array{Int,1}
     # First: Convert the string from int to its original form
     word::String = get(word_vocab, string)
     # Then: Look up the characters that constitute the word one by one
-    return map(char -> get(char_vocab, char), word)
+    return map(char -> get(char_vocab, string(char)), word)
 end
 
 # Remember that a dish is a word, here the last word in the ngram.
@@ -594,7 +594,7 @@ function train(corpus_path, order, iter, output_path)
     # TODO: Create a special type for character n-gram model and use that directly.
     # TODO: They used Poisson distribution to correct for word length (later).
     # This is the whole npylm. Its outmost layer is the word HPYLM, while the base of the word HPYLM is the char HPYLM.
-    npylm = PYPContainer(3, character_model)
+    npylm = PYPContainer(2, character_model)
 
     # initial_base = UniformDist(length(char_vocab))
     # model = PYPContainer(order, initial_base)
@@ -612,6 +612,8 @@ function train(corpus_path, order, iter, output_path)
     serialize(out, npylm)
     close(out)
 end
+
+
 
 
 """
@@ -634,7 +636,7 @@ function blocked_gibbs_sampler(npylm::PYPContainer, corpus::Array{Array{Int,1},1
     # Actually a two-dimensional array might be more sensible. But I can worry about optimizations later. The corpus is read in as a nested array because of the way list comprehension works.
     total_n_sentences = length(corpus)
     # What's the way to initialize an array of objects? This should work already by allocating the space, I guess.
-    segmented_sentences::Array{Array{Int,1},1} = Array{Array{Int,1},1}(total_n_sentences)
+    segmented_sentences::Array{Array{Int,1},1} = fill(Int[], total_n_sentences)
 
     # This doesn't seem to be necessary
     # for i in 1:length(corpus)
@@ -658,7 +660,7 @@ function blocked_gibbs_sampler(npylm::PYPContainer, corpus::Array{Array{Int,1},1
             end
             # Get the raw, unsegmented sentence and segment it again.
             selected_sentence = corpus[index]
-            segmented_sentence = sample_segmentation(selected_sentence)
+            segmented_sentence = sample_segmentation(selected_sentence, 5, npylm)
             # Add the segmented sentence data to the NPYLM
             add_sentence_to_model(segmented_sentence, npylm)
             # Store the (freshly segmented) sentence so that we may remove its segmentation data in the next iteration.
@@ -756,14 +758,14 @@ Helper function to sample_segmentation. Forward filtering is a part of the algor
 Algorithm documented in section 4.2 of the Mochihashi paper. Equation (7)
 Compute α[t][k]
 """
-function forward_filtering(sentence::Array{Int,1}, t::UInt, k::UInt, prob_matrix::Array{Float64,2}, npylm::PYPContainer)::Float64
+function forward_filtering(sentence::Array{Int,1}, t::Int, k::Int, prob_matrix::Array{Float64,2}, npylm::PYPContainer)::Float64
     # Base case: α[0][n] = 1
     # Another way to do it is to just initialize the array as such. But let's just keep it like this for now, as this is more the responsibility of this algorithm?
     if (t == 0)
         return 1.0
     end
-    if (prob_matrix[t][k] >= 0.0)
-        return prob_matrix[t][k]
+    if (prob_matrix[t,k] >= 0.0)
+        return prob_matrix[t,k]
     end
     temp::Float64 = 0.0
     for j = 1:(t - k)
@@ -775,13 +777,13 @@ function forward_filtering(sentence::Array{Int,1}, t::UInt, k::UInt, prob_matrix
         string_rep_potential_context = charseq_to_string(sentence[(t - k - j + 1):(t - k)])
         # string_rep_potential_word = charseq_to_string(sentence[(t - k + 1):t], global char_vocab, global word_vocab)
         string_rep_potential_word = charseq_to_string(sentence[(t - k + 1):t])
-        bigram_prob = prob(npylm, string_rep_potential_context, string_rep_potential_word)
+        bigram_prob = prob(npylm, [string_rep_potential_context], string_rep_potential_word)
 
         temp += bigram_prob * forward_filtering(sentence, (t - k), j, prob_matrix, npylm)
     end
 
     # Store the final value in the DP matrix.
-    prob_matrix[t][k] = temp
+    prob_matrix[t,k] = temp
     return temp
 end
 
