@@ -6,7 +6,7 @@ import Base.show
 const START = 1
 const STOP = 2
 
-# This exception was present but never used in the original vpyp code.
+# This exception was present but never used in the original vpyp code. But it has its use here.
 struct OutOfVocabularyException <: Exception end
 
 """

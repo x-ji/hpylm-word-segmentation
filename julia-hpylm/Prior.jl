@@ -145,7 +145,7 @@ function Base.show(io::IO, p::BetaPrior)
 end
 
 """
-A convenience struct that contains one `BetaPrior` and one `GammaPrior`. Each `PYPLM` struct contains one `PYPPrior` struct.
+A convenience struct that contains one `BetaPrior` and one `GammaPrior`. Each `PYPContainer` struct contains one `PYPPrior` struct.
 """
 mutable struct PYPPrior <: SampledPrior
     tied_distributions
