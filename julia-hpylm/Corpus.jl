@@ -77,13 +77,13 @@ end
 # The naming of the variables should also be the reverse right?
 "Associate the given integer with the given string."
 function set(v::Vocabulary, value::Int, word::String)
-    assert(1 <= value <= length(v))
+    @assert(1 <= value <= length(v))
     v.id2word[value] = word
     v.word2id[word] = value
 end
 
 function set(v::Vocabulary, word::String, value::Int)
-    assert(1 <= value <= length(v))
+    @assert(1 <= value <= length(v))
     v.id2word[value] = word
     v.word2id[word] = value
 end
