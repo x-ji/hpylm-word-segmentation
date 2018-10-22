@@ -19,7 +19,24 @@ import Base.show
 char_vocab = Vocabulary()
 word_vocab = Vocabulary()
 
-export train;
+export Model
+"""
+A struct for serialization. It should hold the NPYLM as well as char vocab + word vocab
+"""
+mutable struct Model
+    npylm::PYPContainer
+    char_vocab::Vocabulary
+    word_vocab::Vocabulary
+
+    function Model(npylm::PYPContainer, char_vocab::Vocabulary, word_vocab::Vocabulary)
+        model = new()
+        model.npylm= npylm
+        model.char_vocab= char_vocab
+        model.word_vocab= word_vocab
+    end
+end
+
+export train
 """
 Train the model on training corpus.
 
@@ -72,7 +89,8 @@ function train(corpus_path, order, iter, output_path)
     # Also useful when serializing
     out = open(output_path, "w")
     # TODO: Need to serialize the vocabulary structs differently.
-    serialize(out, npylm)
+    total_model = Model(npylm, char_vocab, word_vocab)
+    serialize(out, total_model)
     close(out)
 end
 
@@ -117,15 +135,18 @@ function blocked_gibbs_sampler(npylm::PYPContainer, corpus::Array{Array{Int,1},1
             segmented_sentences[index] = segmented_sentence
         end
 
-        # TODO: In the paper (Figure 3) they seem to be sampling the hyperparameters at every iteration. We may choose to do it a bit less frequently.
-        println("Resampling hyperparameters")
-        acceptance, rejection = resample_hyperparameters(npylm, mh_iter)
-        acceptancerate = acceptance / (acceptance + rejection)
-        println("MH acceptance rate: $acceptancerate")
-        # println("Model: $model")
-        # ll = log_likelihood(npylm)
-        # perplexity = exp(-ll / (n_words + n_sentences))
-        # println("ll=$ll, ppl=$perplexity")
+        if it % 10 == 0
+            # TODO: In the paper (Figure 3) they seem to be sampling the hyperparameters at every iteration. We may choose to do it a bit less frequently.
+            println("Resampling hyperparameters")
+            acceptance, rejection = resample_hyperparameters(npylm, mh_iter)
+            acceptancerate = acceptance / (acceptance + rejection)
+            println("MH acceptance rate: $acceptancerate")
+            # println("Model: $model")
+            # ll = log_likelihood(npylm)
+            # perplexity = exp(-ll / (n_words + n_sentences))
+            # println("ll=$ll, ppl=$perplexity")
+        end
+
     end
 
 end
