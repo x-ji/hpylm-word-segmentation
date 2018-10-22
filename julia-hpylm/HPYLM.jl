@@ -305,48 +305,6 @@ The real thing to do is to actually just draw the thing by:
 #     end
 # end
 
-function run_sampler(model::PYPContainer, corpus::Array{Array{Int,1},1}, n_iter::Int, mh_iter::Int)
-    n_sentences = length(corpus)
-    n_words = sum(length, corpus)
-    # Each sentence is turned into a further list of ngrams
-    processed_corpus = map(sentence->ngrams(sentence, model.order), corpus)
-    for it in 1:n_iter
-        println("Iteration $it/$n_iter")
-
-        for sentence in processed_corpus
-            # For each ngram that we previously generated from the sentence:
-            for ngram in sentence
-                # We first remove the customer before sampling it again, because we need to condition the sampling on the premise of all the other customers, minus itself. See Teh et al. 2006 for details.
-                if it > 1
-                    # The decrement/increment happens by taking all the words in this ngram, minus the last word, as the context.
-                    decrement(model, ngram[1:end - 1], ngram[end])
-                end
-                increment(model, ngram[1:end - 1], ngram[end])
-            end
-        end
-
-        if it % 10 == 1
-            println("Model: $model")
-            ll = log_likelihood(model)
-            perplexity = exp(-ll / (n_words + n_sentences))
-            println("ll=$ll, ppl=$perplexity")
-        end
-
-        # Resample hyperparameters every 30 iterations
-        # Why 30? I think the original paper had a different approach. Will have to look at that.
-        if it % 30 == 0
-            println("Resampling hyperparameters")
-            acceptance, rejection = resample_hyperparameters(model, mh_iter)
-            acceptancerate = acceptance / (acceptance + rejection)
-            println("MH acceptance rate: $acceptancerate")
-            println("Model: $model")
-            ll = log_likelihood(model)
-            perplexity = exp(-ll / (n_words + n_sentences))
-            println("ll=$ll, ppl=$perplexity")
-        end
-    end
-end
-
 function print_ppl(model::PYPContainer, corpus::Array{Array{Int,1},1})
     n_sentences = length(corpus)
     n_words = sum(length, corpus)
