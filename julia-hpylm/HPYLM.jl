@@ -129,14 +129,15 @@ mutable struct PYP
     prior::PYPPrior
 
     "Indicates whether it is a word PYP or a char PYP. Another way to do so might be to use a union type, but let's see this one first."
-    is_for_words::Bool
+    # is_for_words::Bool
 
     """
     Constructs a PYP struct.
 
     Note that it's possible for base to be a BackoffBase as well.
     """
-    function PYP(base, prior, is_for_words::Bool = true)
+    # function PYP(base, prior, is_for_words::Bool)
+    function PYP(base, prior)
         pyp = new()
         pyp.crp = CRP()
         # I don't really know why we need a base. Can't we just directly refer to the actual PYP that resides in the field of the referenced PYPContainer? What's the potential problem with that?
@@ -144,7 +145,7 @@ mutable struct PYP
         # The `tie` method is run to ensure that the `prior` struct of order ``n`` keeps track of this `pyp` struct and makes use of it in the sampling calculations.
         tie(prior, pyp)
         pyp.prior = prior
-        pyp.is_for_words = is_for_words
+        # pyp.is_for_words = is_for_words
         return pyp
     end
 end
@@ -598,7 +599,7 @@ function train(corpus_path, order, iter, output_path)
     # TODO: Create a special type for character n-gram model and use that directly.
     # TODO: They used Poisson distribution to correct for word length (later).
     # This is the whole npylm. Its outmost layer is the word HPYLM, while the base of the word HPYLM is the char HPYLM.
-    npylm = PYPContainer(2, character_model)
+    npylm = PYPContainer(2, character_model, true)
 
     # initial_base = UniformDist(length(char_vocab))
     # model = PYPContainer(order, initial_base)
@@ -660,28 +661,28 @@ function blocked_gibbs_sampler(npylm::PYPContainer, corpus::Array{Array{Int,1},1
                 # How do we actually do it though. Since we can't just uniformly generate fixed n-grams from this bag of characters nonchalently, it seems that we actually need to keep track of all the prevoius segmentations of the strings, if I understood it correctly.
                 # Let me proceed with other parts of this function first and return to this a bit later, I guess.
                 # OK. Done it. Great!
-                remove_sentence_from_model(segmented_sentences[index], npylm)
+                remove_sentence_from_model(npylm, segmented_sentences[index])
             end
             # Get the raw, unsegmented sentence and segment it again.
             selected_sentence = corpus[index]
             segmented_sentence = sample_segmentation(selected_sentence, 5, npylm)
             # Add the segmented sentence data to the NPYLM
-            add_sentence_to_model(segmented_sentence, npylm)
+            add_sentence_to_model(npylm, segmented_sentence)
             # Store the (freshly segmented) sentence so that we may remove its segmentation data in the next iteration.
             segmented_sentences[index] = segmented_sentence
         end
 
+        # In the paper (Figure 3) they seem to be sampling the hyperparameters at every iteration.
+        println("Resampling hyperparameters")
+        acceptance, rejection = resample_hyperparameters(npylm, mh_iter)
+        acceptancerate = acceptance / (acceptance + rejection)
+        println("MH acceptance rate: $acceptancerate")
+        # println("Model: $model")
+        # ll = log_likelihood(npylm)
+        # perplexity = exp(-ll / (n_words + n_sentences))
+        # println("ll=$ll, ppl=$perplexity")
     end
 
-    # In the paper (Figure 3) they seem to be sampling the hyperparameters at every iteration.
-    println("Resampling hyperparameters")
-    acceptance, rejection = resample_hyperparameters(npylm, mh_iter)
-    acceptancerate = acceptance / (acceptance + rejection)
-    println("MH acceptance rate: $acceptancerate")
-    # println("Model: $model")
-    # ll = log_likelihood(npylm)
-    # perplexity = exp(-ll / (n_words + n_sentences))
-    # println("ll=$ll, ppl=$perplexity")
 end
 
 # These two are helper functions to the whole blocked Gibbs sampler.
@@ -730,25 +731,36 @@ function sample_segmentation(sentence::Array{Int,1}, max_word_length::Int, npylm
         # The `zeros` function didn't seem to have worked.
         probabilities = fill(0.0, max_word_length)
         # Keep the w and try out different variations of k, so that different segmentations serve as different context words to the w.
-        for k in 1:max_word_length
+        # Seems that sometimes the max_word_length could be just too big.
+        for k in 1:min(max_word_length, t)
+            # println("t: $t, k: $k")
             cur_segmentation = sentence[t - k + 1:t]
-            # cur_context = charseq_to_string(cur_segmentation, global char_vocab, global word_vocab)
             cur_context = charseq_to_string(cur_segmentation)
-            # cur_word = charseq_to_string(w, global char_vocab, global word_vocab)
-            cur_word = charseq_to_string(w)
-            probabilities[k] = prob(npylm, cur_context, cur_word);
+            # Seems that I've created an exception situation. Wonder if there's a better way.
+            # cur_word = w
+            # if w != STOP
+            #     charseq_to_string(w)
+            # else
+            #     STOP
+            # end
+            # Need to convert this thing to an array, even though it's just the bigram case. In the trigram case there should be two words instead of one.
+            # TODO: In trigram case we need to do something different.
+            probabilities[k] = prob(npylm, [cur_context], w)
         end
 
         # Draw value k from the weights calculated above.
         k = sample(1:max_word_length, Weights(probabilities))
         # This is now the newest word we sampled.
         # The word representation should be converted from the char representation then.
-        sampled_word = charseq_to_string(sentence[(t - k + 1):t])
+        w = charseq_to_string(sentence[(t - k + 1):t])
 
         # Update w which indicates the last segmented word.
-        w = charseq_to_string(sampled_word)
+        # ... Why did I do it two times?
+        # w = charseq_to_string(sampled_word)
+        # w = sampled_word
 
-        push!(segmentation_output, sampled_word)
+        # push!(segmentation_output, sampled_word)
+        push!(segmentation_output, w)
         t = t - k
         i += 1
     end
