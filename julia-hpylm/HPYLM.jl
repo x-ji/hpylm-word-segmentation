@@ -13,13 +13,11 @@ include("PYP.jl")
 
 import Base.show
 
-# This is the vocabulary of individual characters.
-# Essentially it makes no difference whether we already separate the characters in the input file beforehand, or we do it when reading in the file. Let me just assume plain Chinese text input and do it when reading in the file then.
 # It's now just easier to make them global variables as they are used everywhere.
-# Since there aren't really multithread operations. It should be fine.
+# Since there aren't really any multithread operations for now. It should be fine.
+# TODO: For simplicity's sake the char vocab is also String -> Int, though it seems that in Julia, even a UTF-8 character is of Char type. Anyways we can optimize later if we want.
 char_vocab = Vocabulary()
 word_vocab = Vocabulary()
-
 
 export train;
 """
@@ -49,7 +47,6 @@ function train(corpus_path, order, iter, output_path)
     training_corpus = read_corpus(f, char_vocab)
     close(f)
 
-    # +I think we should actually need a Poisson correction over this?+
     # See p.102 Section 3
     # Previously, the lexicon is finite, so we could just use a uniform prior. But here, because now the lexicon are all generated from the word segmentation, the lexicon becomes *countably infinite*.
     # Here is where we need to make modifications. The initial base, i.e. G_0, in the original Teh model is just a uniform distribution. But here we need to make it another distribution, a distribution which is based on a character-level HPYLM.
@@ -57,18 +54,15 @@ function train(corpus_path, order, iter, output_path)
     # We just need to define and initialize that distribution somewhere.
 
     # The final base measure for the character HPYLM, as described in p. 102 to the right of the page.
-    # This should actually be "uniform over the possible characters" of the given language. IMO this seems to suggest importing a full character set for Chinese or something. But just basing it on the training material shouldn't hurt? Let's see then.
+    # This should actually be "uniform over the possible characters" of the given language. IMO this seems to suggest importing a full character set for Chinese or something. But just basing it on the training material first shouldn't hurt? Let's see then.
     character_base = UniformDist(length(char_vocab))
     # False means this is for chars, not words.
     character_model = PYPContainer(3, character_base, false)
     
     # TODO: Create a special type for character n-gram model and use that directly.
     # TODO: They used Poisson distribution to correct for word length (later).
-    # This is the whole npylm. Its outmost layer is the word HPYLM, while the base of the word HPYLM is the char HPYLM.
+    # This is the word npylm container, while the base of the word HPYLM is the char HPYLM.
     npylm = PYPContainer(2, character_model, true)
-
-    # initial_base = UniformDist(length(char_vocab))
-    # model = PYPContainer(order, initial_base)
 
     println("Training model")
 
@@ -76,8 +70,6 @@ function train(corpus_path, order, iter, output_path)
     blocked_gibbs_sampler(npylm, training_corpus, iter, 100)
 
     # Also useful when serializing
-    # npylm.char_vocab = char_vocab
-    # npylm.word_vocab = word_vocab
     out = open(output_path, "w")
     # TODO: Need to serialize the vocabulary structs differently.
     serialize(out, npylm)
@@ -100,30 +92,20 @@ Here we use a blocked Gibbs sampler:
 """
 function blocked_gibbs_sampler(npylm::PYPContainer, corpus::Array{Array{Int,1},1}, n_iter::Int, mh_iter::Int)
     # We need to store the segmented sentences somewhere, mostly because we need to remove the sentence data when the iteration count is >= 2.
-    # I might need to change the type in which the sentences are stored. for now it's Array{Array{Int,1},1}, just as in the original vpyp program: Each word is represented as an Integer, and when we need to get its representation character-by-character, we need to go through some sort of conversion process.
-    # Actually a two-dimensional array might be more sensible. But I can worry about optimizations later. The corpus is read in as a nested array because of the way list comprehension works.
+    # TODO: I might need to change the type in which the sentences are stored. For now it's Array{Array{Int,1},1}, the corpus is read in as a nested array because of the way list comprehension works. Actually a two-dimensional array might be more sensible. But I can worry about optimizations later.
     total_n_sentences = length(corpus)
-    # What's the way to initialize an array of objects? This should work already by allocating the space, I guess.
     segmented_sentences::Array{Array{Int,1},1} = fill(Int[], total_n_sentences)
-
-    # This doesn't seem to be necessary
-    # for i in 1:length(corpus)
-    #     segmented_sentences[i] = []
-    # end
 
     # Run the blocked Gibbs sampler for this many iterations.
     for it in 1:n_iter
         println("Iteration $it/$n_iter")
 
-        # I think a more reasonable way is to simply shuffle an array of all the sentences, and make sure that in each iteration, every sentence is selected, albeit in a random order, of course.
+        # Simply shuffle an array of all the sentences, and make sure that in each iteration, every sentence is selected, albeit in a random order.
         sentence_indices = shuffle(1:length(corpus))
 
         for index in sentence_indices
             # First remove the segmented sentence data from the NPYLM
             if it > 1
-                # How do we actually do it though. Since we can't just uniformly generate fixed n-grams from this bag of characters nonchalently, it seems that we actually need to keep track of all the prevoius segmentations of the strings, if I understood it correctly.
-                # Let me proceed with other parts of this function first and return to this a bit later, I guess.
-                # OK. Done it. Great!
                 remove_sentence_from_model(npylm, segmented_sentences[index])
             end
             # Get the raw, unsegmented sentence and segment it again.
@@ -135,7 +117,7 @@ function blocked_gibbs_sampler(npylm::PYPContainer, corpus::Array{Array{Int,1},1
             segmented_sentences[index] = segmented_sentence
         end
 
-        # In the paper (Figure 3) they seem to be sampling the hyperparameters at every iteration.
+        # TODO: In the paper (Figure 3) they seem to be sampling the hyperparameters at every iteration. We may choose to do it a bit less frequently.
         println("Resampling hyperparameters")
         acceptance, rejection = resample_hyperparameters(npylm, mh_iter)
         acceptancerate = acceptance / (acceptance + rejection)
@@ -185,27 +167,19 @@ function sample_segmentation(sentence::Array{Int,1}, max_word_length::Int, npylm
     t = N
     i = 0
     # The sentence boundary symbol. Should it be the STOP symbol?
-    # OK are those two even the same thing? The START, STOP defined in Corpus and the sentence boundary symbol. Guess I'll have to look at it a bit more then.
+    # TODO: Then we might have no need for any START symbol after all. May need to revise the code.
     w = STOP
 
     while t > 0
         # OK I think I get it.
-        # It's a bit messy to implement a function just for this `draw` procedure here. Maybe let's just directly write out the procedures anyways.
-        # The `zeros` function didn't seem to have worked.
+        # It's a bit messy to implement a function just for this `draw` procedure here, as too many arguments are involved. Maybe let's just directly write out the procedures anyways.
+        # TODO: Turn it into a function.
         probabilities = fill(0.0, max_word_length)
-        # Keep the w and try out different variations of k, so that different segmentations serve as different context words to the w.
+        # The idea: Keep the w and try out different variations of k, so that different segmentations serve as different context words to the w.
         # Seems that sometimes the max_word_length could be just too big.
         for k in 1:min(max_word_length, t)
-            # println("t: $t, k: $k")
             cur_segmentation = sentence[t - k + 1:t]
             cur_context = charseq_to_string(cur_segmentation)
-            # Seems that I've created an exception situation. Wonder if there's a better way.
-            # cur_word = w
-            # if w != STOP
-            #     charseq_to_string(w)
-            # else
-            #     STOP
-            # end
             # Need to convert this thing to an array, even though it's just the bigram case. In the trigram case there should be two words instead of one.
             # TODO: In trigram case we need to do something different.
             probabilities[k] = prob(npylm, [cur_context], w)
@@ -213,16 +187,11 @@ function sample_segmentation(sentence::Array{Int,1}, max_word_length::Int, npylm
 
         # Draw value k from the weights calculated above.
         k = sample(1:max_word_length, Weights(probabilities))
+
         # This is now the newest word we sampled.
         # The word representation should be converted from the char representation then.
-        w = charseq_to_string(sentence[(t - k + 1):t])
-
         # Update w which indicates the last segmented word.
-        # ... Why did I do it two times?
-        # w = charseq_to_string(sampled_word)
-        # w = sampled_word
-
-        # push!(segmentation_output, sampled_word)
+        w = charseq_to_string(sentence[(t - k + 1):t]) 
         push!(segmentation_output, w)
         t = t - k
         i += 1
@@ -240,7 +209,6 @@ Compute α[t][k]
 """
 function forward_filtering(sentence::Array{Int,1}, t::Int, k::Int, prob_matrix::Array{Float64,2}, npylm::PYPContainer)::Float64
     # Base case: α[0][n] = 1
-    # Another way to do it is to just initialize the array as such. But let's just keep it like this for now, as this is more the responsibility of this algorithm?
     if (t == 0)
         return 1.0
     end
@@ -252,10 +220,8 @@ function forward_filtering(sentence::Array{Int,1}, t::Int, k::Int, prob_matrix::
         # The probability here refers to the bigram probability of two adjacent words.
         # Therefore we likely need to convert this thing to word integers first.
 
-        # It's really good that Julia's indexing system makes perfect sense and matches up with the mathematical notation used in the paper perfectly.
-        # string_rep_potential_context = charseq_to_string(sentence[(t - k - j + 1):(t - k)], global char_vocab, global word_vocab)
+        # It's really good that Julia's 1-based indexing system makes perfect sense and matches up with the mathematical notation used in the paper perfectly.
         string_rep_potential_context = charseq_to_string(sentence[(t - k - j + 1):(t - k)])
-        # string_rep_potential_word = charseq_to_string(sentence[(t - k + 1):t], global char_vocab, global word_vocab)
         string_rep_potential_word = charseq_to_string(sentence[(t - k + 1):t])
         bigram_prob = prob(npylm, [string_rep_potential_context], string_rep_potential_word)
 
@@ -272,38 +238,15 @@ Helper function to forward_filtering
 
 Convert a sequence of characters (represented in Int) to string (represented in Int)
 """
-# function charseq_to_string(char_seq::Array{Int,1}, char_vocab::Vocabulary, word_vocab::Vocabulary)::Int
 function charseq_to_string(char_seq::Array{Int,1})::Int
     global char_vocab
     global word_vocab
     # First: Convert the (int) character sequence back to their original coherent string
-    # Wait, if those two are already global, I wouldn't need to pass them in as arguments anymore.
     string::String = join(map(char_int->get(char_vocab, char_int), char_seq), "")
     # Then: Lookup the string in the word vocab
     string_rep::Int = get(word_vocab, string)
     return string_rep
 end
-
-
-"""
-Helper function to sample_segmentation
-
-Function to proportionally draw a k given the prob matrix and indices.
-
-p. 104, Figure 5, line 8
-
-The real thing to do is to actually just draw the thing by:
-- Fixing the "dish" (word)
-- Changing the context by gradually increasing k
-"""
-# function draw(sentence::Array{Int, 1}, i::Int, t::Int, w::Int, max_word_length::Int, prob_matrix::Array{Float64,2}, npylm::PYPContainer)
-#     probabilities = zeros(Array{Float64,1}, max_word_length)
-#     # Keep the w and try out different variations of k, so that different segmentations serve as different context words to the w.
-#     for k in 1:max_word_length
-#         curr_segmentation = 
-#     prob = prob()
-#     end
-# end
 
 function print_ppl(model::PYPContainer, corpus::Array{Array{Int,1},1})
     n_sentences = length(corpus)

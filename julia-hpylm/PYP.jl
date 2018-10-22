@@ -223,11 +223,6 @@ This corresponds to the function `WordProb(**u**, w)` on page 988 of the Teh 200
 """
 function prob(pyp::PYP, dish::Int)
     # New table
-    # Note: In this case when pyp.base is the Uniform distribution, the result of the `prob` call here will also be that from such a distribution
-    # However, if the base is a character HPYLM, how do we estimate the prob?
-    # One way is to faithfully implement the infinite-gram model mentioned in the original paper
-    # An approximation would be to simply multiply together the 3-gram probabilities of the whole sentence, right?
-    # Maybe I should first start with this implementation anyways, and see where we get from there.
     w = (theta(pyp) + d(pyp) * pyp.crp.ntablegroups) * prob(pyp.base, dish)
     # Existing tablegroups
     if haskey(pyp.crp.tablegroups, dish)
@@ -242,21 +237,12 @@ Special in the sense that this is exclusively for the prob of the PYP of G_1 in 
 The special processing is that we know that pyp.base is *directly* the top-level char-type PYPContainer. There's no annoying BackoffBase struct standing in between. So we need to invoke the prob(PYPContainer, ctx, dish) method. Thus, we need to break the word dish down into a character dish.
 """
 function special_prob(pyp::PYP, dish::Int)
-    # How do we actually make those two things globally accessible. Huh.
-    # One way would be to let each HPYLM struct hold a reference to them.
-    # However this will likely create tons of overhead when performing the serialization.
-    # Guess I have no other way but to put out some sort of module-level constant? Let me see if that works then.
     char_seq = string_to_charseq(dish)
-    # char_dish = char_seq[end]
-    # char_ctx = char_seq[1:end-1]
-    # TODO: Still there's a problem in that since we haven't started using an infinite HPYLM yet, and the ctx length can well exceed (or indeed stay below) the actual length of the rigid HPYLM we just assigned there... We would need to do some sort of padding.
-    # Let me just implement the actual infinite-gram model outright I guess. That would make things so much clearer. We can then also directly implement another `prob` method based on type matching, instead of having to mess around with all this nonsense.
-    # OK that turned out to be a bit involved to implement. Guess I'm left without any choice but to just break down the characters into 3-grams and simply multiply the 3-gram probabilities together then. Let's see.
+    # Implementing the infinite gram model turned out to be a bit involved to implement. Guess I'm left without any choice but to just break down the characters into 3-grams (with padding) and simply multiply the 3-gram probabilities together then. Let's see.
+    # TODO: Actually implement the infinite gram model.
     char_hpylm_prob = 1.0
     char_ngrams = ngrams(char_seq, pyp.base.order)
     for ngram in char_ngrams
-        # println("We're inside of special_prob, line 280")
-        # println(pyp.base)
         char_hpylm_prob *= prob(pyp.base, ngram[1:end-1], ngram[end])
     end
     w = (theta(pyp) + d(pyp) * pyp.crp.ntablegroups) * char_hpylm_prob
@@ -354,25 +340,11 @@ mutable struct PYPContainer
     "Indicates whether it is a word PYPContainer or a char PYPContainer. Another way to do so might be to use a union type, but let's see this one first."
     is_for_words::Bool
 
-    # These two are only useful for serializing the trained model later. NOT something that really technically belongs to the struct!
-    # The serialization could be organized better, e.g. serializing a list/dict that contains both of those. This can be done later.
-    # Now I'm just trying to put both of them as global variables.
-    # """
-    # The character vocabulary
-    # """
-    # char_vocab::Vocabulary
-
-    # """
-    # The word vocabulary
-    # """
-    # word_vocab::Vocabulary
-
     function PYPContainer(order::Int, initial_base, is_for_words::Bool = true)
         p = new()
         p.prior = PYPPrior(1.0, 1.0, 1.0, 1.0, 0.8, 1.0) # discount = 0.8, theta = 1
         p.order = order
-        # Note that if this PYPContainer is a word PYPContainer, the initial base will be a char PYPContainer, and we'll need some special processing on it.
-        # I think this mostly matters when we are using pyp.base. Let's see.
+        # Note that if this PYPContainer is a word PYPContainer and order == 1, the initial base will be a char PYPContainer.
         p.backoff = order == 1 ? initial_base : PYPContainer(order - 1, initial_base, is_for_words)
         p.models = Dict{Array{Int,1},PYP}()
         p.is_for_words = is_for_words
@@ -382,7 +354,7 @@ end
 
 "This is one possible type for the `base` field of the `PYP` struct. It contains a reference to the `PYPContainer` struct of order ``n - 1``, plus a specific context of length ``n - 1``, which will be used to look up the actual `PYP` in the `models` field of the referenced `PYPContainer` struct."
 struct BackoffBase
-    # This naming makes much more sense. This is the PYPContainer for the backoff of the PYP that contains this BackoffBase.
+    # This naming makes much more sense. This is the PYPContainer for the backing off of the PYP that contains this BackoffBase.
     pyp_container::PYPContainer
     ctx::Array{Int,1}
 end
@@ -398,21 +370,8 @@ function get(pyp_container::PYPContainer, ctx::Array{Int,1})
     if !haskey(pyp_container.models, ctx)
         # Do I really need a BackoffBase construct?... Anyways let me try to replicate vpyp structure first then.
         # The reason why we need a special BackoffBase struct here is that the `get` method doesn't actually add things to `models`. It's a kind of lazy initialization in that we provide a clue about how to calculate the base a bit later on.
-        # OK I think what we need to do is to differentiate between the situations where we're dealing with a word model or a character model
-        # if pyp_container.order == 1 && pyp_container.is_for_words
-            # +TODO+: We need to specially construct the context, by dismantling the current word, if I get it correctly.
-            # On a second thought, I don't think we actually need to modify this method. Just modifying `increment`, `decrement`, and `prob` should be enough.
-            # Where the fuck is the current word though??? Seems that this function has a ton of restrictions then.
-            # Doesn't the PYP struct itself contain the current word? Let me check.
-
-            # Note that the paper actually used an infinite gram model, which seems to comprise of a series of multiplications of the stuff.
-            # We need to construct a special backoffbase which has the ctx of the current word broken down, right?
-            # However the way this thing is currently programmed clearly doesn't support this. What the hell.
-            # OK I think I get it. The place to change is still indeed the `prob` function. However, we'd need to find a special way. Either we implement a special `prob` function, or we record more info in the PYP itself.
-            # backoffbase = BackoffBase(pyp_container.backoff, )
-        # else
-            backoffbase = pyp_container.order == 1 ? pyp_container.backoff : BackoffBase(pyp_container.backoff, ctx[2:end])
-        # end
+        # The special treatments concerning the transition from word HPYLM to char HPYLM are done in `increment`, `decrement`, and `prob` functions.
+        backoffbase = pyp_container.order == 1 ? pyp_container.backoff : BackoffBase(pyp_container.backoff, ctx[2:end])
         # The whole PYPContainer with the same order shares one prior.
         return PYP(backoffbase, pyp_container.prior)
     end
@@ -424,14 +383,13 @@ Helper function to increment
 
 Convert a string (represented in Int) to its sequence of chars (represented in Int)
 """
-# function string_to_charseq(string::Int, char_vocab::Vocabulary, word_vocab::Vocabulary)::Array{Int,1}
 function string_to_charseq(str::Int)::Array{Int,1}
     global char_vocab
     global word_vocab
     # First: Convert the string from int to its original form
     word::String = get(word_vocab, str)
     # Then: Look up the characters that constitute the word one by one
-    # Seems that somehow here the String is regarded as an AbstractString, and I'll need to preemptively convert the String to an Array with the `collect` method. Eh.
+    # Seems that somehow with the call to `string`, the String is regarded as an AbstractString, and I'll need to preemptively convert the String to an Array with the `collect` method. Eh.
     return map(char -> get(char_vocab, string(char)), collect(word))
 end
 
@@ -442,13 +400,7 @@ Run `increment` method on the `PYP` struct with context `ctx`, using dish `dish`
 If there is no such a `PYP` struct with `ctx` context, a new one will be initialized via `get` method, and then set in `models` field.
 """
 function increment(pyp_container::PYPContainer, ctx::Array{Int,1}, dish::Int)
-    # Yes I know what happens:
-    # When the order of the pyp_container is 1 and the pyp_container is a word container, we should run the equivalent of `add_sentence_to_model` method, but on the decomposed representation of the `dish` as individual characters instead!
-    # In this case there shouldn't be any ctx right? 
-    # This is weird. Let me see what happens if the order is 1. Does this method ever get called?
-    # Yeah just checked and in that case the ctx is simply `Int64[]`, which is fine.
-    # The `models` field contains all PYP of order `n`. The PYPs also contain a BackoffBase of order `n - 1`.
-
+    # Special treatment for the transition.
     if pyp_container.is_for_words && pyp_container.order == 1
         char_seq = string_to_charseq(dish)
         add_sentence_to_model(pyp_container.backoff, char_seq)
@@ -483,12 +435,9 @@ function prob(pyp_container::PYPContainer, ctx::Array{Int,1}, dish::Int)
     # What we know:
     # The G_0(w) is either the probability derived from a properly implemented infinite-gram char HPYLM, or as a substitution, just the multiplied probability out of a 3-gram char HPYLM.
     # So OK it seems that we need to properly take care of pyp.base and perform some sort of transformation on `dish` as well then.
-    # Damn I really hate the logical organization of the original vpyp code. Why did he write it this way? I'm lost all the time. This is not fun at all.
-    # Though refactoring also takes time. Let me first try to ensure that this structure works, sure.
     if pyp_container.is_for_words && pyp_container.order == 1
         # In this case, the `get` method returns the PYP of G_1, which doesn't have any context to speak of whatsoever. This is to say, at G_1 level there's only *one single PYP object* contained in the `pyp_container.models` field.
         # We need a special prob method. Maybe there are better ways to do this but let me go through with this implementation at first.
-        # OK let's see if this thing works!
         return special_prob(get(pyp_container, ctx), dish)
     else
         return prob(get(pyp_container, ctx), dish)
