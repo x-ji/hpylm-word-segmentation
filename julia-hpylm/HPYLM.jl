@@ -277,6 +277,8 @@ function special_prob(pyp::PYP, dish::Int)
     char_hpylm_prob = 1.0
     char_ngrams = ngrams(char_seq, pyp.base.order)
     for ngram in char_ngrams
+        # println("We're inside of special_prob, line 280")
+        # println(pyp.base)
         char_hpylm_prob *= prob(pyp.base, ngram[1:end-1], ngram[end])
     end
     w = (theta(pyp) + d(pyp) * pyp.crp.ntablegroups) * char_hpylm_prob
@@ -445,13 +447,14 @@ Helper function to increment
 Convert a string (represented in Int) to its sequence of chars (represented in Int)
 """
 # function string_to_charseq(string::Int, char_vocab::Vocabulary, word_vocab::Vocabulary)::Array{Int,1}
-function string_to_charseq(string::Int)::Array{Int,1}
+function string_to_charseq(str::Int)::Array{Int,1}
     global char_vocab
     global word_vocab
     # First: Convert the string from int to its original form
-    word::String = get(word_vocab, string)
+    word::String = get(word_vocab, str)
     # Then: Look up the characters that constitute the word one by one
-    return map(char -> get(char_vocab, string(char)), word)
+    # Seems that somehow here the String is regarded as an AbstractString, and I'll need to preemptively convert the String to an Array with the `collect` method. Eh.
+    return map(char -> get(char_vocab, string(char)), collect(word))
 end
 
 # Remember that a dish is a word, here the last word in the ngram.
@@ -535,7 +538,7 @@ function resample_hyperparameters(pyp_container::PYPContainer, iteration::Int)
 end
 
 function Base.show(io::IO, pyp_container::PYPContainer)
-    print(io, "PYPContainer(order=$(pyp_container.order), #ctx=$(length(pyp_container.models)), prior=$(pyp_container.prior), backoff=$(pyp_container.backoff))")
+    print(io, "PYPContainer(order=$(pyp_container.order), isForWords=$(pyp_container.is_for_words), #ctx=$(length(pyp_container.models)), prior=$(pyp_container.prior), backoff=$(pyp_container.backoff))")
 end
 
 # These are the functions related operations on the `BackoffBase` type
@@ -589,7 +592,8 @@ function train(corpus_path, order, iter, output_path)
     # The final base measure for the character HPYLM, as described in p. 102 to the right of the page.
     # This should actually be "uniform over the possible characters" of the given language. IMO this seems to suggest importing a full character set for Chinese or something. But just basing it on the training material shouldn't hurt? Let's see then.
     character_base = UniformDist(length(char_vocab))
-    character_model = PYPContainer(3, character_base)
+    # False means this is for chars, not words.
+    character_model = PYPContainer(3, character_base, false)
     
     # TODO: Create a special type for character n-gram model and use that directly.
     # TODO: They used Poisson distribution to correct for word length (later).
@@ -723,7 +727,8 @@ function sample_segmentation(sentence::Array{Int,1}, max_word_length::Int, npylm
     while t > 0
         # OK I think I get it.
         # It's a bit messy to implement a function just for this `draw` procedure here. Maybe let's just directly write out the procedures anyways.
-        probabilities = zeros(Array{Float64,1}, max_word_length)
+        # The `zeros` function didn't seem to have worked.
+        probabilities = fill(0.0, max_word_length)
         # Keep the w and try out different variations of k, so that different segmentations serve as different context words to the w.
         for k in 1:max_word_length
             cur_segmentation = sentence[t - k + 1:t]
