@@ -4,17 +4,17 @@
 
 The program is contained in the folder `julia-hpylm`. It is implemented in the Julia programming language. Please first install Julia following the instructions at https://julialang.org/downloads/
 
-Please note that currently Julia [doesn't yet fully support compilation to binary executables](https://stackoverflow.com/questions/50608970/if-a-julia-script-is-run-from-the-command-line-does-it-need-to-be-re-compiled-e). The support is experimental and I haven't tried it on this project. One can still choose to run the program from the command line, but it will need to be compiled anew every time it's run again, which will take some time. Therefore, the most popular practice is to use one REPL session to load the module first, and perform all the work without leaving the session. Of course, it's also possible to restart the REPL session to continue the work, after the model file has been saved.
 
 To run the program (with Julia version >= 1.0):
 
-1. launch a Julia REPL in the project root folder with the `julia` command.
+1. launch a Julia REPL in the `julia-hpylm` folder with the `julia` command.
+   (N.B.: If the REPL wasn't launched in that folder, you may execute `cd("julia-hpylm")` to switch the current working directory.)
 2. You may need to install some packages first with the following commands:
    ```
    using Pkg
+   Pkg.add("StatsBase")
    Pkg.add("SpecialFunctions")
    Pkg.add("Distributions")
-   Pkg.add("Pipe")
    Pkg.build("Arpack")
    ```
 3. Run `include("HPYLM.jl")`
@@ -34,6 +34,8 @@ For steps 3 to 6, I've alternatively provided two scripts `Train.jl` and `Eval.j
 
 Note that unlike when invoking the functions in the REPL, there's no need to enclose paths with quotes.
 
+(N.B.: Currently Julia [doesn't yet fully support compilation to binary executables](https://stackoverflow.com/questions/50608970/if-a-julia-script-is-run-from-the-command-line-does-it-need-to-be-re-compiled-e). The support is experimental and I haven't tried it on this project. One can still choose to run the program from the command line, but it will need to be compiled anew every time it's run again, which will take some time. Therefore, the most popular practice is to use one REPL session to load the module first, and perform all the work without leaving the session. Of course, it's also possible to restart the REPL session to continue the work, after the model file has been saved.)
+
 ## Motivation, method, hypotheses
 
 Teh (2006) proposed a Bayesian language model based on hierarchical Pitman-Yor process, which can be used to construct n-gram models effectively. The Pitman-Yor process is able to produce power-law distributions which are observed in natural languages. The model approximates interpolated Kneser-Ney smoothing for n-gram models.
@@ -42,9 +44,11 @@ Mochihashi et al. (2009) applied the model on Chinese/Japanese text segmentation
 
 Granted, the state-of-the-art results on language modeling and word segmentation are still achieved by supervised learning methods, just as is the case with many other tasks. However, unsupervised learning methods could still be interesting, especially on languages for which transcriptions/gold standard data are lacking or inherently harder to obtain.
 
-The minimum expectation would be to successfully build the hierarchical Bayesian model as described by Teh (2006). Testing would be performed at least on the publicly available AP News data, which is originally used by Teh, and the Brown corpus and the State of the Union corpus, which are used by Dr. Dyer and his colleagues in their testing. Additional testing on different languages might also be performed to observe differences in performances.
+This project attempts to implement the model as described by Mochihashi et al. (2009). Besides testing on data from the languages mentioned in the original paper, attention will also be paid on testing other languages, as well as potentially incorporating supervised learning methods into the model.
 
-Currently, the plan is to first understand the implementation by Victor Chahuneau and Dr. Chris Dyer, and then write my own implementation in another language. The implementation is currently being done in Rust.
+<!-- The minimum expectation would be to successfully build the hierarchical Bayesian model as described by Teh (2006). Testing would be performed at least on the publicly available AP News data, which is originally used by Teh, and the Brown corpus and the State of the Union corpus, which are used by Dr. Dyer and his colleagues in their testing. Additional testing on different languages might also be performed to observe differences in performances. -->
+
+<!-- Currently, the plan is to first understand the implementation by Victor Chahuneau and Dr. Chris Dyer, and then write my own implementation in another language. The implementation is currently being done in Rust. -->
 
 ## Relevant literature
 
@@ -52,13 +56,9 @@ Currently, the plan is to first understand the implementation by Victor Chahunea
   A hierarchical Bayesian language model based on Pitman-Yor processes
   ](https://dl.acm.org/citation.cfm?id=1220299)
 
-  This is the original paper which proposed and clearly described the model.
-
 - Mochihashi et al. (2009) [
   Bayesian unsupervised word segmentation with nested Pitman-Yor language modeling
   ](https://dl.acm.org/citation.cfm?id=1687894)
-
-  The second paper reported the actual application of the model on Chinese segmentation. However, its explanation of the hierarchical Pitman-Yor language model itself doesn't seem to be very clear. The original paper by Teh seems to do a better job.
 
 ## Available data, tools, resources
 
