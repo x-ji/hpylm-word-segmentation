@@ -33,6 +33,7 @@ mutable struct Model
         model.npylm= npylm
         model.char_vocab= char_vocab
         model.word_vocab= word_vocab
+        return model
     end
 end
 
