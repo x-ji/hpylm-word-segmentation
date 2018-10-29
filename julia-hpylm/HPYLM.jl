@@ -74,7 +74,9 @@ function train(corpus_path, order, iter, output_path)
     # This should actually be "uniform over the possible characters" of the given language. IMO this seems to suggest importing a full character set for Chinese or something. But just basing it on the training material first shouldn't hurt? Let's see then.
     character_base = UniformDist(length(char_vocab))
     # False means this is for chars, not words.
-    character_model = PYPContainer(3, character_base, false)
+    # character_model = PYPContainer(3, character_base, false)
+    # What if I simply use a bigram model first. Damn it.
+    character_model = PYPContainer(2, character_base, false)
     
     # TODO: Create a special type for character n-gram model and use that directly.
     # TODO: They used Poisson distribution to correct for word length (later).
@@ -128,14 +130,15 @@ function blocked_gibbs_sampler(npylm::PYPContainer, corpus::Array{Array{Int,1},1
             end
             # Get the raw, unsegmented sentence and segment it again.
             selected_sentence = corpus[index]
-            segmented_sentence = sample_segmentation(selected_sentence, 5, npylm)
+            # According to the paper they put the max_word_length at 4.
+            segmented_sentence = sample_segmentation(selected_sentence, 4, npylm)
             # Add the segmented sentence data to the NPYLM
             add_sentence_to_model(npylm, segmented_sentence)
             # Store the (freshly segmented) sentence so that we may remove its segmentation data in the next iteration.
             segmented_sentences[index] = segmented_sentence
         end
 
-        if it % 10 == 0
+        if it % 15 == 0
             # TODO: In the paper (Figure 3) they seem to be sampling the hyperparameters at every iteration. We may choose to do it a bit less frequently.
             println("Resampling hyperparameters")
             acceptance, rejection = resample_hyperparameters(npylm, mh_iter)
@@ -292,6 +295,24 @@ function print_ppl(model::PYPContainer, corpus::Array{Array{Int,1},1})
     println("LL: $ll, perplexity: $ppl")
 end
 
+"""
+Shows the sampled segmentation on the test corpus, using an already trained model.
+
+OK so eventually it still does seem that we shouldn't really put the vocabs as "global variables". It would cause some quite inconvenient issues, especially when I try to run the evaluation later.
+
+Just make them into arguments to each function that needs them, I guess. Could be a bit inconvenient but generally speaking this should be the right thing to do for sure. Let's try it then.
+"""
+function test_segmentation(model::PYPContainer, corpus::Array{Array{Int, 1}, 1})
+    # Well I don't even think there's much of a difference between this process and the original training process right? We just run the Blocked Gibbs Sampler again on the test data and see what results are output, don't we?
+end
+
+"""
+Tries to generate text from the vocabulary and model learned from the training corpus.
+"""
+function generate_text(model::PYPContainer)
+
+end
+
 export evaluate;
 """
 Load a previously trained model and evaluate it on test corpus.
@@ -302,17 +323,24 @@ Load a previously trained model and evaluate it on test corpus.
             help=previously trained model
             required=true
 """
+# I'll need to rewrite this method to fit the current structure of the project.
 function evaluate(corpus_path, model_path)
     m_in = open(model_path)
-    model = deserialize(m_in)
+    model::Model = deserialize(m_in)
     close(m_in)
+
+    # Should be able to write over the global variables directly when reading in the corpus. This syntax is fine right?
+    global char_vocab = model.char_vocab
+    global word_vocab = model.word_vocab
+    npylm = model.npylm
 
     c_in = open(corpus_path)
     # TODO: Deal with the vocabulary in some way so that it's serialized and loaded properly, and hopefully doesn't have any global variable issues.
-    evaluation_corpus = read_corpus(c_in, model.vocabulary)
+    # The model should also read in the previously unseen characters in the evaluation corpus properly.
+    evaluation_corpus = read_corpus(c_in, char_vocab)
     close(c_in)
 
-    print_ppl(model, evaluation_corpus)
+    print_ppl(npylm, evaluation_corpus)
 end
 
 end

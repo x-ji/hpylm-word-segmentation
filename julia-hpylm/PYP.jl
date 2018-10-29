@@ -245,6 +245,8 @@ function special_prob(pyp::PYP, dish::Int)
     for ngram in char_ngrams
         char_hpylm_prob *= prob(pyp.base, ngram[1:end-1], ngram[end])
     end
+    # Now this just became incredibly slow since we're doing a lot of operations inside of another nested model, instead of just falling back upon an Uniform model, IMO. Eh.
+    # Originally this thing wasn't particularly fast either. But definitely not this slow. Let's see how we can actually get things done then.
     w = (theta(pyp) + d(pyp) * pyp.crp.ntablegroups) * char_hpylm_prob
     # Existing tablegroups
     if haskey(pyp.crp.tablegroups, dish)
@@ -391,6 +393,21 @@ function string_to_charseq(str::Int)::Array{Int,1}
     # Then: Look up the characters that constitute the word one by one
     # Seems that somehow with the call to `string`, the String is regarded as an AbstractString, and I'll need to preemptively convert the String to an Array with the `collect` method. Eh.
     return map(char -> get(char_vocab, string(char)), collect(word))
+end
+
+"""
+Helper function
+
+Convert a sequence of characters (represented in Int) to string (represented in Int)
+"""
+function charseq_to_string(char_seq::Array{Int,1})::Int
+    global char_vocab
+    global word_vocab
+    # First: Convert the (int) character sequence back to their original coherent string
+    string::String = join(map(char_int->get(char_vocab, char_int), char_seq), "")
+    # Then: Lookup the string in the word vocab
+    string_rep::Int = get(word_vocab, string)
+    return string_rep
 end
 
 # Remember that a dish is a word, here the last word in the ngram.
