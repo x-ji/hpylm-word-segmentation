@@ -78,7 +78,7 @@ function train(corpus_path, order, iter, output_path)
     # character_model = PYPContainer(3, character_base, false)
     # What if I simply use a bigram model first. Damn it.
     character_model = PYPContainer(2, character_base, false)
-    
+
     # TODO: Create a special type for character n-gram model and use that directly.
     # TODO: They used Poisson distribution to correct for word length (later).
     # This is the word npylm container, while the base of the word HPYLM is the char HPYLM.
@@ -91,7 +91,6 @@ function train(corpus_path, order, iter, output_path)
 
     # Also useful when serializing
     out = open(output_path, "w")
-    # TODO: Need to serialize the vocabulary structs differently.
     total_model = Model(npylm, char_vocab, word_vocab)
     serialize(out, total_model)
     close(out)
@@ -111,7 +110,7 @@ Here we use a blocked Gibbs sampler:
 3. Sample a new segmentation on this sentence using our sampling algorithm.
 4. Add the sampled unit ("sentence") data back to the NPYLM based on this new segmentation.
 """
-function blocked_gibbs_sampler(npylm::PYPContainer, corpus::Array{Array{Int,1},1}, n_iter::Int, mh_iter::Int)
+function blocked_gibbs_sampler(npylm::PYPContainer, corpus::Array{Array{Int,1},1}, n_iter::Int, mh_iter::Int, print_segmented_sentences::Bool=false)
     # We need to store the segmented sentences somewhere, mostly because we need to remove the sentence data when the iteration count is >= 2.
     # TODO: I might need to change the type in which the sentences are stored. For now it's Array{Array{Int,1},1}, the corpus is read in as a nested array because of the way list comprehension works. Actually a two-dimensional array might be more sensible. But I can worry about optimizations later.
     total_n_sentences = length(corpus)
@@ -139,7 +138,19 @@ function blocked_gibbs_sampler(npylm::PYPContainer, corpus::Array{Array{Int,1},1
             segmented_sentences[index] = segmented_sentence
         end
 
-        if it % 15 == 0
+        # We just try to show what the segmentation results look like in terms of actual strings.
+        if print_segmented_sentences
+            for sentence in segmented_sentences
+                # Now, each entry in the "sentence" should be a proper word already.
+                for word in sentence
+                    print(get(word_vocab, word))
+                    print(" ")
+                end
+                print("\n")
+            end
+        end
+
+        if it % 5 == 0
             # TODO: In the paper (Figure 3) they seem to be sampling the hyperparameters at every iteration. We may choose to do it a bit less frequently.
             println("Resampling hyperparameters")
             acceptance, rejection = resample_hyperparameters(npylm, mh_iter)
@@ -207,6 +218,7 @@ function sample_segmentation(sentence::Array{Int,1}, max_word_length::Int, npylm
             cur_context = charseq_to_string(cur_segmentation)
             # Need to convert this thing to an array, even though it's just the bigram case. In the trigram case there should be two words instead of one.
             # TODO: In trigram case we need to do something different.
+            # Memory cost > 100MB. Maybe it's because we're trying to construct a context array on the fly? This is a bit weird.
             probabilities[k] = prob(npylm, [cur_context], w)
         end
 
@@ -216,7 +228,7 @@ function sample_segmentation(sentence::Array{Int,1}, max_word_length::Int, npylm
         # This is now the newest word we sampled.
         # The word representation should be converted from the char representation then.
         # Update w which indicates the last segmented word.
-        w = charseq_to_string(sentence[(t - k + 1):t]) 
+        w = charseq_to_string(sentence[(t - k + 1):t])
         push!(segmentation_output, w)
         t = t - k
         i += 1
@@ -248,6 +260,7 @@ function forward_filtering(sentence::Array{Int,1}, t::Int, k::Int, prob_matrix::
         # It's really good that Julia's 1-based indexing system makes perfect sense and matches up with the mathematical notation used in the paper perfectly.
         string_rep_potential_context = charseq_to_string(sentence[(t - k - j + 1):(t - k)])
         string_rep_potential_word = charseq_to_string(sentence[(t - k + 1):t])
+        # Memory cost: > 600MB. Not sure maybe it also has something to do with the fact that we're creating an array on the fly? Is there any better way though?
         bigram_prob = prob(npylm, [string_rep_potential_context], string_rep_potential_word)
 
         temp += bigram_prob * forward_filtering(sentence, (t - k), j, prob_matrix, npylm)
@@ -303,15 +316,36 @@ OK so eventually it still does seem that we shouldn't really put the vocabs as "
 
 Just make them into arguments to each function that needs them, I guess. Could be a bit inconvenient but generally speaking this should be the right thing to do for sure. Let's try it then.
 """
-function test_segmentation(model::PYPContainer, corpus::Array{Array{Int, 1}, 1})
+function test_segmentation(npylm::PYPContainer, corpus::Array{Array{Int, 1}, 1})
     # Well I don't even think there's much of a difference between this process and the original training process right? We just run the Blocked Gibbs Sampler again on the test data and see what results are output, don't we?
+
+    # Just run one go because we're not training, just trying to see the segmentation results immediately.
+    println("Before blocked_gibbs_sampler")
+    blocked_gibbs_sampler(npylm, corpus, 1, 100, true)
 end
 
 """
 Tries to generate text from the vocabulary and model learned from the training corpus.
-"""
-function generate_text(model::PYPContainer)
 
+This is currently not really the focus of the project though. Let's see.
+
+There probably needs to be a sample function? But how.
+First we'd need to define what is "generation". Is it based on words or is it based on characters?
+Well if we indeed have a character n-gram model then I do think we can generate characters one at a time. There's no inherent problem with that.
+Yeah I a kind of get it: This will be more or less a *reverse* process from the top-down segmentation process.
+1. Generate a word from the character n-gram model. Be it a 3-gram or an infinite-gram or 2-gram or whatnot (with 2-gram, we will only need to keep chugging on using the last generated character as the "context" and generate the next character. If that next character turns out to be STOP, the word is generated. The spirit is similar with the 3-gram and essentially llthe infinite-gram as well.)
+2. After one word is generated (i.e. the "STOP" symbol is reached), use this word itself as the context to sampl the next word from the *word-level HPYLM*.
+  OK but then where does the character NPYLM come into play in those later words?
+  Or did I just understand it wrong?? Maybe what I should do is to actually start with the word model from the beginning anyways. Shouldn't the word model already be using the knowledge from the character model implicitly when it calcualtes the n-gram probability, because the character model is a base model for the G_0 case?
+  Interesting. I think yeah that might be closer to the spirit but unfortunately this language model is quite incapable of coming up with previously unseen words apparently.
+  But yeah OK I think it's always true that you can't really
+
+
+"""
+function generate_text(npylm::PYPContainer, num_of_sentences::Int)
+    for sentence_index in 1:num_of_sentences
+        prob()
+    end
 end
 
 export evaluate;
@@ -327,21 +361,23 @@ Load a previously trained model and evaluate it on test corpus.
 # I'll need to rewrite this method to fit the current structure of the project.
 function evaluate(corpus_path, model_path)
     m_in = open(model_path)
-    model::Model = deserialize(m_in)
+    model = deserialize(m_in)
     close(m_in)
 
+    println("Deserialization complete")
     # Should be able to write over the global variables directly when reading in the corpus. This syntax is fine right?
+    # I hope the global vocab issue can be solved this way. Let's see.
     global char_vocab = model.char_vocab
     global word_vocab = model.word_vocab
     npylm = model.npylm
 
     c_in = open(corpus_path)
-    # TODO: Deal with the vocabulary in some way so that it's serialized and loaded properly, and hopefully doesn't have any global variable issues.
     # The model should also read in the previously unseen characters in the evaluation corpus properly.
     evaluation_corpus = read_corpus(c_in, char_vocab)
     close(c_in)
 
-    print_ppl(npylm, evaluation_corpus)
+    println("Before test_segmentation")
+    test_segmentation(npylm, evaluation_corpus)
 end
 
 end
