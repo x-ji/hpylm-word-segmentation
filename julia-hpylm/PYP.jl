@@ -24,9 +24,16 @@ mutable struct CRP
     totalcustomers::Int
 
     function CRP()
+        # Memory cost > 500MB. Again, we probably initialized tons of CRPs. Though I'm not sure why the memory cost is even greater than that for PYP. Maybe it's just simply the case that CRP's internal fields cost more then.
         crp = new()
         crp.tablegroups = Dict{Int,Array{Int,1}}()
         crp.ntablegroups = 0
+        # TODO: Memroy cost > 6.5GB.
+        # I think there's most likely something amiss with the character HPYLMs. But how can I know about them anyways. Might need some methods to check those things well.
+        # It seems that we likely generated a ton of table groups.
+        # Yeah in a sense it is to be expected since in the case of Chinese, it's likely that one context can have many more following dishes, compared with the case of English.
+        # However I still don't get why the particular line is `crp.ncustomers` instead of any line above or below. What's so particularly sinister about what is essentially just a shorthand variable or something? Eh.
+        # Also this number is still way too extreme. Something is likely broken no matter what. Will have to look into it a bit further.
         crp.ncustomers = Dict{Int,Int}()
         crp.totalcustomers = 0
         return crp
@@ -115,6 +122,7 @@ mutable struct PYP
     """
     # function PYP(base, prior, is_for_words::Bool)
     function PYP(base, prior)
+        # Memory cost > 340MB. Guess this is simply beause we have initiated tons of PYP structs in each PYPContainer. So this can still make sense.
         pyp = new()
         pyp.crp = CRP()
         # I don't really know why we need a base. Can't we just directly refer to the actual PYP that resides in the field of the referenced PYPContainer? What's the potential problem with that?
@@ -263,6 +271,9 @@ function log_likelihood(pyp::PYP, full::Bool = false)
                 pyp.crp.ntablegroups * log(theta(pyp))
                 )
     else
+        # This last one costs more than 27GB memory what the hell. It's supposed to be just a calculation of log likelihood!
+        # I think it most likely has something to do with inefficient machine code then. During the process it's likely the case that some very large intermediate structures are generated, for example the one related to `Iterators.flatten` or something. This of course cannot go on then and should be relatively reasonable to rectify, let's see.
+        # Yeah there's no way this thing is justified.
         (lgamma(theta(pyp)) - lgamma(theta(pyp) + pyp.crp.totalcustomers) +
                 lgamma(theta(pyp) / d(pyp) + pyp.crp.ntablegroups) -
                 lgamma(theta(pyp) / d(pyp)) +
@@ -357,6 +368,7 @@ end
 "This is one possible type for the `base` field of the `PYP` struct. It contains a reference to the `PYPContainer` struct of order ``n - 1``, plus a specific context of length ``n - 1``, which will be used to look up the actual `PYP` in the `models` field of the referenced `PYPContainer` struct."
 struct BackoffBase
     # This naming makes much more sense. This is the PYPContainer for the backing off of the PYP that contains this BackoffBase.
+    # Memory cost > 100MB ... Shouldn't this just be a pointer? This makes so little sense. I can get if the PYPContainer structs get large. But I don't really know why the place they take up so much memory is in the BackoffBase struct. Huh.
     pyp_container::PYPContainer
     ctx::Array{Int,1}
 end
@@ -392,6 +404,9 @@ function string_to_charseq(str::Int)::Array{Int,1}
     word::String = get(word_vocab, str)
     # Then: Look up the characters that constitute the word one by one
     # Seems that somehow with the call to `string`, the String is regarded as an AbstractString, and I'll need to preemptively convert the String to an Array with the `collect` method. Eh.
+    # TODO: Memory usage > 6.4G. Definitely something wrong with this current mapping method.
+    # What happens if I just get rid of this stupid mapping thing once and for all? What if I just store the characters and strings as such in the CRP map. What happens then. This is just creating so many unnecessary overheads it seems. Can't we do better? Let's just see then.
+    # Well constraining it to Int16 instead of Int64 would seem to be a sensible idea but how much will it truly save anyways. We'll still have to see.
     return map(char -> get(char_vocab, string(char)), collect(word))
 end
 

@@ -204,6 +204,7 @@ function Base.show(io::IO, p::PYPPrior)
 end
 
 function tie(p::SampledPrior, distribution)
+    # Memory cost > 100MB. I have no idea what's happening in this one. I think these should also just be pointers to PYPs eh. Let's see then.
     push!(p.tied_distributions, distribution)
 end
 
