@@ -274,11 +274,19 @@ function log_likelihood(pyp::PYP, full::Bool = false)
         # This last one costs more than 27GB memory what the hell. It's supposed to be just a calculation of log likelihood!
         # I think it most likely has something to do with inefficient machine code then. During the process it's likely the case that some very large intermediate structures are generated, for example the one related to `Iterators.flatten` or something. This of course cannot go on then and should be relatively reasonable to rectify, let's see.
         # Yeah there's no way this thing is justified.
+        # FIX: Apparently just adapting this simple fix was able to sink the memory usage ninefold... This is just insane. I wonder whether this is some sort of performance bug that will be fixed in a future version of Julia. For now I'll go with this one.
+        temp::Float64 = 0.0
+        for tablegroup in values(pyp.crp.tablegroups)
+            for table_customer_count in tablegroup
+                temp += lgamma(table_customer_count - d(pyp))
+            end
+        end
         (lgamma(theta(pyp)) - lgamma(theta(pyp) + pyp.crp.totalcustomers) +
                 lgamma(theta(pyp) / d(pyp) + pyp.crp.ntablegroups) -
                 lgamma(theta(pyp) / d(pyp)) +
                 pyp.crp.ntablegroups * (log(d(pyp)) - lgamma(1 - d(pyp))) +
-                sum(map(c -> lgamma(c - d(pyp)), Iterators.flatten(values(pyp.crp.tablegroups))))
+                # sum(map(c -> lgamma(c - d(pyp)), Iterators.flatten(values(pyp.crp.tablegroups))))
+                temp
                 )
     end
 
