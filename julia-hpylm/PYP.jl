@@ -271,10 +271,9 @@ function log_likelihood(pyp::PYP, full::Bool = false)
                 pyp.crp.ntablegroups * log(theta(pyp))
                 )
     else
-        # This last one costs more than 27GB memory what the hell. It's supposed to be just a calculation of log likelihood!
-        # I think it most likely has something to do with inefficient machine code then. During the process it's likely the case that some very large intermediate structures are generated, for example the one related to `Iterators.flatten` or something. This of course cannot go on then and should be relatively reasonable to rectify, let's see.
-        # Yeah there's no way this thing is justified.
-        # FIX: Apparently just adapting this simple fix was able to sink the memory usage ninefold... This is just insane. I wonder whether this is some sort of performance bug that will be fixed in a future version of Julia. For now I'll go with this one.
+        # This last one costs more than 27GB memory what the hell.
+        # OK so apparently it is related to https://github.com/JuliaLang/julia/pull/29786. Should be fixed in v 1.0.2 Also suspected it might be a performance issue from the language. Not that surprising considering Julia is still relatively young, still a bit unfortunate especially given the time spent on it.
+        # Before v 1.0.2 binary is released I'll have to keep this code here.
         temp::Float64 = 0.0
         for tablegroup in values(pyp.crp.tablegroups)
             for table_customer_count in tablegroup
@@ -415,7 +414,16 @@ function string_to_charseq(str::Int)::Array{Int,1}
     # TODO: Memory usage > 6.4G. Definitely something wrong with this current mapping method.
     # What happens if I just get rid of this stupid mapping thing once and for all? What if I just store the characters and strings as such in the CRP map. What happens then. This is just creating so many unnecessary overheads it seems. Can't we do better? Let's just see then.
     # Well constraining it to Int16 instead of Int64 would seem to be a sensible idea but how much will it truly save anyways. We'll still have to see.
+
+    # I don't think this workaround brings any improvements. The `map` function itself is quite fine already. Let me do something else to try to address the issue.
+    # result::Array{Int,1} = zeros(length(word))
+    # for (index, char) in enumerate(word)
+    #     int_rep = get(char_vocab, string(char))
+    #     result[index] = int_rep
+    # end
+
     return map(char -> get(char_vocab, string(char)), collect(word))
+    # return result
 end
 
 """
