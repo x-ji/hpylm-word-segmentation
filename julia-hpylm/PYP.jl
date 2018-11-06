@@ -10,14 +10,20 @@ mutable struct CRP
     """
     `tablegroups` is a `Dict` that groups the tables by the dish served. The key of the `Dict` is the dish, and the value of the `Dict` is an array which contains the customer count for each individual table in this table group.
 
-    In this model, each table serves only one dish, i.e. the draw of the word that follows the context ``G_u``. However, multiple tables might serve the same dish, i.e. a future draw might come up with the same word as a previous draw.
+    In this model, each table serves only one dish, i.e. the draw of the word that follows the context ``G_u``. However, multiple tables might serve *the same dish*, i.e. a future draw might come up with the same word as a previous draw.
     """
     tablegroups::Dict{String,Array{Int,1}}
 
     "This is just a convenient variable to keep track of the total number of table groups, i.e. unique dishes, present in this `CRP` so far."
     ntablegroups::Int
 
-    "This is a convenient variable to keep track of the total number of customers for each unique dish. The key of the `Dict` is the dish, while the value of the `Dict` is the total number of customers for this dish."
+    """
+    This is a convenient variable to keep track of the total number of customers for each unique dish. The key of the `Dict` is the dish, while the value of the `Dict` is the total number of customers for this dish.
+
+    This is helpful because as mentioned above, there could be multiple tables serving the same dish, and we need to add those counts together.
+
+    Though of course I do believe that we can also just use one struct which is `tablegroups` to do it all. This `ncustomers` shouldn't be strictly necessary. We can see if that alleviates memory usage.
+    """
     ncustomers::Dict{String,Int}
 
     "This is a convenient variable to keep track of the total number of customers in this `CRP`."
@@ -26,7 +32,7 @@ mutable struct CRP
     function CRP()
         # Memory cost > 500MB. Again, we probably initialized tons of CRPs. Though I'm not sure why the memory cost is even greater than that for PYP. Maybe it's just simply the case that CRP's internal fields cost more then.
         crp = new()
-        crp.tablegroups = Dict{String,Array{String,1}}()
+        crp.tablegroups = Dict{String,Array{Int,1}}()
         crp.ntablegroups = 0
         # TODO: Memroy cost > 6.5GB.
         # I think there's most likely something amiss with the character HPYLMs. But how can I know about them anyways. Might need some methods to check those things well.
