@@ -18,10 +18,11 @@ function decrement(d::UniformDist, k)
     d.count -= 1
 end
 
-function prob(d::UniformDist, k::Int)
-    if k >= d.K
-        return 0
-    end
+# Since this uniform dist is supposed to be over the full vocabulary of the language, it should theoretically be impossible to exceed the limit?
+function prob(d::UniformDist, k::String)
+    # if k >= d.K
+    #     return 0
+    # end
     return 1.0 / d.K
 end
 

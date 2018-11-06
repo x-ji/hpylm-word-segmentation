@@ -12,13 +12,13 @@ mutable struct CRP
 
     In this model, each table serves only one dish, i.e. the draw of the word that follows the context ``G_u``. However, multiple tables might serve the same dish, i.e. a future draw might come up with the same word as a previous draw.
     """
-    tablegroups::Dict{Int,Array{Int,1}}
+    tablegroups::Dict{String,Array{Int,1}}
 
     "This is just a convenient variable to keep track of the total number of table groups, i.e. unique dishes, present in this `CRP` so far."
     ntablegroups::Int
 
     "This is a convenient variable to keep track of the total number of customers for each unique dish. The key of the `Dict` is the dish, while the value of the `Dict` is the total number of customers for this dish."
-    ncustomers::Dict{Int,Int}
+    ncustomers::Dict{String,Int}
 
     "This is a convenient variable to keep track of the total number of customers in this `CRP`."
     totalcustomers::Int
@@ -26,7 +26,7 @@ mutable struct CRP
     function CRP()
         # Memory cost > 500MB. Again, we probably initialized tons of CRPs. Though I'm not sure why the memory cost is even greater than that for PYP. Maybe it's just simply the case that CRP's internal fields cost more then.
         crp = new()
-        crp.tablegroups = Dict{Int,Array{Int,1}}()
+        crp.tablegroups = Dict{String,Array{String,1}}()
         crp.ntablegroups = 0
         # TODO: Memroy cost > 6.5GB.
         # I think there's most likely something amiss with the character HPYLMs. But how can I know about them anyways. Might need some methods to check those things well.
@@ -34,7 +34,7 @@ mutable struct CRP
         # Yeah in a sense it is to be expected since in the case of Chinese, it's likely that one context can have many more following dishes, compared with the case of English.
         # However I still don't get why the particular line is `crp.ncustomers` instead of any line above or below. What's so particularly sinister about what is essentially just a shorthand variable or something? Eh.
         # Also this number is still way too extreme. Something is likely broken no matter what. Will have to look into it a bit further.
-        crp.ncustomers = Dict{Int,Int}()
+        crp.ncustomers = Dict{String,Int}()
         crp.totalcustomers = 0
         return crp
     end
@@ -42,7 +42,7 @@ end
 
 # I can make tableIndex Nullable but that's a bit unwieldy. Since this is a dynamic language anyways,
 "Seats a new customer at the ``index^th`` table serving dish `dish`. An index of `0` indicates that a new table should be created instead."
-function _seat_to(crp::CRP, dish::Int, table_index::Int)
+function _seat_to(crp::CRP, dish::String, table_index::Int)
     if !(haskey(crp.tablegroups, dish))
         crp.tablegroups[dish] = []
         crp.ncustomers[dish] = 0
@@ -63,7 +63,7 @@ function _seat_to(crp::CRP, dish::Int, table_index::Int)
 end
 
 "Unseats a customer at the ``index^th`` table serving dish `d`. If the table (and the tablegroup) becomes empty afterwards, this function is also responsible for cleaning up."
-function _unseat_from(crp::CRP, dish::Int, table_index::Int)
+function _unseat_from(crp::CRP, dish::String, table_index::Int)
     crp.ncustomers[dish] -= 1
     crp.totalcustomers -= 1
     tablegroup = crp.tablegroups[dish]
@@ -148,7 +148,7 @@ function theta(pyp::PYP)
 end
 
 "Sample a table which serves the particular dish. Return the index of the table within the table group. If there is no such a table group containing the dish, return 0."
-function _sample_table(pyp::PYP, dish::Int)
+function _sample_table(pyp::PYP, dish::String)
     # `tablegroups` contains table groups, each of which serves the same dish.
     if !haskey(pyp.crp.tablegroups, dish)
         return 0
@@ -176,7 +176,7 @@ Find the index of the table in the table group that contains the ``n^th`` custom
 
 Note that this function will return nothing if there's actually no customer for the dish. Therefore the caller is responsible for ensuring that the arguments are sound.
 """
-function _customer_table(pyp::PYP, dish::Int, n::Int)
+function _customer_table(pyp::PYP, dish::String, n::Int)
     tablegroup = pyp.crp.tablegroups[dish]
     # There are in total m customers for this tablegroup. We provide an index n (n <= m), and we also know the how many customers each table in this tablegroup contains (c). Therefore, all we need to do is to subtract c from n until the correct table is found. Huh.
     for (i, c) in enumerate(tablegroup)
@@ -193,7 +193,7 @@ Tries to add a customer for a particular dish (after the dish has been sampled).
 
 Note that per p.18 of the technical report, there's no need to keep track of the exact table index after this routine is finished, since we can reconstruct it in the RemoveCustomer (i.e. decrement) routine.
 """
-function increment(pyp::PYP, dish::Int, initialize::Bool = false)
+function increment(pyp::PYP, dish::String, initialize::Bool = false)
     table_index =
     if initialize
         # An index of 0 indicates that a new table should be created instead.
@@ -215,7 +215,7 @@ It seems that the original paper called for sampling the customer to remove with
 
 The caller is responsible for ensuring that `dish` already exists in the `PYP` struct.
 """
-function decrement(pyp::PYP, dish::Int)
+function decrement(pyp::PYP, dish::String)
     # We remove a random customer from a table.
     i = _customer_table(pyp, dish, rand(1:pyp.crp.ncustomers[dish]))
     # If this returns true, then the table (not necessarily the whole table group though) is cleared, and we need to also update base accordingly.
@@ -229,7 +229,7 @@ Calculates the conditional probability that the next draw will be the particular
 
 This corresponds to the function `WordProb(**u**, w)` on page 988 of the Teh 2006 paper and equation (11) in the Teh 2006 technical report.
 """
-function prob(pyp::PYP, dish::Int)
+function prob(pyp::PYP, dish::String)
     # New table
     w = (theta(pyp) + d(pyp) * pyp.crp.ntablegroups) * prob(pyp.base, dish)
     # Existing tablegroups
@@ -244,8 +244,10 @@ Special in the sense that this is exclusively for the prob of the PYP of G_1 in 
 
 The special processing is that we know that pyp.base is *directly* the top-level char-type PYPContainer. There's no annoying BackoffBase struct standing in between. So we need to invoke the prob(PYPContainer, ctx, dish) method. Thus, we need to break the word dish down into a character dish.
 """
-function special_prob(pyp::PYP, dish::Int)
-    char_seq = string_to_charseq(dish)
+function special_prob(pyp::PYP, dish::String)
+    # Using AbstractString as the base type might be the more efficient way let's see. Though this doesn't seem to invoke a lot of memory usage it seems.
+    # Yeah the memory usage seems to be about 39MB. Definitely not the foremost thing to be worried about then.
+    char_seq = collect(String, Base.split(dish))
     # Implementing the infinite gram model turned out to be a bit involved to implement. Guess I'm left without any choice but to just break down the characters into 3-grams (with padding) and simply multiply the 3-gram probabilities together then. Let's see.
     # TODO: Actually implement the infinite gram model.
     char_hpylm_prob = 1.0
@@ -266,7 +268,7 @@ end
 function log_likelihood(pyp::PYP, full::Bool = false)
     ll = if d(pyp) == 0
         (lgamma(theta(pyp)) - lgamma(theta(pyp) + pyp.crp.totalcustomers) +
-                # `tablegroups` is Dict{Int, Array{Int, 1}}
+                # `tablegroups` is Dict{String, Array{Int, 1}}
                 sum(lgamma, Iterators.flatten(values(pyp.crp.tablegroups))) +
                 pyp.crp.ntablegroups * log(theta(pyp))
                 )
@@ -355,7 +357,7 @@ mutable struct PYPContainer
     backoff
 
     "a list of `PYP` structs that have the same ```n`` value but different contexts."
-    models::Dict{Array{Int,1},PYP}
+    models::Dict{Array{String,1},PYP}
 
     "Indicates whether it is a word PYPContainer or a char PYPContainer. Another way to do so might be to use a union type, but let's see this one first."
     is_for_words::Bool
@@ -366,7 +368,7 @@ mutable struct PYPContainer
         p.order = order
         # Note that if this PYPContainer is a word PYPContainer and order == 1, the initial base will be a char PYPContainer.
         p.backoff = order == 1 ? initial_base : PYPContainer(order - 1, initial_base, is_for_words)
-        p.models = Dict{Array{Int,1},PYP}()
+        p.models = Dict{Array{String,1},PYP}()
         p.is_for_words = is_for_words
         return p
     end
@@ -377,7 +379,7 @@ struct BackoffBase
     # This naming makes much more sense. This is the PYPContainer for the backing off of the PYP that contains this BackoffBase.
     # Memory cost > 100MB ... Shouldn't this just be a pointer? This makes so little sense. I can get if the PYPContainer structs get large. But I don't really know why the place they take up so much memory is in the BackoffBase struct. Huh.
     pyp_container::PYPContainer
-    ctx::Array{Int,1}
+    ctx::Array{String,1}
 end
 
 """
@@ -387,7 +389,7 @@ If there is no such a `PYP` struct with `ctx` context, a new one will be initial
 
 However, note that the `models` field will not be altered in this method! This is because `get` is not supposed to actually cause any changes. Any newly initialized `PYP` struct will only get added to `models` in `increment` method.
 """
-function get(pyp_container::PYPContainer, ctx::Array{Int,1})
+function get(pyp_container::PYPContainer, ctx::Array{String,1})
     if !haskey(pyp_container.models, ctx)
         # Do I really need a BackoffBase construct?... Anyways let me try to replicate vpyp structure first then.
         # The reason why we need a special BackoffBase struct here is that the `get` method doesn't actually add things to `models`. It's a kind of lazy initialization in that we provide a clue about how to calculate the base a bit later on.
@@ -399,58 +401,16 @@ function get(pyp_container::PYPContainer, ctx::Array{Int,1})
     return pyp_container.models[ctx]
 end
 
-"""
-Helper function to increment
-
-Convert a string (represented in Int) to its sequence of chars (represented in Int)
-"""
-function string_to_charseq(str::Int)::Array{Int,1}
-    global char_vocab
-    global word_vocab
-    # First: Convert the string from int to its original form
-    word::String = get(word_vocab, str)
-    # Then: Look up the characters that constitute the word one by one
-    # Seems that somehow with the call to `string`, the String is regarded as an AbstractString, and I'll need to preemptively convert the String to an Array with the `collect` method. Eh.
-    # TODO: Memory usage > 6.4G. Definitely something wrong with this current mapping method.
-    # What happens if I just get rid of this stupid mapping thing once and for all? What if I just store the characters and strings as such in the CRP map. What happens then. This is just creating so many unnecessary overheads it seems. Can't we do better? Let's just see then.
-    # Well constraining it to Int16 instead of Int64 would seem to be a sensible idea but how much will it truly save anyways. We'll still have to see.
-
-    # I don't think this workaround brings any improvements. The `map` function itself is quite fine already. Let me do something else to try to address the issue.
-    # result::Array{Int,1} = zeros(length(word))
-    # for (index, char) in enumerate(word)
-    #     int_rep = get(char_vocab, string(char))
-    #     result[index] = int_rep
-    # end
-
-    return map(char -> get(char_vocab, string(char)), collect(word))
-    # return result
-end
-
-"""
-Helper function
-
-Convert a sequence of characters (represented in Int) to string (represented in Int)
-"""
-function charseq_to_string(char_seq::Array{Int,1})::Int
-    global char_vocab
-    global word_vocab
-    # First: Convert the (int) character sequence back to their original coherent string
-    string::String = join(map(char_int->get(char_vocab, char_int), char_seq), "")
-    # Then: Lookup the string in the word vocab
-    string_rep::Int = get(word_vocab, string)
-    return string_rep
-end
-
 # Remember that a dish is a word, here the last word in the ngram.
 """
 Run `increment` method on the `PYP` struct with context `ctx`, using dish `dish`.
 
 If there is no such a `PYP` struct with `ctx` context, a new one will be initialized via `get` method, and then set in `models` field.
 """
-function increment(pyp_container::PYPContainer, ctx::Array{Int,1}, dish::Int)
+function increment(pyp_container::PYPContainer, ctx::Array{String,1}, dish::String)
     # Special treatment for the transition.
     if pyp_container.is_for_words && pyp_container.order == 1
-        char_seq = string_to_charseq(dish)
+        char_seq = collect(String, Base.split(dish))
         add_sentence_to_model(pyp_container.backoff, char_seq)
     else
         if !haskey(pyp_container.models, ctx)
@@ -465,9 +425,9 @@ Run `decrement` method on the `PYP` struct with context `ctx`, using dish `dish`
 
 The caller is responsible for ensuring that the `PYP` struct with context `ctx` already exists, and that `dish` already exists in that `PYP`.
 """
-function decrement(pyp_container::PYPContainer, ctx::Array{Int,1}, dish::Int)
+function decrement(pyp_container::PYPContainer, ctx::Array{String,1}, dish::String)
     if pyp_container.is_for_words && pyp_container.order == 1
-        char_seq = string_to_charseq(dish)
+        char_seq = collect(String, Base.split(dish))
         remove_sentence_from_model(pyp_container.backoff, char_seq)
     else
         decrement(pyp_container.models[ctx], dish)
@@ -479,7 +439,7 @@ Run `prob` method on the `PYP` struct with context `ctx`, using dish `dish`, i.e
 
 Note that unlike `decrement`, this method **doesn't require neither the `PYP` nor the `dish` to already exist!** The model is capable of calculating the probability for a previously unseen context/dish.
 """
-function prob(pyp_container::PYPContainer, ctx::Array{Int,1}, dish::Int)
+function prob(pyp_container::PYPContainer, ctx::Array{String,1}, dish::String)
     # What we know:
     # The G_0(w) is either the probability derived from a properly implemented infinite-gram char HPYLM, or as a substitution, just the multiplied probability out of a 3-gram char HPYLM.
     # So OK it seems that we need to properly take care of pyp.base and perform some sort of transformation on `dish` as well then.
@@ -517,14 +477,14 @@ function Base.show(io::IO, pyp_container::PYPContainer)
 end
 
 # These are the functions related operations on the `BackoffBase` type
-function increment(bb::BackoffBase, dish::Int, initialize::Bool = false)
+function increment(bb::BackoffBase, dish::String, initialize::Bool = false)
     increment(bb.pyp_container, bb.ctx, dish)
 end
 
-function decrement(bb::BackoffBase, dish::Int)
+function decrement(bb::BackoffBase, dish::String)
     decrement(bb.pyp_container, bb.ctx, dish)
 end
 
-function prob(bb::BackoffBase, dish::Int)
+function prob(bb::BackoffBase, dish::String)
     return prob(bb.pyp_container, bb.ctx, dish)
 end

@@ -1,10 +1,10 @@
-# module Corpus
 import Base.length
 import Base.show
 
-# Corpus
-const START = 1
-const STOP = 2
+# Let me try some string substitutes
+const START = "ϵ"
+# This is \Epsilon, not E! Not the same thing eh.
+const STOP = "Ε"
 
 # This exception was present but never used in the original vpyp code. But it has its use here.
 struct OutOfVocabularyException <: Exception end
@@ -30,7 +30,7 @@ mutable struct Vocabulary
         # This doesn't seem to be useful anymore in the new program? Or not. Well we still do need to have a sentence stop token at least, right?
         # OK let me still keep them anyways. Doesn't really hurt either way.
         if start_stop
-            v.word2id = Dict("<s>" => START, "</s>" => STOP)
+            v.word2id = Dict("<s>" => 0, "</s>" => 1)
             v.id2word = ["<s>", "</s>"]
         else
             v.word2id = Dict{String,Int}()
@@ -108,18 +108,24 @@ function read_corpus(stream::IOStream, char_vocab::Vocabulary)
 end
 
 "Return all ngrams of the specified `order` from the given `sentence`. The return type is array of arrays of integers."
-function ngrams(sentence::Array{Int,1}, order::Int)
+function ngrams(sentence::Array{String,1}, order::Int)
     # The deque from Python is really not the same as CircularDeque here. Doesn't support automatic replacement of elements whatsoever.
     # The original implementation in Python uses `yield` but I guess I won't need it here.
+    # Let me try some string substitutes
+    # START::String = string("ϵ")
+    # # This is \Epsilon, not E! Not the same thing eh.
+    # STOP::String = string("Ε")
 
-    output = Array{Array{Int,1},1}()
+    output = Array{Array{String,1},1}()
 
     temp = fill(START, order - 1)
     append!(temp, sentence)
-    append!(temp, STOP)
+    # I don't know why I wrote append! before. It should be push! right? Because it's just one single element. Eh.
+    # TODO: I should probably not use push but try to preallocate the whole array length? This seems to cost a bit of memory since this is done way too many times.
+    push!(temp, STOP)
 
     for index in 1:(length(temp) - order + 1)
-        ngram = Array{Int,1}()
+        ngram = Array{String,1}()
         for i2 in index:index + (order - 1)
             push!(ngram, temp[i2])
         end
@@ -130,4 +136,3 @@ function ngrams(sentence::Array{Int,1}, order::Int)
 
     return output
 end
-# end
