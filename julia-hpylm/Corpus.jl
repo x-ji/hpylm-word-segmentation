@@ -65,6 +65,7 @@ function get(v::Vocabulary, word::String)::Int
             throw(OutOfVocabularyException())
         else
             # This order is correct since in Julia indices start from 1.
+            # Actually push! is really memory intensive. If done only once during the initialization it's fine, otherwise it can be a problem.
             push!(v.id2word, word)
             v.word2id[word] = length(v)
         end
@@ -107,31 +108,47 @@ function read_corpus(stream::IOStream, char_vocab::Vocabulary)
     return [[get(char_vocab, string(c)) for c in line if !Base.isspace(c)] for line in readlines(stream) if !isempty(line)]
 end
 
+# TODO: Maybe I can do some caching on this one. But it is indeed inherently made harder, because there could be new segmentations introduced each time.
+# Yeah at least this is definitely cacheable when I'm producing character n-grams from word n-grams. Let's see.
+# OK, changing everything from push! to preallocation really didn't save that much memory... Only an increase of about 10% it seems. The push! implementation seems to be reasonable enough? Then I should try to find other ways to improve the performance.
 "Return all ngrams of the specified `order` from the given `sentence`. The return type is array of arrays of integers."
 function ngrams(sentence::Array{String,1}, order::Int)
     # The deque from Python is really not the same as CircularDeque here. Doesn't support automatic replacement of elements whatsoever.
     # The original implementation in Python uses `yield` but I guess I won't need it here.
-    # Let me try some string substitutes
-    # START::String = string("ϵ")
-    # # This is \Epsilon, not E! Not the same thing eh.
-    # STOP::String = string("Ε")
 
-    output = Array{Array{String,1},1}()
+    sentence_size = length(sentence)
+    temp::Array{String,1} = fill("",
+        # The START symbols to be filled in at the beginning.
+        order - 1
+        # The actual sentence part
+        + sentence_size
+        # The STOP symbol to be filled in at the end.
+        + 1)
 
-    temp = fill(START, order - 1)
-    append!(temp, sentence)
-    # I don't know why I wrote append! before. It should be push! right? Because it's just one single element. Eh.
-    # TODO: I should probably not use push but try to preallocate the whole array length? This seems to cost a bit of memory since this is done way too many times.
-    push!(temp, STOP)
+    # temp = fill(START, order - 1)
+    # Need the broadcasting operator to assign multiple indices at the same time.
+    temp[1:order - 1] .= START
+
+    # append!(temp, sentence)
+    temp[order:order+sentence_size - 1] = sentence
+
+    # push!(temp, STOP)
+    temp[end] = STOP
+
+    # output = Array{Array{String,1},1}()
+    output::Array{Array{String,1},1} = fill(String[], length(temp) - order + 1)
 
     for index in 1:(length(temp) - order + 1)
-        ngram = Array{String,1}()
+        # ngram = Array{String, 1}()
+        ngram::Array{String,1} = fill("", order)
+
         for i2 in index:index + (order - 1)
-            push!(ngram, temp[i2])
+            # push!(ngram, temp[i2])
+            # Julia's index starts from 1.
+            ngram[i2-index + 1] = temp[i2]
         end
-        # We're directly pushing an array here. Should achieve the same effect.
-        push!(output, ngram)
-        # push!(output, tuple(ngram...))
+        # push!(output, ngram)
+        output[index] = ngram
     end
 
     return output
