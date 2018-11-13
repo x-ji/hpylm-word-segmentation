@@ -7,11 +7,11 @@ const HPYLM_INITIAL_θ = 2.0
 function init_hyperparameters_at_depth_if_needed(depth::UInt, d_array::Vector{Float64}, θ_array::Vector{Float64})
     # The depth is dynamically increasing. Therefore we might need to push new hyperparameters into the array if needed.
     # However, why don't we on the contrary just initialize an array of ridiculous depth that this should never become a problem? I think that might make the operations a bit more efficient
-    if depth > length(d_array)
-        while(length(d_array) < depth)
+    if depth >= length(d_array)
+        while(length(d_array) <= depth)
             push!(d_array, HPYLM_INITIAL_d)
         end
-        while(length(θ_array) < depth)
+        while(length(θ_array) <= depth)
             push!(θ_array, HPYLM_INITIAL_θ)
         end
     end
@@ -71,7 +71,7 @@ mutable struct PYP{T}
     """
     The depth of this PYP node in the hierarchical structure.
 
-    In the original code the root node has depth 0. Though I think it might well make more sense for it to have depth 1. Let's see.
+    Note that by definition the depth of a tree begins from 0
     """
     depth::UInt
 
@@ -210,9 +210,9 @@ end
 # Another approach to do it, for sure.
 function add_customer(pyp::PYP{T}, dish::T, g0_or_parent_pws::Union{Float64, Vector{Float64}}, d_array::Vector{Float64}, θ_array::Vector{Float64}, update_beta_count::Bool, index_of_table_in_root::UInt)::Bool where T
     init_hyperparameters_at_depth_if_needed(pyp.depth, d_array, θ_array)
-    # depth should really start from 1 because array indexing starts from 1 in Julia.
-    d_u = d_array[pyp.depth]
-    θ_u = θ_array[pyp.depth]
+    # Need to + 1 because by definition depth starts from 0 but array indexing starts from 1
+    d_u = d_array[pyp.depth + 1]
+    θ_u = θ_array[pyp.depth + 1]
     parent_pw::Float64 = 
     if typeof(g0_or_parent_pws == Float64) 
         if pyp.parent != nothing
@@ -231,7 +231,7 @@ function add_customer(pyp::PYP{T}, dish::T, g0_or_parent_pws::Union{Float64, Vec
             increment_stop_count(pyp)
         end
         # Root PYP
-        if (pyp.depth == 1)
+        if (pyp.depth == 0)
             # OK I think this thing is a reference so that it can be shared between the places?
             # Still why in this case return 0 instead of k though. Let's see.
             index_of_table_in_root = 0
@@ -257,7 +257,7 @@ function add_customer(pyp::PYP{T}, dish::T, g0_or_parent_pws::Union{Float64, Vec
                 if update_beta_count
                     increment_stop_count(pyp)
                 end
-                if pyp.depth == 1
+                if pyp.depth == 0
                     index_of_table_in_root = k
                 end
 
@@ -297,7 +297,7 @@ function remove_customer(pyp::PYP{T}, dish::T, update_beta_count::Bool, index_of
             if update_beta_count
                 decrement_stop_count(pyp)
             end
-            if pyp.depth == 1
+            if pyp.depth == 0
                 index_of_table_in_root = k
             end
             return true
@@ -308,8 +308,8 @@ end
 # Note that I added a final Bool argument to indicate whether the thing is already parent_pw or is g0
 function compute_p_w(pyp::PYP{T}, dish::T, g0_or_parent_pw::Float64, d_array::Vector{Float64}, θ_array::Vector{Float64}, is_parent_pw::Bool) where T
     init_hyperparameters_at_depth_if_needed(pyp.depth, d_array, θ_array)
-    d_u = d_array[pyp.depth]
-    θ_u = θ_array[pyp.depth]
+    d_u = d_array[pyp.depth + 1]
+    θ_u = θ_array[pyp.depth + 1]
     t_u = pyp.ntablegroups
     c_u = pyp.ncustomers
     tablegroup = get(pyp.tablegroups, dish, nothing)
