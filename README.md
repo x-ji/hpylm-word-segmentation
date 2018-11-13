@@ -1,6 +1,6 @@
 # HPYLM Word Segmentation
 
-Note: The old code is in `julia-hpylm`. However, it is very inefficient and still contains some errors. The new code currently being worked upon is in the folder `julia-nhpylm`.
+Note: The old code is in `julia-hpylm`. However, it is very inefficient and still contains some errors. The new code currently being worked upon (which tries to properly implement the infinite-gram character-level HPYLM model) is in the folder `julia-nhpylm`.
 
 ## Running the program
 
