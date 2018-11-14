@@ -1,7 +1,6 @@
 using Compat, Random, Distributions
 
-const HPYLM_INITIAL_d = 0.5
-const HPYLM_INITIAL_θ = 2.0
+include("Def.jl")
 
 # TODO: Just don't use this function and initialize d_array and θ_array to be really large from the get go.
 function init_hyperparameters_at_depth_if_needed(depth::UInt, d_array::Vector{Float64}, θ_array::Vector{Float64})
@@ -124,11 +123,11 @@ function get_num_customers_for_dish(pyp::PYP{T},dish::T)::UInt where T
 end
 
 """
-Find the child PYP which corresponds to the given dish
+Find the child PYP whose context is the given dish
 """
-function find_child_pyp(pyp::PYP{T}, dish::T, generate_if_nonexistent::Bool)::Union{Nothing, PYP{T}} where T
+function find_child_pyp(pyp::PYP{T}, dish::T, generate_if_not_found::Bool)::Union{Nothing, PYP{T}} where T
     result = get(pyp.children, dish, nothing)
-    if result == nothing && generate_if_nonexistent
+    if result == nothing && generate_if_not_found
         child = PYP(dish)
         child.parent = pyp
         child.depth = pyp.depth + 1
@@ -180,7 +179,7 @@ function add_customer_to_new_table(pyp::PYP{T}, dish::T) where T
     pyp.ncustomers += 1
 end
 
-function remove_customer_from_table(pyp::PYP{T}, dish::T, table_index::UInt, removed_from_root_pyp::UInt) where T
+function remove_customer_from_table(pyp::PYP{T}, dish::T, table_index::UInt, index_of_table_in_root::UInt) where T
     # The tablegroup should always be found.
     tablegroup = pyp.tablegroups[dish]
 
@@ -190,7 +189,7 @@ function remove_customer_from_table(pyp::PYP{T}, dish::T, table_index::UInt, rem
     @assert(tablegroup[table_index] >= 0)
     if (tablegroup[table_index] == 0)
         if (pyp.parent != nothing)
-            success = remove_customer(dish, false, removed_from_root_pyp)
+            success = remove_customer(dish, false, index_of_table_in_root)
             @assert(success == true)
         end
 
@@ -430,14 +429,17 @@ end
 
 "A DFS to get the total number of nodes with this `pyp` as the root"
 function get_num_nodes(pyp::PYP{T})::UInt where T
-    num::UInt = length(pyp.children)
+    count::UInt = length(pyp.children)
     for child in pyp.children
-        num += get_num_nodes(child)
+        count += get_num_nodes(child)
     end
+    # OK it seems that we can' really return + 1 here since only the root node is the special case.
+    return count
 end
 
 function get_num_tables(pyp::PYP{T})::UInt where T
     # The "length" of each tablegroup is exactly the "total number of tables" in that group.
+    # TODO: Do without the unnecessary summation
     count = sum(length, pyp.tablegroups)
     # Do we really need this assertion then. Apparently we can just directly use that variable instead of this one?
     @assert(count == pyp.ntables)
@@ -446,6 +448,7 @@ function get_num_tables(pyp::PYP{T})::UInt where T
 end
 
 function get_num_customers(pyp::PYP{T})::UInt where T
+    # TODO: Do without the unnecessary summation
     count::UInt = sum(Iterators.flatten(pyp.tablegroups))
     @assert(count== pyp.ncustomers)
     count += sum(get_num_customers, pyp.children)
