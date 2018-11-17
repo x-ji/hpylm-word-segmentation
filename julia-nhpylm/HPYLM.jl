@@ -16,7 +16,7 @@ mutable struct HPYLM{T}
     "Depth of the whole HPYLM"
     depth::UInt
     "Base probability for 0-grams, i.e. G_0(w)"
-    g0::Float64
+    G_0::Float64
     "Array of discount parameters indexed by depth+1. Note that in a HPYLM all PYPs of the same depth share the same parameters."
     d_array::Vector{Float64}
     "Array of concentration parameters indexed by depth+1. Note that in a HPYLM all PYPs of the same depth share the same parameters."
@@ -74,8 +74,8 @@ function get_stop_counts(hpylm::HPYLM{T})::UInt where T
 end
 
 # Really?
-function set_g0(hpylm::HPYLM, g0::Float64)
-    hpylm.g0 = g0
+function set_G_0(hpylm::HPYLM, G_0::Float64)
+    hpylm.G_0 = G_0
 end
 
 # TODO: Again, maybe we can do without this function.

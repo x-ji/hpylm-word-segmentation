@@ -8,7 +8,7 @@ In this case the HPYLM for characters is an infinite-gram model, different from 
 mutable struct CHPYLM
     #= Fields from the base HPYLM struct =#
     root::PYP
-    g0::Float64
+    G_0::Float64
     d_array::Vector{Float64}
     θ_array::Vector{Float64}
     depth::UInt
@@ -23,9 +23,9 @@ mutable struct CHPYLM
     parent_pw_cache::Vector{Float64}
     nodes::Vector{PYP}
 
-    function CHPYLM(g0::Float64, max_depth::UInt, beta_stop::Float64, beta_pass::Float64)
+    function CHPYLM(G_0::Float64, max_depth::UInt, beta_stop::Float64, beta_pass::Float64)
         chpylm = new()
-        @assert(g0 > 0)
+        @assert(G_0 > 0)
         # See if this representation of the empty char works.
         root = PYP{Char}('')
         # I think theoretically the depth of a tree does begin from 0?
@@ -33,7 +33,7 @@ mutable struct CHPYLM
         chpylm.beta_stop = beta_stop
         chpylm.beta_pass = beta_pass
         chpylm.depth = 0
-        chpylm.g0 = g0
+        chpylm.G_0 = G_0
         chpylm.max_depth = max_depth
         chpylm.parent_pw_cache = zeros(Float64, max_depth + 1)
         chpylm.sampling_table = zeros(Float64, max_depth + 1)
@@ -109,4 +109,23 @@ function find_node_by_tracking_back_context(chpylm::CHPYLM, characters::Vector{C
         @assert(cur_node.context == characters[t - depth])
     end
     return cur_node
+end
+
+function sample_depth_at_index_t(chpylm::CHPYLM, word::Vector{Char}, n::UInt, parent_p_w_cache::Vector{Float64}, path_nodes::Vector{PYP{Char}})
+    if (n == 1)
+        return 0
+    end
+    char_n = word[n]
+    sum = 0.0
+    parent_p_w = chpylm.G_0
+    parent_pass_probability = 1.0
+    parent_p_w_cache[1] = chpylm.G_0
+    sampling_table_size = 0
+    cur_node = chpylm.root
+    for depth in 0:n
+        if cur_node != nothing
+            @assert depth == cur_node.depth
+            # TODO: Finish this one after reading the infinite Markov model paper better.
+        end
+    end
 end

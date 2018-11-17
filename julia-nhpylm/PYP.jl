@@ -140,11 +140,11 @@ function find_child_pyp(pyp::PYP{T}, dish::T, generate_if_not_found::Bool)::Unio
 end
 
 # I think we won't need to duplicate the code. Just use a union type. Let's see if that works.
-function add_customer_to_table(pyp::PYP{T}, dish::T, table_index::UInt, g0_or_parent_pws::Union{Float64, Vector{Float64}}, d_array::Vector{Float64}, θ_array::Vector{Float64}, index_of_table_in_root::UInt)::Bool where T
+function add_customer_to_table(pyp::PYP{T}, dish::T, table_index::UInt, G_0_or_parent_pws::Union{Float64, Vector{Float64}}, d_array::Vector{Float64}, θ_array::Vector{Float64}, index_of_table_in_root::UInt)::Bool where T
     tablegroup = get(pyp.tablegroups, dish, nothing)
 
     if tablegroup == nothing
-        return add_customer_to_new_table(pyp, dish, g0_or_parent_pws, d_array, θ_array, index_of_table_in_root);
+        return add_customer_to_new_table(pyp, dish, G_0_or_parent_pws, d_array, θ_array, index_of_table_in_root);
     end
 
     # Guess it's just for debugging
@@ -156,10 +156,10 @@ function add_customer_to_table(pyp::PYP{T}, dish::T, table_index::UInt, g0_or_pa
     return true
 end
 
-function add_customer_to_new_table(pyp::PYP{T}, dish::T, g0_or_parent_pws::Union{Float64, Vector{Float64}}, d_array::Vector{Float64}, θ_array::Vector{Float64}, index_of_table_in_root::UInt)::Bool where T
+function add_customer_to_new_table(pyp::PYP{T}, dish::T, G_0_or_parent_pws::Union{Float64, Vector{Float64}}, d_array::Vector{Float64}, θ_array::Vector{Float64}, index_of_table_in_root::UInt)::Bool where T
     add_customer_to_new_table(pyp, dish)
     if pyp.parent != nothing
-        success = add_customer(dish, g0_or_parent_pws, d_array, θ_array, false, index_of_table_in_root)
+        success = add_customer(dish, G_0_or_parent_pws, d_array, θ_array, false, index_of_table_in_root)
         @assert(success == true)
     end
     return true;
@@ -207,25 +207,25 @@ end
 # Right, so d_array and θ_array are really the arrays that hold *all* hyperparameters for *all levels*
 # And then we're going to get the hyperparameters for this level, i.e. d_u and \theta_u from those arrays.
 # Another approach to do it, for sure.
-function add_customer(pyp::PYP{T}, dish::T, g0_or_parent_pws::Union{Float64, Vector{Float64}}, d_array::Vector{Float64}, θ_array::Vector{Float64}, update_beta_count::Bool, index_of_table_in_root::UInt)::Bool where T
+function add_customer(pyp::PYP{T}, dish::T, G_0_or_parent_pws::Union{Float64, Vector{Float64}}, d_array::Vector{Float64}, θ_array::Vector{Float64}, update_beta_count::Bool, index_of_table_in_root::UInt)::Bool where T
     init_hyperparameters_at_depth_if_needed(pyp.depth, d_array, θ_array)
     # Need to + 1 because by definition depth starts from 0 but array indexing starts from 1
     d_u = d_array[pyp.depth + 1]
     θ_u = θ_array[pyp.depth + 1]
     parent_pw::Float64 = 
-    if typeof(g0_or_parent_pws == Float64) 
+    if typeof(G_0_or_parent_pws == Float64) 
         if pyp.parent != nothing
-            compute_p_w(pyp.parent, dish, g0_or_parent_pws, d_array, θ_array)
+            compute_p_w(pyp.parent, dish, G_0_or_parent_pws, d_array, θ_array)
         else 
-            g0_or_parent_pws
+            G_0_or_parent_pws
         end
-    elseif typeof(g0_or_parent_pws == Vector{Float64})
-        g0_or_parent_pws[pyp.depth]
+    elseif typeof(G_0_or_parent_pws == Vector{Float64})
+        G_0_or_parent_pws[pyp.depth]
     end
 
     tablegroup = get(pyp.tablegroups, dish, nothing)
     if tablegroup == nothing
-        add_customer_to_new_table(dish, g0_or_parent_pws, d_array, θ_array, index_of_table_in_root)
+        add_customer_to_new_table(dish, G_0_or_parent_pws, d_array, θ_array, index_of_table_in_root)
         if (update_beta_count)
             increment_stop_count(pyp)
         end
@@ -252,7 +252,7 @@ function add_customer(pyp::PYP{T}, dish::T, g0_or_parent_pws::Union{Float64, Vec
         for k in 1:length(tablegroup)
             stack += max(0.0, tablegroup[k] - d_u) * normalizer
             if bernoulli <= stack
-                add_customer_to_table(dish, k, g0_or_parent_pws, d_array, θ_array, index_of_table_in_root)
+                add_customer_to_table(dish, k, G_0_or_parent_pws, d_array, θ_array, index_of_table_in_root)
                 if update_beta_count
                     increment_stop_count(pyp)
                 end
@@ -266,7 +266,7 @@ function add_customer(pyp::PYP{T}, dish::T, g0_or_parent_pws::Union{Float64, Vec
 
         # If we went through the whole loop but still haven't returned, we know that we should add it to a new table.
 
-        add_customer_to_new_table(pyp, dish, g0_or_parent_pws, d_array, θ_array, index_of_table_in_root)
+        add_customer_to_new_table(pyp, dish, G_0_or_parent_pws, d_array, θ_array, index_of_table_in_root)
 
         if update_beta_count
             increment_stop_count(pyp)
@@ -304,8 +304,8 @@ function remove_customer(pyp::PYP{T}, dish::T, update_beta_count::Bool, index_of
     end
 end
 
-# Note that I added a final Bool argument to indicate whether the thing is already parent_pw or is g0
-function compute_p_w(pyp::PYP{T}, dish::T, g0_or_parent_pw::Float64, d_array::Vector{Float64}, θ_array::Vector{Float64}, is_parent_pw::Bool) where T
+# Note that I added a final Bool argument to indicate whether the thing is already parent_pw or is G_0
+function compute_p_w(pyp::PYP{T}, dish::T, G_0_or_parent_pw::Float64, d_array::Vector{Float64}, θ_array::Vector{Float64}, is_parent_pw::Bool) where T
     init_hyperparameters_at_depth_if_needed(pyp.depth, d_array, θ_array)
     d_u = d_array[pyp.depth + 1]
     θ_u = θ_array[pyp.depth + 1]
@@ -315,19 +315,19 @@ function compute_p_w(pyp::PYP{T}, dish::T, g0_or_parent_pw::Float64, d_array::Ve
     if tablegroup == nothing
         coeff::Float64 = (θ_u + d_u * t_u) / (θ_u + c_u)
         if pyp.parent != nothing
-            return compute_p_w(pyp.parent, dish, g0_or_parent_pw, d_array, θ_array) * coeff
+            return compute_p_w(pyp.parent, dish, G_0_or_parent_pw, d_array, θ_array) * coeff
         else
-            return g0_or_parent_pw * coeff
+            return G_0_or_parent_pw * coeff
         end
     else
         parent_pw = 
         if is_parent_pw
-            g0_or_parent_pw
+            G_0_or_parent_pw
         else
             if pyp.parent != nothing
-                compute_p_w(pyp.parent, dish, g0_or_parent_pw, d_array, θ_array)
+                compute_p_w(pyp.parent, dish, G_0_or_parent_pw, d_array, θ_array)
             else
-                g0_or_parent_pw
+                G_0_or_parent_pw
             end
         end
         c_uw = sum(tablegroup)
