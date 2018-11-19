@@ -1,9 +1,11 @@
 # Beginning of sentence
 const BOS = 0
 const EOS = 1
-const BOW = 0
-# Why is this 2? To avoid conflicts with EOS?
-const EOW = 2
+# Just realized that these are probably not valid chars. Will need to change to some sort of char type
+# This should be fine? AFAIK the text in the corpora are all full-width. Let's see.
+# Or well just screw it. Why don't we use the two epsilons or something anyways
+const BOW = 'ϵ'
+const EOW = 'Ε'
 
 const HPYLM_INITIAL_d = 0.5
 const HPYLM_INITIAL_θ = 2.0

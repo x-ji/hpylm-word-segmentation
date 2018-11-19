@@ -304,7 +304,7 @@ function remove_customer(pyp::PYP{T}, dish::T, update_beta_count::Bool, index_of
     end
 end
 
-# Note that I added a final Bool argument to indicate whether the thing is already parent_pw or is G_0
+# Note that I added a final Bool argument to indicate whether the thing is already parent_pw or is G_0, so that I don't end up duplicating the  method.
 function compute_p_w(pyp::PYP{T}, dish::T, G_0_or_parent_pw::Float64, d_array::Vector{Float64}, θ_array::Vector{Float64}, is_parent_pw::Bool) where T
     init_hyperparameters_at_depth_if_needed(pyp.depth, d_array, θ_array)
     d_u = d_array[pyp.depth + 1]
@@ -501,7 +501,7 @@ end
 """
 Note that in expressions (40) and (41) of the technical report, the yui values are only used when they're summed. So we do the same here.
 """
-function sample_summed_y_ui(pyp::PYP{T}, d_u::Float64, θ_u::Float64, is_one_minus::Bool)::Float64 where T
+function sample_summed_y_ui(pyp::PYP{T}, d_u::Float64, θ_u::Float64, is_one_minus::Bool=false)::Float64 where T
     if pyp.ntables >= 2
         sum::Float64 = 0.0
         # The upper bound is (t_u. - 1)

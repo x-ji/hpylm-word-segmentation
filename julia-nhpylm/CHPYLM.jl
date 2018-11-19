@@ -5,13 +5,33 @@ Character Hierarchical Pitman-Yor Language Model
 
 In this case the HPYLM for characters is an infinite-gram model, different from that used for the words.
 """
-mutable struct CHPYLM
+mutable struct CHPYLM{T} <: HPYLM{T}
     #= Fields from the base HPYLM struct =#
-    root::PYP
-    G_0::Float64
-    d_array::Vector{Float64}
-    θ_array::Vector{Float64}
+    "Root PYP which has no context"
+    root::PYP{T}
+    "Depth of the whole HPYLM"
     depth::UInt
+    "Base probability for 0-grams, i.e. G_0(w)"
+    G_0::Float64
+    "Array of discount parameters indexed by depth+1. Note that in a HPYLM all PYPs of the same depth share the same parameters."
+    d_array::Vector{Float64}
+    "Array of concentration parameters indexed by depth+1. Note that in a HPYLM all PYPs of the same depth share the same parameters."
+    θ_array::Vector{Float64}
+
+    #=
+    These variables are related to the sampling process as described in the Teh technical report, expressions (40) and (41)
+
+    Note that they do *not* directly correspond to the alpha, beta parameters of a Beta distribution, nor the shape and scale parameters of a Gamma distribution.
+    =#
+    "For the sampling of discount d"
+    a_array::Vector{Float64}
+    "For the sampling of discount d"
+    b_array::Vector{Float64}
+    "For the sampling of concentration θ"
+    α_array::Vector{Float64}
+    "For the sampling of concentration θ"
+    β_array::Vector{Float64}
+    #= End fields from HPYLM =#
 
     #= Fields specific to CHPYLM =#
     beta_stop::Float64
@@ -21,13 +41,14 @@ mutable struct CHPYLM
     # Used for high-speed computation
     sampling_table::Vector{Float64}
     parent_pw_cache::Vector{Float64}
-    nodes::Vector{PYP}
+    nodes::Vector{PYP{T}}
 
+    #= Constructor =#
     function CHPYLM(G_0::Float64, max_depth::UInt, beta_stop::Float64, beta_pass::Float64)
         chpylm = new()
         @assert(G_0 > 0)
-        # See if this representation of the empty char works.
-        root = PYP{Char}('')
+        # The point is just that the root node doesn't have any context, naturally, so this one should be a character that's never occurring?
+        root = PYP{Char}(BOW)
         # I think theoretically the depth of a tree does begin from 0?
         root.depth = 0
         chpylm.beta_stop = beta_stop
@@ -111,7 +132,7 @@ function find_node_by_tracking_back_context(chpylm::CHPYLM, characters::Vector{C
     return cur_node
 end
 
-function sample_depth_at_index_t(chpylm::CHPYLM, word::Vector{Char}, n::UInt, parent_p_w_cache::Vector{Float64}, path_nodes::Vector{PYP{Char}})
+function sample_depth_at_index_n(chpylm::CHPYLM, word::Vector{Char}, n::UInt, parent_p_w_cache::Vector{Float64}, path_nodes::Vector{PYP{Char}})
     if (n == 1)
         return 0
     end

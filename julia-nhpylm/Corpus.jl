@@ -53,10 +53,24 @@ mutable struct Sentence
     """
     The individual characters that make up this sentence
 
-    I wonder if you still need them if you already have the string itself though. In Julia maybe not.
+    You may well still need them in Julia, since in Julia the string indices are byte indices, not real character indices. For example:
+
+    ```
+    > a = "我们"
+    > a[1]
+    '我': Unicode U+6211 (category Lo: Letter, other)
+    > a[2]
+    ERROR: StringIndexError("我们", 2)
+    > a[4]
+    '们': Unicode U+4eec (category Lo: Letter, other)
+
+    Although of course we can directly iterate the string with `for c in a`. Maybe that will make for a more idiomatic solution in Julia. Let me see if I can refactor the code that way later then.
+    ```
+
+    Therefore, we can't do much with the sentence_string by trying to directly index-access it!
     """
-    # characters::Vector{Char}
-    "The corresponding integer representations of the words"
+    characters::Vector{Char}
+    "The corresponding integer representations of the words. This includes both bos (2) and eos (1)"
     word_ids::Vector{UInt}
     "The string that makes up the sentence"
     sentence_string::String
@@ -64,6 +78,7 @@ mutable struct Sentence
         s = new()
 
         s.sentence_string = sentence_string
+        s.characters = Vector{Char}(sentence_string)
         s.word_ids = zeros(UInt, length(sentence_string) + 3)
         s.segments_lengths = zeros(UInt, length(sentence_string) + 3)
         s.segment_starting_positions = zeros(UInt, length(sentence_string) + 3)

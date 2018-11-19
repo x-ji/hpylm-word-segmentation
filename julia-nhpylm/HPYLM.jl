@@ -8,41 +8,11 @@ In the C++ code it's actually the base class for both CHPYLM and WHPYLM.
 
 Here I can either go with composition just as what I did with CRP or do the duplication work. Unfortunately fields in abstract types are still not supported yet. 
 See: https://github.com/JuliaLang/julia/issues/4935
+
+Therefore two copies of the fields exist in WHPYLM and CHPYLM structs, respectivelj
 """
 # I can still write out the code first. Refactoring is not that hard.
-mutable struct HPYLM{T}
-    "Root PYP which has no context"
-    root::PYP{T}
-    "Depth of the whole HPYLM"
-    depth::UInt
-    "Base probability for 0-grams, i.e. G_0(w)"
-    G_0::Float64
-    "Array of discount parameters indexed by depth+1. Note that in a HPYLM all PYPs of the same depth share the same parameters."
-    d_array::Vector{Float64}
-    "Array of concentration parameters indexed by depth+1. Note that in a HPYLM all PYPs of the same depth share the same parameters."
-    θ_array::Vector{Float64}
-
-    #=
-    These variables are related to the sampling process as described in the Teh technical report, expressions (40) and (41)
-
-    Note that they do *not* directly correspond to the alpha, beta parameters of a Beta distribution, nor the shape and scale parameters of a Gamma distribution.
-    =#
-    "For the sampling of discount d"
-    a_array::Vector{Float64}
-    "For the sampling of discount d"
-    b_array::Vector{Float64}
-    "For the sampling of concentration θ"
-    α_array::Vector{Float64}
-    "For the sampling of concentration θ"
-    β_array::Vector{Float64}
-
-    function HPYLM(dataset::Dataset, max_word_length::UInt)
-        hpylm = new()
-        # Is this necessary?
-        set_locale(hpylm)
-        max_sentence_length = get_max_sentence_length(dataset)
-    end
-end
+abstract type HPYLM{T} end
 
 # TODO: This function seems to be unnecessary in Julia. Let's see.
 # function delete_node(hpylm::HPYLM, pyp::PYP)
@@ -52,24 +22,24 @@ end
 #     delete!(hpylm, pyp)
 # end
 
-function get_num_nodes(hpylm::HPYLM{T})::UInt where T
+function get_num_nodes(hpylm::HPYLM)::UInt where T
     # The root node itself is not included in this recursive algorithm which counts the number of children of a node.
     return get_num_nodes(hpylm.root) + 1
 end
 
-function get_num_tables(hpylm::HPYLM{T})::UInt where T
+function get_num_tables(hpylm::HPYLM)::UInt where T
     return get_num_tables(hpylm.root)
 end
 
-function get_num_customers(hpylm::HPYLM{T})::UInt where T
+function get_num_customers(hpylm::HPYLM)::UInt where T
     return get_num_customers(hpylm.root)
 end
 
-function get_pass_counts(hpylm::HPYLM{T})::UInt where T
+function get_pass_counts(hpylm::HPYLM)::UInt where T
     get_pass_counts(hpylm.root)
 end
 
-function get_stop_counts(hpylm::HPYLM{T})::UInt where T
+function get_stop_counts(hpylm::HPYLM)::UInt where T
     get_stop_counts(hpylm.root)
 end
 
@@ -112,9 +82,27 @@ function init_hyperparameters_at_depth_if_needed(hpylm::HPYLM, depth::UInt)
     end
 end
 
-# TODO: Finish this function
-function sum_auxiliary_variables_recursively()
-    
+# The `bottom` here was a reference in the C++ code.
+# This one sums up all values of a auxiliary variable on the same depth into one variable.
+function sum_auxiliary_variables_recursively(hpylm::HPYLM, node::PYP{T}, sum_log_x_u_array::Vector{Float64}, sum_y_ui_array::Vector{Float64}, sum_one_minus_y_ui_array::Vector{Float64}, sum_one_minus_z_uwkj_array::Vector{Float64}, bottom::UInt) where T
+    for child in node.children
+        depth = child.depth
+        if depth > bottom
+            bottom = depth
+        end
+        init_hyperparameters_at_depth_if_needed(hpylm, depth)
+
+        d = hpylm.d_array[depth]
+        θ = hpylm.θ_array[depth]
+        sum_log_x_u_array[depth] += sample_log_x_u(node, θ)
+        sum_y_ui_array[depth] += sample_summed_y_ui(node, d, θ, false)
+        # true means is_one_minus
+        sum_one_minus_y_ui_array[depth] += sample_summed_y_ui(node, d, θ, true)
+        sum_one_minus_z_uwkj_array[depth] += sample_summed_one_minus_z_uwkj(node, d)
+
+        # The bottom should be a locally modified reference I hope, so that the results still turn out correct. Let's see.
+        sum_auxiliary_variables_recursively(child, sum_log_x_u_array, sum_y_ui_array, sum_one_minus_y_ui_array, sum_one_minus_z_uwkj_array, bottom)
+    end
 end
 
 function sample_hyperparameters(hpylm::HPYLM)
