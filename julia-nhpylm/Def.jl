@@ -22,3 +22,5 @@ const CHPYLM_ϵ = 1e-12
 
 # TODO: Expand upon this later, if necessary
 const NUM_WORD_TYPES = 1
+
+# Will need to create a zero-indexed array to fully support some use cases, e.g. where the depth of a tree starts from 0.

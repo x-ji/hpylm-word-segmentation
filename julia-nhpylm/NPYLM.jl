@@ -359,27 +359,27 @@ function compute_log_probability_of_sentence(npylm::NPYLM, sentence::Sentence)
 end
 
 # Do we really need two versions of this function. Apparently one would suffice?
-function compute_probability_of_sentence(sentence::Sentence)
+function compute_probability_of_sentence(npylm::NPYLM, sentence::Sentence)
     prod = 0.0
     for n in 3:sentence.num_segments
-        prod *= compute_p_w_of_nth_word(sentence, n)
+        prod *= compute_p_w_of_nth_word(npylm, sentence, n)
     end
     return prod
 end
 
 # This is the real "compute_p_w"... The above ones don't have much to do with p_w I reckon. They are about whole sentences. Eh.
-function compute_p_w_of_nth_word(npylm::NPYLM, sentence_as_chars::Vector{Char}, n::UInt)
-    word_begin_index = sentence_as_chars.segment_starting_positions[n]
+function compute_p_w_of_nth_word(npylm::NPYLM, sentence::Sentence, n::UInt)
+    word_begin_index = sentence.segment_starting_positions[n]
     # I mean, why don't you just record the end index directly anyways. The current implementation is such a torture.
-    word_end_index = word_begin_index + sentence_as_chars.segment_lengths[n] - 1
-    return compute_p_w_of_nth_word(npylm, sentence_as_chars.sentence_string, sentence_as_chars.word_ids, sentence_as_chars.num_segments, n, word_begin_index, word_end_index)
+    word_end_index = word_begin_index + sentence.segment_lengths[n] - 1
+    return compute_p_w_of_nth_word(npylm, sentence.characters, sentence.word_ids, sentence.num_segments, n, word_begin_index, word_end_index)
 end
 
-function compute_p_w_of_nth_word(npylm::NPYLM, sentence_string::String, word_ids::Vector{UInt}, n::UInt, word_begin_index::UInt, word_end_index::UInt)
+function compute_p_w_of_nth_word(npylm::NPYLM, sentence_as_chars::String, word_ids::Vector{UInt}, n::UInt, word_begin_index::UInt, word_end_index::UInt)
     word_id = word_ids[n]
     
     # generate_if_not_found = false, return_middle_node = true
-    node = find_node_by_tracing_back_context_from_index_n(npylm, sentence_string, word_ids, n, word_begin_index, word_end_index, npylm.whpylm_parent_p_w_cache, false, true)
+    node = find_node_by_tracing_back_context_from_index_n(npylm, sentence_as_chars, word_ids, n, word_begin_index, word_end_index, npylm.whpylm_parent_p_w_cache, false, true)
     parent_pw = npylm.whpylm_parent_p_w_cache[node.depth]
     # The final `true` indicates that it's the with_parent_p_w variant of the function
     return compute_p_w(node, word_id, parent_pw, npylm.whpylm.d_array, npylm.whpylm.θ_array, true)

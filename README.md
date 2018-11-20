@@ -16,6 +16,7 @@ To run the program (with Julia version >= 1.0):
     Pkg.add("StatsBase")
     Pkg.add("SpecialFunctions")
     Pkg.add("Distributions")
+    Pkg.add("OffsetArrays")
     Pkg.build("Arpack")
     ```
 3. Run `include("HPYLM.jl")`

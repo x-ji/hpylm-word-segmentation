@@ -89,6 +89,7 @@ mutable struct Sentence
         s.word_ids[3] = get_substr_word_id(1, length(sentence_string))
         s.word_ids[4] = EOS
 
+        # Of course the lengths of BOS and EOS etc. are all 1.
         s.segment_lengths[1] = 1
         s.segment_lengths[2] = 1
         s.segment_lengths[3] = length(sentence_string)
