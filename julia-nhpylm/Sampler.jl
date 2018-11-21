@@ -58,10 +58,20 @@ mutable struct Sampler
     end
 end
 
+# I'm not totally sure if this is still needed in Julia. Let's first see how it goes then.
+function extend_capacity(sampler::Sampler, max_word_length::UInt, max_sentence_length::UInt)
+    # If the existing capacity is already good enough then no need to extend
+    if (max_word_length <= sampler.max_word_length && max_sentence_length <= sampler.max_sentence_length)
+        return
+    else
+        allocate_capacity(sampler, max_word_length, max_sentence_length)
+    end
+end
+
 function allocate_capacity(sampler::Sampler, max_word_length::UInt, max_sentence_length::UInt)
     sampler.max_word_length = max_word_length
     sampler.max_sentence_length = max_sentence_length
-    # Size of what
+    # Size of arrays that contain the various values. Because we need to take care of situations involving BOS, the size of such arrays should be 1 longer than only the max_sentence_length
     size = max_sentence_length + 1
     sampler.log_z = Vector{Float64}(undef, size)
     sampler.scaling_coefficients = Vector{Float64}(undef, size)

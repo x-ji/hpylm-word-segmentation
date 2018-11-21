@@ -89,11 +89,12 @@ function produce_word_with_bow_and_eow(sentence_as_chars::Vector{Char}, word_beg
 end
 
 
-function reserve(npylm::NPYLM, max_sentence_length::UInt)
+function extend_capacity(npylm::NPYLM, max_sentence_length::UInt)
     if (max_sentence_length <= npylm.max_sentence_length)
         return
+    else
+        allocate_capacity(npylm, max_sentence_length)
     end
-    allocate_capacity(npylm, max_sentence_length)
 end
 
 function allocate_capacity(npylm::NPYLM, max_sentence_length::UInt)

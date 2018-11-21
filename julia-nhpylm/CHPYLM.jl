@@ -62,12 +62,12 @@ mutable struct CHPYLM{T} <: HPYLM{T}
         # The values should be uninitialized at this point.
         chpylm.nodes = Array(PYP{Char}, max_depth + 1)
 
-        chpylm.d_array = OffsetVector{Float64}[]
-        chpylm.θ_array = OffsetVector{Float64}[]
-        chpylm.a_array = OffsetVector{Float64}[]
-        chpylm.b_array = OffsetVector{Float64}[]
-        chpylm.α_array = OffsetVector{Float64}[]
-        chpylm.β_array = OffsetVector{Float64}[]
+        chpylm.d_array = OffsetVector{Float64}(undef, 0:0)
+        chpylm.θ_array = OffsetVector{Float64}(undef, 0:0)
+        chpylm.a_array = OffsetVector{Float64}(undef, 0:0)
+        chpylm.b_array = OffsetVector{Float64}(undef, 0:0)
+        chpylm.α_array = OffsetVector{Float64}(undef, 0:0)
+        chpylm.β_array = OffsetVector{Float64}(undef, 0:0)
     end
 end
 

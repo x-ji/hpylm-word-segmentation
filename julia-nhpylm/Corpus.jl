@@ -154,13 +154,37 @@ function Base.show(io::IO, s::Sentence)
     end
 end
 
-# TODO: Write out the split methods
-function split(segments_without_special_tokens::Vector{UInt}, num_segments_without_special_tokens::UInt)
-    
+# This method is to split the sentence using an already calculated segment_lengths vector, which contains the lengths of each segment.
+# Note that the segment_lengths array is without containing any BOS or EOS tokens.
+function split(sentence::Sentence, segment_lengths::Vector{UInt})
+    num_segments_without_special_tokens = length(segment_lengths)
+    cur_start = 1
+    index = 1
+    while index < num_segments_without_special_tokens
+        cur_length = segment_lengths[index]
+        sentence.segment_lengths[index + 2] = cur_length
+        sentence.word_ids[index + 2] = get_substr_word_id(sentence, cur_start, cur_start + cur_length - 1)
+        sentence.segment_starting_positions[index + 2] = cur_start
+        cur_start += cur_length
+        index += 1
+    end
+    # Also need to take care of EOS now that the actual string ended.
+    sentence.segment_lengths[index + 2] = 1
+    sentence.word_ids[index + 2] = EOS
+    # So the EOS token is considered to be a part of the last word?
+    sentence.segment_starting_positions[index + 2] = sentence.segment_starting_positions[index + 1]
+    index += 1
+    # Yeah we did initialize the lengths of those things to be length(sentence_string) + 3, but weren't they initialized to 0s from the very beginning?
+    # for n in index:length(sentence.sentence_string)
+    #     sentence.segment_lengths[n + 2] = 0
+    #     sentence.segment_starting_positions[n + 2] = 0
+    # end
+    sentence.num_segments = num_segments_without_special_tokens + 3
 end
 
 # TODO: Apparently he wrote a custom hash function for the words? Might try to directly feed in strings instead of their hashes and see how the memory cost goes.
 # Or just use the built-in hash method if we're to keep the original structure. I'm pretty sure that all the words in a language is not going to break the hashing process.
+"Get the word id of the substring with start_index and end_index. Note that in Julia the end_index is inclusive."
 function get_substr_word_id(s::Sentence, start_index::UInt, end_index::UInt)
     return hash(s.sentence_string[start_index:end_index])
 end
@@ -168,7 +192,6 @@ end
 function get_substr(s::Sentence, start_index::UInt, end_index::UInt)
     return s.sentence_string[start_index:end_index]
 end
-
 
 #= End Sentence =#
 
