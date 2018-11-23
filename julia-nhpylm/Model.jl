@@ -68,13 +68,13 @@ function segment_sentence(model::Model, sentence_string::String)::Vector{String}
     sentence = Sentence(sentence_string)
     # I don't really get the difference between the viterbi_ methods and the normal methods. Is it the case that the viterbi_ methods just do the segmentation directly without trying to further train the model? A bit weird indeed. Let's see further.
     viterbi_decode(model.sampler, sentence, segment_lengths)
-    # This method is so fucking insane. Why not print out the sentences immediately anyways. What the fuck.
+    # This method is so insane. Why not print out the sentences immediately anyways. 
     # split(sentence, segment_lengths)
     
     # Skip the first two BOS in the sentence.
     # start_index = 3
 
-    # No I mean, seriously, what the hell is the problem of directly trying to access the actual strings from the original sentence_string??? Fuck off.
+    # No I mean, seriously, what the hell is the problem of directly trying to access the actual strings from the original sentence_string???
     start_index = 1
     for (index, length) in enumerate(segment_lengths)
         word = sentence_string[start_index, start_index + length - 1]

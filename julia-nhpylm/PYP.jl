@@ -20,20 +20,28 @@ end
 Each node is essentially a Pitman-Yor process in the hierarchical Pitman-Yor language model
 
 We use a type parameter because it can be either for characters (Char) or for words (String/Int?)
+
+The root PYP (depth 0) contains zero context. The deeper the depth, the longer the context.
 """
 mutable struct PYP{T}
-    "Directly keep track of the children PYPs"
-    children::Dict{T, PYP}
+    """
+    Directly keep track of the children PYPs.
+
+    The key in the Dict is the *additional* context to be *prepended to* the context up to now represented by this PYP.
+
+    For example, when the current node represents the 1-gram context "will", the keys might be "he" or "she", etc., leading to nodes representing the 2-gram contexts "he will", "she will" etc.
+    """
+    children::Dict{T, PYP{T}}
 
     "Directly keep track of the parent PYP"
     parent::Union{Nothing, PYP{T}}
 
     """
-    `tablegroups` is a `Dict` that groups the tables by the dish served. The key of the `Dict` is the dish, and the value of the `Dict` is an array which contains the customer count for each individual table in this table group.
+    `tablegroups` is a `Dict` that groups the tables by the dish served. The key of the `Dict` is the dish, and the value of the `Dict` is a tablegroup, more specifically, an array which contains the customer count for each individual table in this table group.
 
-    In this model, each table serves only one dish, i.e. the draw of the word that follows the context ``G_u``. However, multiple tables might serve *the same dish*, i.e. a future draw might come up with the same word as a previous draw.
+    In this model, each table serves only one dish, i.e. the draw of that word that follows the previous context ``G_u``. However, multiple tables might serve *the same dish*, i.e. a future draw might come up with the same word as a previous draw.
 
-    The count should be unsigned anyways.
+    This is why we need a Vector to contain all those different tables serving this same dish (key)
     """
     tablegroups::Dict{T,Vector{UInt}}
 
@@ -74,7 +82,17 @@ mutable struct PYP{T}
     """
     depth::UInt
 
-    "Each PYP corresponds to a particular context."
+    """
+    Each PYP represents a particular context.
+    
+    For the root node the context is ϵ.
+
+    Only the context char/word *at this level* is stored in this struct. To construct the complete context corresponding to this PYP, we'll have to trace all the way up to the root.
+
+    For example, a depth-2 node might store "she", while its parent, a depth-1 node, stores "will", whose parent, the root (depth-0) node, stores ϵ.
+
+    Then, the complete context will be the 2-gram "she will".
+    """
     context::T
 
     function PYP(context::T)
@@ -295,7 +313,7 @@ function remove_customer(pyp::PYP{T}, dish::T, update_beta_count::Bool)::Tuple{B
         stack += tablegroup[k] * normalizer
         if bernoulli <= stack
             # Does it really need to keep track of the exact index of the table in root?
-            (_, index_of_table_in_root) = remove_customer_from_table(dish, k)
+            (_, index_of_table_in_root) = remove_customer_from_table(pyp, dish, k)
             if update_beta_count
                 decrement_stop_count(pyp)
             end
