@@ -143,7 +143,7 @@ end
 """
 Find the child PYP whose context is the given dish
 """
-function find_child_pyp(pyp::PYP{T}, dish::T, generate_if_not_found::Bool)::Union{Nothing, PYP{T}} where T
+function find_child_pyp(pyp::PYP{T}, dish::T, generate_if_not_found::Bool=false)::Union{Nothing, PYP{T}} where T
     result = get(pyp.children, dish, nothing)
     if result == nothing && generate_if_not_found
         child = PYP(dish)
@@ -326,7 +326,12 @@ function remove_customer(pyp::PYP{T}, dish::T, update_beta_count::Bool)::Tuple{B
 end
 
 # Note that I added a final Bool argument to indicate whether the thing is already parent_pw or is G_0, so that I don't end up duplicating the  method.
-function compute_p_w(pyp::PYP{T}, dish::T, G_0_or_parent_pw::Float64, d_array::Vector{Float64}, θ_array::Vector{Float64}, is_parent_pw::Bool) where T
+"""
+Compute the possibility of the word/char `dish` being generated from this pyp (i.e. having this pyp as its context)
+
+When is_parent_pw == True, the third argument is the parent_p_w. Otherwise it's simply the G_0.
+"""
+function compute_p_w(pyp::PYP{T}, dish::T, G_0_or_parent_pw::Float64, d_array::Vector{Float64}, θ_array::Vector{Float64}, is_parent_pw::Bool=false) where T
     init_hyperparameters_at_depth_if_needed(pyp.depth, d_array, θ_array)
     d_u = d_array[pyp.depth + 1]
     θ_u = θ_array[pyp.depth + 1]

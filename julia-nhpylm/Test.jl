@@ -8,3 +8,13 @@ mutable struct A
         return a
     end
 end
+
+function test(a::UInt)
+    b = a
+    b += 1
+end
+
+function test(a::UInt, b::UInt)
+    c = a + b
+    c += 1
+end

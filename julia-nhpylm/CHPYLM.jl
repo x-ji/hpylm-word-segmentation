@@ -1,5 +1,6 @@
 include("PYP.jl")
 using OffsetVector
+using StatsBase
 
 """
 Character Hierarchical Pitman-Yor Language Model 
@@ -50,8 +51,8 @@ mutable struct CHPYLM{T} <: HPYLM{T}
     "This essentially corresponds to the maximum word length L specified during training"
     max_depth::UInt
     # Used for high-speed computation
-    sampling_table::Vector{Float64}
-    parent_pw_cache::Vector{Float64}
+    sampling_table::OffsetVector{Float64}
+    parent_pw_cache::OffsetVector{Float64}
     nodes::Vector{PYP{T}}
 
     #= Constructor =#
@@ -67,8 +68,10 @@ mutable struct CHPYLM{T} <: HPYLM{T}
         chpylm.depth = 0
         chpylm.G_0 = G_0
         chpylm.max_depth = max_depth
-        chpylm.parent_pw_cache = zeros(Float64, max_depth + 1)
-        chpylm.sampling_table = zeros(Float64, max_depth + 1)
+        # chpylm.parent_pw_cache = zeros(Float64, max_depth + 1)
+        chpylm.parent_pw_cache = OffsetVector{Float64}(undef, 0:max_depth)
+        # chpylm.sampling_table = zeros(Float64, max_depth + 1)
+        chpylm.sampling_table = OffsetVector{Float64}(undef, 0:max_depth)
         # The values should be uninitialized at this point.
         chpylm.nodes = Array(PYP{Char}, max_depth + 1)
 
@@ -122,7 +125,7 @@ The sampling process for the infinite Markov model is similar to that of the nor
 
 This function removes the customer
 """
-# Though why does the depth need to be passed in separately a kind of baffles me. Can't we directly fetch the depth just during this process? What does this even mean idneed we can definitely do better I guess. All thoasdfoa;sdf. Toa ;sdl taosdf; tasd.
+# Though why does the depth need to be passed in separately a kind of baffles me.
 function remove_customer_at_index_n(chpylm::CHPYLM, characters::Vector{Char}, n::UInt, depth::UInt)::Tuple{Bool,UInt}
     @assert(0 <= depth && depth <= n)
     node::PYP{Char} = find_node_by_tracing_back_context(characters, n, depth, false, false)
@@ -141,29 +144,30 @@ function remove_customer_at_index_n(chpylm::CHPYLM, characters::Vector{Char}, n:
     return (true, 0)
 end
 
-# OK from what I see here the "n" looks more like the ending index or the span or something. Let's see further.
-# Seems to me that the characters vector is really in reverse order? Otherwise it makes no sense that as we go deeper we actually decrease the index.
-# TODO: Don't think I've fully understood this one. Still haven't cracked it yet keep going.
 """
-This function finds the node of the suffix tree that contains the `n`th customer, whose order is `depth`.
+For the nth customer, this function finds the node with depth `depth_of_n` in the suffix tree.
+The found node contains the correct contexts of length `depth_of_n` for the nth customer.
 
 Example:
 [h,e,r, ,n,a,m,e]
 n = 3
-depth = 2
-We retrace from "r" and get "h"
+depth_of_n = 2
+
+The customer is "r". With a `depth_of_n` of 2, We should get the node for "h".
+When we connect the node all the way up, we can reconstruct the full 2-gram context "h-e-" that is supposed to have generated the customer "r".
 
 This version is used during `remove_customer`.
 """
-function find_node_by_tracing_back_context(chpylm::CHPYLM, characters::Vector{Char}, n::UInt, depth::UInt, generate_if_not_found::Bool, return_cur_node_if_not_found::Bool)::Union{Nothing,PYP{Char}}
-    # Impossible situation?
-    if n < depth
+# TODO: Try to reduce code duplication as much as possible here.
+function find_node_by_tracing_back_context(chpylm::CHPYLM, characters::Vector{Char}, n::UInt, depth_of_n::UInt, generate_if_not_found::Bool, return_cur_node_if_not_found::Bool)::Union{Nothing,PYP{Char}}
+    # This situation makes no sense, otherwise we'll go straight out of the start of the word.
+    if n < depth_of_n
         return nothing
     end
 
     # Note that we start from the root.
     cur_node = chpylm.root
-    for d in 1:depth
+    for d in 1:depth_of_n
         context::Char = characters[n - d]
         # Find the child pyp whose context is the given context
         child::Union{Nothing, PYP{Char}} = find_child_pyp(cur_node, context, generate_if_not_found)
@@ -181,49 +185,201 @@ function find_node_by_tracing_back_context(chpylm::CHPYLM, characters::Vector{Ch
 
     # The search has ended for the whole depth.
     # In this situation the cur_node should have the same depth as the given depth.
-    @assert(cur_node.depth == depth)
-    if depth > 0
-        @assert(cur_node.context == characters[n - depth])
+    @assert(cur_node.depth == depth_of_n)
+    if depth_of_n > 0
+        @assert(cur_node.context == characters[n - depth_of_n])
     end
     return cur_node
 end
 
 """
-This function finds the node of the suffix tree that contains the `n`th customer, whose order is `depth`.
+For the nth customer, this function finds the node with depth `depth_of_n` in the suffix tree.
+The found node contains the correct contexts of length `depth_of_n` for the nth customer.
 
 Example:
 [h,e,r, ,n,a,m,e]
 n = 3
-depth = 2
-We retrace from "r" and get "h"
+depth_of_n = 2
 
-This version is used during `add_customer`.
+The customer is "r". With a `depth_of_n` of 2, We should get the node for "h".
+When we connect the node all the way up, we can reconstruct the full 2-gram context "h-e-" that is supposed to have generated the customer "r".
 
-Cache the probabilities during the tracing.
+This version is used during `add_customer`. It cachees the probabilities of generating the nth customer at each level of the tree, during the tracing.
 """
-function find_node_by_tracing_back_context(chpylm::CHPYLM, characters::Vector{Char}, n::UInt, depth::UInt, parent_p_w_cache::Vector{Float64})::Union{Nothing,PYP{Char}}
-    if n < depth
+# TODO: The use of parent_p_w_cache is confusing. Either keep it as a field or always operate on it as an external variable, eh?
+function find_node_by_tracing_back_context(chpylm::CHPYLM, characters::Vector{Char}, n::UInt, depth_of_n::UInt, parent_p_w_cache::OffsetVector{Float64})::Union{Nothing,PYP{Char}}
+    # This situation makes no sense, otherwise we'll go straight out of the start of the word.
+    if n < depth_of_n
         return nothing
     end
 
+    # The actual char at location n of the sentence
+    char_n = characters[n]
+
+    # Start from the root node, order 0
+    cur_node = chpylm.root
+    parent_p_w = chpylm.G_0
+    parent_p_w_cache[0] = parent_p_w
+    for depth in 1:depth_of_n
+        # What is the possibility of char_n being generated from cur_node (i.e. having cur_node as its context).
+        p_w = compute_p_w(cur_node, char_n, parent_p_w, chpylm.d_array, chpylm.θ_array, true)
+        parent_p_w_cache[depth] = p_w
+
+        # The context `depth`-order before the target char
+        context_char = characters[n - depth]
+        # We should be able to find the PYP containing that context char as a child of the current node. If it doesn't exist yet, create it.
+        child = find_child_pyp(cur_node, context_char, true)
+        parent_p_w = p_w
+        cur_node = child
+    end
+    return cur_node
 end
 
+function find_node_by_tracing_back_context(chpylm::CHPYLM, characters::Vector{Char}, n::UInt, depth_of_n::UInt, path_nodes_cache::Vector{PYP{Char}})::Union{Nothing,PYP{Char}}
+    # This situation makes no sense, otherwise we'll go straight out of the start of the word.
+    if n < depth_of_n
+        return nothing
+    end
+    cur_node = chpylm.root
+    for depth in 1:depth_of_n
+        if path_nodes_cache[depth] != nothing
+            cur_node = path_nodes_cache[depth]
+        else
+            context_char = characters[n - depth]
+            child = find_child_pyp(cur_node, context_char, true)
+            cur_node = child
+        end
+    end
+    return cur_node
+end
 
-function sample_depth_at_index_n(chpylm::CHPYLM, word::Vector{Char}, n::UInt, parent_p_w_cache::Vector{Float64}, path_nodes::Vector{PYP{Char}})
+function compute_p_w(chpylm::CHPYLM, characters::Vector{Char})
+    return exp(compute_log_p_w(chpylm, characters))
+end
+
+# It seems to have been mentioned that this is a relatively inefficient way to do so. Maybe we can do better?
+function compute_log_p_w(chpylm::CHPYLM, characters::Vector{Char})
+    char = characters[1]
+    log_p_w = 0.0
+    # I still haven't fully wrapped my head around the inclusions and exclusions of BOS, EOS, BOW, EOW, etc. Let's see how this works out though.
+    if char != BOW
+        log_p_w += log(compute_p_w(chpylm.root, char, chpylm.G_0, chpylm.d_array, chpylm.θ_array, false))
+    end
+
+    for n in 2:length(characters)
+        # I sense that the way this calculation is written is simply not very efficient. Surely we can do better than this?
+        log_p_w += log(compute_p_w_given_h(characters, 0, n))
+    end
+end
+
+"Compute the probability of generating the character `characters[end + 1]` with `characters[begin:end]` as the context."
+# TODO: Improve the efficiency of these calls.
+function compute_p_w_given_h(chpylm::CHPYLM, characters::Vector{Char}, context_begin::UInt, context_end::UInt)
+    target_char = characters[context_end + 1]
+    return compute_p_w_given_h(target_char, characters, context_begin, context_end)
+end
+
+function compute_p_w_given_h(chpylm::CHPYLM, target_char::Char, characters::Vector{Char}, context_begin::UInt, context_end::UInt)
+    cur_node = chpylm.root
+    parent_pass_probability = 1.0
+    p = 0.0
+    # We start from the root of the tree.
+    parent_p_w = chpylm.G_0
+    p_stop = 1.0
+    depth = 0
+
+    # There might be calculations that result in depths greater than the actual context length.
+    while (p_stop > CHPYLM_ϵ)
+        # If there is no node yet, use the Beta prior to calculate
+        if cur_node == nothing
+            p_stop = (chpylm.beta_stop) / (chpylm.beta_pass + chpylm.beta_stop) * parent_pass_probability
+            p += parent_p_w * p_stop
+            parent_pass_probability *= (chpylm.beta_pass) / (chpylm.beta_pass + chpylm.beta_stop)
+        else
+            p_w = compute_p_w(cur_node, target_char, parent_p_w, chpylm.d_array, chpylm.θ_array, true)
+            p_stop = stop_probability(cur_node, chpylm.beta_stop, chpylm.beta_pass, false) * parent_pass_probability
+            p += p_w * p_stop
+            parent_pass_probability *= pass_probability(cur_node, chpylm.beta_stop, chpylm.beta_pass, false)
+            parent_p_w = p_w
+
+            # Preparation for the next round.
+            # We do this only in the else branch because if the cur_node is already `nothing`, it will just keep being `nothing` from then onwards.
+            # We've already gone so deep that the depth is greater than the actual context length. Of course there's no next node at such a depth.
+            # Note that this operation is with regards to the next node, thus the + 1 on the left hand side.
+            if depth + 1 >= context_end - context_begin + 1
+                cur_node = nothing
+            else
+                cur_context_char = characters[context_end - depth]
+                child = find_child_pyp(cur_node, cur_context_char)
+                cur_node = child
+            end
+        end
+        depth += 1
+    end
+    return p
+end
+
+function sample_depth_at_index_n(chpylm::CHPYLM, characters::Vector{Char}, n::UInt, parent_p_w_cache::OffsetVector{Float64}, path_nodes::Vector{PYP{Char}})
+    # The first character should always be the BOW
     if (n == 1)
         return 0
     end
-    char_n = word[n]
+    char_n = characters[n]
     sum = 0.0
     parent_p_w = chpylm.G_0
     parent_pass_probability = 1.0
-    parent_p_w_cache[1] = chpylm.G_0
+    parent_p_w_cache[0] = parent_p_w
     sampling_table_size = 0
     cur_node = chpylm.root
-    for depth in 0:n
-        if cur_node != nothing
-            @assert depth == cur_node.depth
-            # TODO: Finish this one after reading the infinite Markov model paper better.
+    for index in 0:n
+        # Already gone beyond the original word's context length.
+        if cur_node == nothing
+            p_stop = (chpylm.beta_stop) / (chpylm.beta_pass + chpylm.beta_stop) * parent_pass_probability
+            # If there's already no new context char, we just use the parent word probability as it is.
+            p = parent_p_w * p_stop
+            # The node with depth n is the parent of the node with depth n + 1. Therefore the index + 1 here.
+            parent_p_w_cache[index + 1] = parent_p_w
+            chpylm.sampling_table[index] = p
+            path_nodes[index] = nothing
+            sampling_table_size += 1
+            sum += p
+            parent_pass_probability *= (chpylm.beta_pass) / (chpylm.beta_pass + chpylm.beta_stop)
+            if (p_stop < CHPYLM_ϵ)
+                break
+            end
+        else
+            p_w = compute_p_w(cur_node, char_n, parent_p_w, chpylm.d_array, chpylm.θ_array, true)
+            p_stop = stop_probability(cur_node, chpylm.beta_stop, chpylm.beta_pass, false)
+            p = p_w * p_stop * parent_pass_probability
+            parent_p_w = p_w
+            parent_p_w_cache[index + 1] = parent_p_w
+            chpylm.sampling_table[index] = p
+            path_nodes[index] = cur_node
+            sampling_table_size += 1
+            parent_pass_probability *= pass_probability(cur_node, chpylm.beta_stop, chpylm.beta_pass, false)
+            sum += p
+            if (p_stop < CHPYLM_ϵ)
+                break
+            end
+            if index < n
+                context_char = characters[n - index]
+                cur_node = find_child_pyp(cur_node, context_char)
+            end
         end
     end
+    # The following samples the depth according to their respective probabilities.
+    depths = [0:sampling_table_size - 1]
+    return sample(depths, Weights(parent(chpylm.sampling_table)))
+
+    # normalizer = 1.0 / sum
+    # bernoulli = rand(Float64)
+    # stack = 0.0
+    # for i in 0:sampling_table_size - 1
+    #     stack += chpylm.sampling_table[i] * normalizer
+    #     if bernoulli < stack
+    #         return i
+    #     end
+    # end
+    # I think this should be sampling_table_size - 1, not the content.
+    # return chpylm.sampling_table[sampling_table_size - 1]
 end
