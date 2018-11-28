@@ -48,7 +48,7 @@ mutable struct Sentence
     "The length of the segments within this sentence."
     segments_lengths::Vector{UInt}
     segment_starting_positions::Vector{UInt}
-    "I think this means whether this sentence contains supervised guidance/segmentation already or something like that."
+    "Indicates whether the sentence contains the true segmentation already."
     supervised::Bool
     """
     The individual characters that make up this sentence
@@ -156,8 +156,7 @@ end
 
 # This method is to split the sentence using an already calculated segment_lengths vector, which contains the lengths of each segment.
 # Note that the segment_lengths array is without containing any BOS or EOS tokens.
-function split(sentence::Sentence, segment_lengths::Vector{UInt})
-    num_segments_without_special_tokens = length(segment_lengths)
+function split(sentence::Sentence, segment_lengths::Vector{UInt}, num_segments_without_special_tokens::UInt)
     cur_start = 1
     index = 1
     while index < num_segments_without_special_tokens
@@ -180,6 +179,12 @@ function split(sentence::Sentence, segment_lengths::Vector{UInt})
     #     sentence.segment_starting_positions[n + 2] = 0
     # end
     sentence.num_segments = num_segments_without_special_tokens + 3
+end
+
+
+function split(sentence::Sentence, segment_lengths::Vector{UInt})
+    num_segments_without_special_tokens = length(segment_lengths)
+    split(sentence, segment_lengths, num_segments_without_special_tokens)
 end
 
 # TODO: Apparently he wrote a custom hash function for the words? Might try to directly feed in strings instead of their hashes and see how the memory cost goes.

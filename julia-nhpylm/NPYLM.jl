@@ -5,6 +5,7 @@ include("HPYLM.jl")
 include("WHPYLM.jl")
 include("CHPYLM.jl")
 using Distributions
+using OffsetArrays
 
 mutable struct NPYLM
     "The hierarhical Pitman-Yor model for words"
@@ -34,7 +35,7 @@ mutable struct NPYLM
     chpylm_G_0_cache::Dict{UInt, Float64}
     λ_for_types::Vector{Float64}
     "Probability of generating a word of length k from the CHPYLM"
-    chpylm_p_k::Vector{Float64}
+    p_k_chpylm::OffsetVector{Float64}
     max_word_length::UInt
     max_sentence_length::UInt
     """
@@ -77,10 +78,11 @@ mutable struct NPYLM
         # Not sure if this is the most sensible approach with Julia. Surely we can adjust for that.
         npylm.most_recent_word_added_to_chpylm = Vector{Char}(undef, max_sentence_length + 2)
         # There are two extra cases where k = 1 and k > max_word_length
-        npylm.chpylm_p_k = Vector{Float64}(undef, max_word_length + 2)
-        for k in 1:max_word_length + 2
-            npylm.chpylm_p_k[k] = 1.0 / (max_word_length + 2)
-        end
+        # We initialize them with a uniform distribution. Later we'll use a Monte Carlo sampling to update the estimates (in function update_p_k_given_chpylm)
+        npylm.p_k_chpylm = Vector{Float64}((1.0 / (max_word_length + 1)), 0:max_word_length)
+        # for k in 0:max_word_length + 1
+        #     npylm.p_k_chpylm[k] = 1.0 / (max_word_length + 1)
+        # end
         return npylm
     end
 end
@@ -350,7 +352,7 @@ function compute_p_k_given_chpylm(npylm::NPYLM, k::UInt)
     if k > npylm.max_word_length
         return 0
     end
-    return npylm.chpylm_p_k[k]
+    return npylm.p_k_chpylm[k]
 end
 
 function sample_hyperparameters(npylm::NPYLM)
