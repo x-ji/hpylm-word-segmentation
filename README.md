@@ -13,6 +13,7 @@ To run the program (with Julia version >= 1.0):
 2. You may need to install some packages first with the following commands:
     ```julia
     using Pkg
+    Pkg.add("Compat")
     Pkg.add("StatsBase")
     Pkg.add("SpecialFunctions")
     Pkg.add("Distributions")

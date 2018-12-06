@@ -9,6 +9,10 @@ This is necessary because in the character CHPYLM, the G_0 needs to be calculate
 """
 struct Vocabulary
     all_characters::Set{Char}
+    function Vocabulary()
+        # Use `new` to access the normal Vocabulary constructor
+        return new(Set{Char}())
+    end
 end
 
 function add_character(vocab::Vocabulary, character::Char)
@@ -27,8 +31,18 @@ struct Corpus
     sentence_list::Vector{String}
     segmented_word_list::Vector{Vector{String}}
     function Corpus()
-        return new()
+        # corpus = new()
+        # corpus.sentence_list = Vector{String}()
+        # corpus.segmented_word_list = Vector{Vector{String}}()
+        # return corpus
+
+        # Use `new` to access the constructor
+        return new(Vector{String}(), Vector{Vector{String}}())
     end
+end
+
+function add_sentence(corpus::Corpus, sentence_string::String)
+    push!(corpus.sentence_list, sentence_string)
 end
 
 function read_corpus(corpus::Corpus, istream::IOStream)
@@ -61,6 +75,8 @@ mutable struct Dataset
         dataset.corpus = corpus
         dataset.max_sentence_length = 0
         dataset.avg_sentence_length = 0
+        dataset.train_sentences = Vector{Sentence}()
+        dataset.dev_sentences = Vector{Sentence}()
         corpus_length::UInt = 0
 
         sentence_indices = zeros(UInt, get_num_sentences(corpus))
@@ -73,18 +89,18 @@ mutable struct Dataset
         train_proportion = min(1.0, max(0.0, train_proportion))
         num_train_sentences = get_num_sentences(corpus) * train_proportion
         for i in 1:get_num_sentences(corpus)
-            sentence= corpus.sentence_list[sentence_indices[i]]
+            sentence_string = corpus.sentence_list[sentence_indices[i]]
             if i <= num_train_sentences
-                add_sentence(sentence, dataset.train_sentences)
+                add_sentence(dataset, sentence_string, dataset.train_sentences)
             else
-                add_sentence(sentence, dataset.dev_sentences)
+                add_sentence(dataset, sentence_string, dataset.dev_sentences)
             end
             
-            if length(sentence) > dataset.max_sentence_length
+            if length(sentence_string) > dataset.max_sentence_length
                 dataset.max_sentence_length = length(sentence)
             end
 
-            corpus_length += length(sentence)
+            corpus_length += length(sentence_string)
         end
         
         num_supervised_sentences = get_num_already_segmented_sentences(corpus)

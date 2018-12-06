@@ -32,7 +32,7 @@ mutable struct Sentence
     word_ids::Vector{UInt}
     "The string that makes up the sentence"
     sentence_string::String
-    function sentence(sentence_string::String)
+    function Sentence(sentence_string::String)
         s = new()
 
         s.sentence_string = sentence_string

@@ -441,9 +441,10 @@ end
 
 function read_file_into_corpus(path, corpus)
     f = open(path)
-    sentences = [[string(c) for c in line if !Base.isspace(c)] for line in readlines(f) if !isempty(line)]
-    for sentence_string in sentences
-        add_sentence(corpus, sentence_string)
+    sentences = [[c for c in line if !Base.isspace(c)] for line in readlines(f) if !isempty(line)]
+    # Here each entry in `sentences` is an array of Char. Need to convert it into an actual string.
+    for char_array in sentences
+        add_sentence(corpus, String(char_array))
     end
 end
 
