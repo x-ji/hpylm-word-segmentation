@@ -13,16 +13,16 @@ To run the program (with Julia version >= 1.0):
 2. You may need to install some packages first with the following commands:
     ```julia
     using Pkg
+    Pkg.add("LegacyStrings")
     Pkg.add("Compat")
     Pkg.add("StatsBase")
     Pkg.add("SpecialFunctions")
     Pkg.add("Distributions")
     Pkg.add("OffsetArrays")
-    Pkg.build("Arpack")
     ```
-3. Run `include("HPYLM.jl")`
-4. To train a model, run `HPYLM.train("training-data-path", ngram-size, iterations, "model-output-path")`
-5. To evaluate a model, run `HPYLM.evaluate("test-data-path", "previously-saved-model-path")`
+3. Run `include("Model.jl")`
+4. To train a model, run `NHPYLM.train("training-data-path", "model-output-path", ngram-size, iterations, )`
+5. To evaluate a model, run `NHPYLM.evaluate("test-data-path", "previously-saved-model-path")`
 
 For steps 3 to 6, I've alternatively provided two scripts `Train.jl` and `Eval.jl` which can be directly invoked from the command line:
 
