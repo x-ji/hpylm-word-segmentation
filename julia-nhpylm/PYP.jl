@@ -1,6 +1,6 @@
 using Compat, Random, Distributions
 
-include("Def.jl")
+# include("Def.jl")
 
 # TODO: Just don't use this function and initialize d_array and θ_array to be really large from the get go.
 function init_hyperparameters_at_depth_if_needed(depth::UInt, d_array::Vector{Float64}, θ_array::Vector{Float64})
@@ -95,9 +95,9 @@ mutable struct PYP{T}
     """
     context::T
 
-    function PYP(context::T)
-        pyp = new()
-        pyp.children = Dict{T,PYP}()
+    function PYP(context::T) where T
+        pyp = new{T}()
+        pyp.children = Dict{T,PYP{T}}()
         pyp.ntablegroups = 0
         pyp.ncustomers = 0
         pyp.stopcount = 0
@@ -550,7 +550,7 @@ function sample_summed_y_ui(pyp::PYP{T}, d_u::Float64, θ_u::Float64, is_one_min
     end
 end
 
-"""raw
+raw"""
 The sum is \sum_{j=1}^{c_**u**wk - 1} (1 - z_{**u**wkj}) in expression (40) of the Teh technical report.
 """
 # TODO: Might just refactor this function out. The current way it's written is convenient, but can be hard to read.

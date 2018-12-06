@@ -1,3 +1,5 @@
+import Base.length
+
 #= Begin Sentence =#
 mutable struct Sentence
     num_segments::UInt
@@ -112,7 +114,7 @@ end
 
 # This method is to split the sentence using an already calculated segment_lengths vector, which contains the lengths of each segment.
 # Note that the segment_lengths array is without containing any BOS or EOS tokens.
-function split(sentence::Sentence, segment_lengths::Vector{UInt}, num_segments_without_special_tokens::UInt)
+function split_sentence(sentence::Sentence, segment_lengths::Vector{UInt}, num_segments_without_special_tokens::UInt)
     cur_start = 1
     index = 1
     while index < num_segments_without_special_tokens
@@ -138,9 +140,9 @@ function split(sentence::Sentence, segment_lengths::Vector{UInt}, num_segments_w
 end
 
 
-function split(sentence::Sentence, segment_lengths::Vector{UInt})
+function split_sentence(sentence::Sentence, segment_lengths::Vector{UInt})
     num_segments_without_special_tokens = length(segment_lengths)
-    split(sentence, segment_lengths, num_segments_without_special_tokens)
+    split_sentence(sentence, segment_lengths, num_segments_without_special_tokens)
 end
 
 # TODO: Apparently he wrote a custom hash function for the words? Might try to directly feed in strings instead of their hashes and see how the memory cost goes.

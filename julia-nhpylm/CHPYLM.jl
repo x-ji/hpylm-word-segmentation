@@ -1,5 +1,5 @@
-include("PYP.jl")
-using OffsetVector
+# include("PYP.jl")
+using OffsetArrays
 using StatsBase
 
 """
@@ -7,10 +7,10 @@ Character Hierarchical Pitman-Yor Language Model
 
 In this case the HPYLM for characters is an infinite Markov model, different from that used for the words.
 """
-mutable struct CHPYLM{T} <: HPYLM{T}
+mutable struct CHPYLM{Char} <: HPYLM{Char}
     #= Fields from the base HPYLM struct =#
     "Root PYP which has no context"
-    root::PYP{T}
+    root::PYP{Char}
     "Depth of the whole HPYLM"
     depth::UInt
     "Base probability for 0-grams, i.e. G_0(w)"
@@ -53,11 +53,11 @@ mutable struct CHPYLM{T} <: HPYLM{T}
     # Used for high-speed computation
     sampling_table::OffsetVector{Float64}
     parent_pw_cache::OffsetVector{Float64}
-    nodes::Vector{PYP{T}}
+    nodes::Vector{PYP{Char}}
 
     #= Constructor =#
     function CHPYLM(G_0::Float64, max_depth::UInt, beta_stop::Float64, beta_pass::Float64)
-        chpylm = new()
+        chpylm = new{Char}()
         @assert(G_0 > 0)
         # The point is just that the root node doesn't have any context, naturally, so this one should be a character that's never occurring?
         root = PYP{Char}(BOW)

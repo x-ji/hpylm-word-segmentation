@@ -1,6 +1,6 @@
-include("Corpus.jl")
-include("Sentence.jl")
-include("PYP.jl")
+# include("Corpus.jl")
+# include("Sentence.jl")
+# include("PYP.jl")
 
 """
 Hierarchical Pitman-Yor Language Model in general

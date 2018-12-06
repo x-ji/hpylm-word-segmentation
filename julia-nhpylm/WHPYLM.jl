@@ -1,13 +1,13 @@
-include("Def.jl")
-include("PYP.jl")
+# include("Def.jl")
+# include("PYP.jl")
 
 """
 Hierarchical Pitman-Yor process for words
 """
-mutable struct WHPYLM{T} <: HPYLM{T}
+mutable struct WHPYLM{UInt} <: HPYLM{UInt}
     #= All the fields are "inherited" from HPYLM. Or, to put it another way, unlike CHPYLM, WHPYLM doesn't have its own new fields. =#
     "Root PYP which has no context"
-    root::PYP{T}
+    root::PYP{UInt}
     "Depth of the whole HPYLM"
     depth::UInt
     "Base probability for 0-grams, i.e. G_0(w)"
@@ -32,7 +32,7 @@ mutable struct WHPYLM{T} <: HPYLM{T}
     β_array::OffsetVector{Float64}
     #= Constructor =#
     function WHPYLM(order::UInt)
-        whpylm = new()
+        whpylm = new{UInt}()
         # depth starts from 0
         whpylm.depth = order - 1
         whpylm.root = PYP{UInt}(0)

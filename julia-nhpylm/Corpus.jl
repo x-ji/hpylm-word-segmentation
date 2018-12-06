@@ -1,5 +1,5 @@
-include("Def.jl")
-include("Sentence.jl")
+# include("Def.jl")
+# include("Sentence.jl")
 
 #= Begin Vocabulary =#
 """
@@ -26,6 +26,9 @@ This struct keeps track of all sentences from the corpus files, and optionally t
 struct Corpus
     sentence_list::Vector{String}
     segmented_word_list::Vector{Vector{String}}
+    function Corpus()
+        return new()
+    end
 end
 
 function read_corpus(corpus::Corpus, istream::IOStream)
@@ -50,7 +53,6 @@ mutable struct Dataset
     max_sentence_length::UInt
     avg_sentence_length::UInt
     num_segmented_words::UInt
-    vocabulary::Vocabulary
     train_sentences::Vector{Sentence}
     dev_sentences::Vector{Sentence}
     function Dataset(corpus::Corpus, train_proportion::Float64)
@@ -103,7 +105,7 @@ mutable struct Dataset
             end
 
             sentence = Sentence(sentence_string, true)
-            split(sentence, segment_lengths)
+            split_sentence(sentence, segment_lengths)
             push!(dataset.train_sentences, sentence)
             
             if (length(sentence_string) > dataset.max_sentence_length)

@@ -1,10 +1,10 @@
-include("Def.jl")
-include("Corpus.jl")
-include("Sentence.jl")
-include("PYP.jl")
-include("HPYLM.jl")
-include("WHPYLM.jl")
-include("CHPYLM.jl")
+# include("Def.jl")
+# include("Corpus.jl")
+# include("Sentence.jl")
+# include("PYP.jl")
+# include("HPYLM.jl")
+# include("WHPYLM.jl")
+# include("CHPYLM.jl")
 using Distributions
 using OffsetArrays
 

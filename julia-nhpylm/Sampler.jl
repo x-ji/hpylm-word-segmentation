@@ -1,7 +1,7 @@
-include("NPYLM.jl")
-include("Corpus.jl")
-include("Sentence.jl")
-using OffsetArray
+# include("NPYLM.jl")
+# include("Corpus.jl")
+# include("Sentence.jl")
+# using OffsetArrays
 """
 This structs holds all the necessary fields and functions for sampling sentence segmentations using forward-backward inference.
 """
@@ -48,7 +48,7 @@ mutable struct Sampler
 
     e.g. viterbi_backward_indices[t,k,j] = 2 means when the first gram (i) has length 2, the probability is maximized. This is why there isn't a `i` index, unlike the p_w_h_cache array
     """
-    viterbi_backward_indices::Vector{UInt, 3}
+    viterbi_backward_indices::Vector{UInt}
 
     # I can probably make this one non-mutable if I change the representation of these two a bit. Let's see.
     "This is L in the paper, i.e. the maximum length allowed for a word."
@@ -117,7 +117,7 @@ function get_substring_word_id_at_t_k(sampler::Sampler, sentence::Sentence, t::U
 end
 
 # If α[t-k][j][i] is already normalized, there's no need to normalize α[t][k][j]
-"""raw
+raw"""
 The step during forward filtering where α[t][k][j] is calculated
 
 Note that in this trigram case, α[t][k][j] = \sum^{t-k-j}_{i=1} p(c^t_{t-k+1} | c^{t-k-j}_{t-k-j-i+1} c^{t-k}_{t-k-j+1}) * α[t - k][j][i]

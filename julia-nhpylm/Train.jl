@@ -1,5 +1,7 @@
-include("Corpus.jl")
-include("Trainer.jl")
+# include("Corpus.jl")
+# include("Trainer.jl")
+push!(LOAD_PATH, "./")
+import Model
 using Serialization
 
 function build_corpus(path)
