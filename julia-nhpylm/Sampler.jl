@@ -1,5 +1,6 @@
 include("NPYLM.jl")
 include("Corpus.jl")
+include("Sentence.jl")
 using OffsetArray
 """
 This structs holds all the necessary fields and functions for sampling sentence segmentations using forward-backward inference.

@@ -2,6 +2,7 @@ include("Def.jl")
 include("NPYLM.jl")
 include("Sampler.jl")
 include("Corpus.jl")
+include("Sentence.jl")
 
 """
 This is the struct that will server as a container for everything. it will be serialized after training.

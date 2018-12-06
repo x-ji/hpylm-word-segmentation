@@ -1,4 +1,5 @@
 include("Corpus.jl")
+include("Sentence.jl")
 include("PYP.jl")
 
 """

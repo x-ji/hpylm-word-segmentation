@@ -1,5 +1,6 @@
 include("Def.jl")
 include("Corpus.jl")
+include("Sentence.jl")
 include("Model.jl")
 using OffsetArrays
 # Actually I'm not sure if we really need such a complicated Trainer class. Let's first go on though.
@@ -17,7 +18,7 @@ mutable struct Trainer
     added_to_chpylm_train::Vector{Bool}
     num_segmentation_rejections::UInt
     num_segmentation_acceptances::UInt
-    function Trainer(dataset::Dataset, model::Model, always_accept_new_segmentation::Bool)
+    function Trainer(dataset::Dataset, model::Model, always_accept_new_segmentation::Bool=true)
         trainer = new()
         trainer.dataset = dataset
         trainer.model = model
