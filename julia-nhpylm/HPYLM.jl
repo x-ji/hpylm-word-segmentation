@@ -23,24 +23,24 @@ abstract type HPYLM{T} end
 #     delete!(hpylm, pyp)
 # end
 
-function get_num_nodes(hpylm::HPYLM)::UInt where T
+function get_num_nodes(hpylm::HPYLM)::Int where T
     # The root node itself is not included in this recursive algorithm which counts the number of children of a node.
     return get_num_nodes(hpylm.root) + 1
 end
 
-function get_num_tables(hpylm::HPYLM)::UInt where T
+function get_num_tables(hpylm::HPYLM)::Int where T
     return get_num_tables(hpylm.root)
 end
 
-function get_num_customers(hpylm::HPYLM)::UInt where T
+function get_num_customers(hpylm::HPYLM)::Int where T
     return get_num_customers(hpylm.root)
 end
 
-function get_pass_counts(hpylm::HPYLM)::UInt where T
+function get_pass_counts(hpylm::HPYLM)::Int where T
     get_pass_counts(hpylm.root)
 end
 
-function get_stop_counts(hpylm::HPYLM)::UInt where T
+function get_stop_counts(hpylm::HPYLM)::Int where T
     get_stop_counts(hpylm.root)
 end
 
@@ -50,7 +50,7 @@ function set_G_0(hpylm::HPYLM, G_0::Float64)
 end
 
 # TODO: Again, maybe we can do without this function.
-function init_hyperparameters_at_depth_if_needed(hpylm::HPYLM, depth::UInt)
+function init_hyperparameters_at_depth_if_needed(hpylm::HPYLM, depth::Int)
     if length(hpylm.d_array) <= depth
         while(length(hpylm.d_array) <= depth)
             push!(hpylm.d_array, HPYLM_INITIAL_d)
@@ -85,7 +85,7 @@ end
 
 # The `bottom` here was a reference in the C++ code.
 # This one sums up all values of a auxiliary variable on the same depth into one variable.
-function sum_auxiliary_variables_recursively(hpylm::HPYLM, node::PYP{T}, sum_log_x_u_array::Vector{Float64}, sum_y_ui_array::Vector{Float64}, sum_one_minus_y_ui_array::Vector{Float64}, sum_one_minus_z_uwkj_array::Vector{Float64}, bottom::UInt)::UInt where T
+function sum_auxiliary_variables_recursively(hpylm::HPYLM, node::PYP{T}, sum_log_x_u_array::Vector{Float64}, sum_y_ui_array::Vector{Float64}, sum_one_minus_y_ui_array::Vector{Float64}, sum_one_minus_z_uwkj_array::Vector{Float64}, bottom::Int)::Int where T
     for child in node.children
         depth = child.depth
         if depth > bottom
@@ -108,7 +108,7 @@ function sum_auxiliary_variables_recursively(hpylm::HPYLM, node::PYP{T}, sum_log
 end
 
 function sample_hyperparameters(hpylm::HPYLM)
-    max_depth::UInt = length(hpylm.d_array) - 1
+    max_depth::Int = length(hpylm.d_array) - 1
 
     # By definition depth of a tree begins at 0. Therefore we need to + 1 to get the length.
     # As shown in expression (41)

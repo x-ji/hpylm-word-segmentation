@@ -28,20 +28,20 @@ end
 This struct keeps track of all sentences from the corpus files, and optionally the "true" segmentations, if any.
 """
 struct Corpus
-    sentence_list::Vector{String}
-    segmented_word_list::Vector{Vector{String}}
+    sentence_list::Vector{UTF32String}
+    segmented_word_list::Vector{Vector{UTF32String}}
     function Corpus()
         # corpus = new()
-        # corpus.sentence_list = Vector{String}()
-        # corpus.segmented_word_list = Vector{Vector{String}}()
+        # corpus.sentence_list = Vector{UTF32String}()
+        # corpus.segmented_word_list = Vector{Vector{UTF32String}}()
         # return corpus
 
         # Use `new` to access the constructor
-        return new(Vector{String}(), Vector{Vector{String}}())
+        return new(Vector{UTF32String}(), Vector{Vector{UTF32String}}())
     end
 end
 
-function add_sentence(corpus::Corpus, sentence_string::String)
+function add_sentence(corpus::Corpus, sentence_string::UTF32String)
     push!(corpus.sentence_list, sentence_string)
 end
 
@@ -64,9 +64,9 @@ end
 mutable struct Dataset
     vocabulary::Vocabulary
     corpus::Corpus
-    max_sentence_length::UInt
-    avg_sentence_length::UInt
-    num_segmented_words::UInt
+    max_sentence_length::Int
+    avg_sentence_length::Float64
+    num_segmented_words::Int
     train_sentences::Vector{Sentence}
     dev_sentences::Vector{Sentence}
     function Dataset(corpus::Corpus, train_proportion::Float64)
@@ -77,9 +77,9 @@ mutable struct Dataset
         dataset.avg_sentence_length = 0
         dataset.train_sentences = Vector{Sentence}()
         dataset.dev_sentences = Vector{Sentence}()
-        corpus_length::UInt = 0
+        corpus_length::Int = 0
 
-        sentence_indices = zeros(UInt, get_num_sentences(corpus))
+        sentence_indices = zeros(Int, get_num_sentences(corpus))
         for i in 1:get_num_sentences(corpus)
             sentence_indices[i] = i
         end
@@ -97,7 +97,7 @@ mutable struct Dataset
             end
             
             if length(sentence_string) > dataset.max_sentence_length
-                dataset.max_sentence_length = length(sentence)
+                dataset.max_sentence_length = length(sentence_string)
             end
 
             corpus_length += length(sentence_string)
@@ -108,7 +108,7 @@ mutable struct Dataset
         for i in 1:num_supervised_sentences
             # Reproduce the already segmented sentences
             words = corpus.word_sequence_list[i]
-            segment_lengths = Vector{UInt}()
+            segment_lengths = Vector{Int}()
             sentence_string = ""
 
             for word in words
@@ -149,7 +149,7 @@ function get_num_segmented_words(dataset::Dataset)
     return dataset.num_segmented_words
 end
 
-function add_sentence(dataset::Dataset, sentence_string::String, sentences::Vector{Sentence})
+function add_sentence(dataset::Dataset, sentence_string::UTF32String, sentences::Vector{Sentence})
     @assert(length(sentence_string) > 0)
     for char in sentence_string
         add_character(dataset.vocabulary, char)

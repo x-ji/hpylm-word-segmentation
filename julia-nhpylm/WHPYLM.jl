@@ -4,12 +4,12 @@
 """
 Hierarchical Pitman-Yor process for words
 """
-mutable struct WHPYLM{UInt} <: HPYLM{UInt}
+mutable struct WHPYLM{Int} <: HPYLM{Int}
     #= All the fields are "inherited" from HPYLM. Or, to put it another way, unlike CHPYLM, WHPYLM doesn't have its own new fields. =#
     "Root PYP which has no context"
-    root::PYP{UInt}
+    root::PYP{Int}
     "Depth of the whole HPYLM"
-    depth::UInt
+    depth::Int
     "Base probability for 0-grams, i.e. G_0(w)"
     G_0::Float64
     "Array of discount parameters indexed by depth+1. Note that in a HPYLM all PYPs of the same depth share the same parameters."
@@ -31,11 +31,11 @@ mutable struct WHPYLM{UInt} <: HPYLM{UInt}
     "For the sampling of concentration θ"
     β_array::OffsetVector{Float64}
     #= Constructor =#
-    function WHPYLM(order::UInt)
-        whpylm = new{UInt}()
+    function WHPYLM(order::Int)
+        whpylm = new{Int}()
         # depth starts from 0
         whpylm.depth = order - 1
-        whpylm.root = PYP{UInt}(0)
+        whpylm.root = PYP(0)
         whpylm.root.depth = 0
 
         whpylm.d_array = OffsetVector{Float64}(undef, 0:0)

@@ -20,17 +20,23 @@ This is the struct that will server as a container for everything. it will be se
 struct Model
     npylm::NPYLM
     sampler::Sampler
-    function Model(dataset::Dataset, max_word_length::UInt)
-        model = new()
+    function Model(dataset::Dataset, max_word_length::Int)
         max_sentence_length = dataset.max_sentence_length
         # The G_0 probability for the character HPYLM, which depends on the number of different characters in the whole corpus.
         chpylm_G_0 = 1.0 / get_num_characters(dataset.vocabulary)
-        model.npylm = NPYLM(max_word_length, max_sentence_length, chpylm_G_0, 4, 1, CHPYLM_β_STOP, CHPYLM_β_PASS)
-        model.sampler = Sampler(model.npylm, max_word_length, max_sentence_length)
-        return model
+        # model.npylm = NPYLM(max_word_length, max_sentence_length, chpylm_G_0, 4.0, 1.0, CHPYLM_β_STOP, CHPYLM_β_PASS)
+
+        # model = new()
+        # model.sampler = Sampler(model.npylm, max_word_length, max_sentence_length)
+        # return model
+
+        # Need to do this because `Model` is immutable
+        npylm = NPYLM(max_word_length, max_sentence_length, chpylm_G_0, 4.0, 1.0, CHPYLM_β_STOP, CHPYLM_β_PASS)
+        sampler = Sampler(npylm, max_word_length, max_sentence_length)
+        return new(npylm, sampler)
     end
 
-    function Model(dataset::Dataset, max_word_length::UInt, initial_a, initial_b, chpylm_β_stop, chpylm_β_pass)
+    function Model(dataset::Dataset, max_word_length::Int, initial_a, initial_b, chpylm_β_stop, chpylm_β_pass)
         model = new()
         max_sentence_length = dataset.max_sentence_length
         chpylm_G_0 = 1.0 / get_num_characters(dataset.vocabulary)
@@ -70,11 +76,11 @@ function set_chpylm_beta_pass(model::Model, pass::Float64)
     model.npylm.chpylm.beta_pass = pass
 end
 
-function segment_sentence(model::Model, sentence_string::String)::Vector{String}
+function segment_sentence(model::Model, sentence_string::UTF32String)::Vector{UTF32String}
     extend_capacity(model.sampler, model.npylm.max_word_length, length(sentence_string))
     extend_capacity(model.npylm, length(sentence_string))
-    segment_lengths = UInt[]
-    segmented_sentence = String[]
+    segment_lengths = Int[]
+    segmented_sentence = UTF32String[]
     sentence = Sentence(sentence_string)
     # I don't really get the difference between the viterbi_ methods and the normal methods. Is it the case that the viterbi_ methods just do the segmentation directly without trying to further train the model? A bit weird indeed. Let's see further.
     viterbi_decode(model.sampler, sentence, segment_lengths)
@@ -95,7 +101,7 @@ function segment_sentence(model::Model, sentence_string::String)::Vector{String}
     return segmented_sentence
 end
 
-function compute_log_forward_probability(model::Model, sentence_string::String, with_scaling::Bool)
+function compute_log_forward_probability(model::Model, sentence_string::UTF32String, with_scaling::Bool)
     extend_capacity(model.sampler, model.npylm.max_word_length, length(sentence_string))
     extend_capacity(model.npylm, length(sentence_string))
     sentence = Sentence(sentence_string)
@@ -104,8 +110,8 @@ end
 
 # Actually I'm not sure if we really need such a complicated Trainer class. Let's first go on though.
 mutable struct Trainer
-    rand_indices_train::Vector{UInt}
-    rand_indices_dev::Vector{UInt}
+    rand_indices_train::Vector{Int}
+    rand_indices_dev::Vector{Int}
     dataset::Dataset
     vocabulary::Vocabulary
     model::Model
@@ -114,8 +120,8 @@ mutable struct Trainer
     always_accept_new_segmentation::Bool
     # What does this mean
     added_to_chpylm_train::Vector{Bool}
-    num_segmentation_rejections::UInt
-    num_segmentation_acceptances::UInt
+    num_segmentation_rejections::Int
+    num_segmentation_acceptances::Int
     function Trainer(dataset::Dataset, model::Model, always_accept_new_segmentation::Bool=true)
         trainer = new()
         trainer.dataset = dataset
@@ -125,11 +131,11 @@ mutable struct Trainer
         trainer.chpylm_sampling_probability_table = Vector{Float64}(undef, get_num_characters(trainer.vocabulary) + 1)
         trainer.chpylm_sampling_id_table = Vector{Char}(undef, get_num_characters(trainer.vocabulary) + 1)
         trainer.added_to_chpylm_train = fill(false, (length(dataset.train_sentences)))
-        trainer.rand_indices_train = Vector{UInt}(undef, length(dataset.train_sentences))
+        trainer.rand_indices_train = Vector{Int}(undef, length(dataset.train_sentences))
         for i in 1:length(dataset.train_sentences)
             trainer.rand_indices_train[i] = i
         end
-        trainer.rand_indices_dev = Vector{UInt}(undef, length(dataset.dev_sentences))
+        trainer.rand_indices_dev = Vector{Int}(undef, length(dataset.dev_sentences))
         for i in 1:length(dataset.dev_sentences)
             trainer.rand_indices_dev[i] = i
         end
@@ -150,7 +156,7 @@ Sample lambda values for different types of characters
 function sample_lambda(trainer::Trainer)
     a_array = zeros(NUM_WORD_TYPES + 1, Float64)
     b_array = zeros(NUM_WORD_TYPES + 1, Float64)
-    word_ids::Set{UInt} = Set()
+    word_ids::Set{Int} = Set()
     for t in 1:NUM_WORD_TYPES
         a_array[t] = trainer.npylm.λ_a
         b_array[t] = trainer.npylm.λ_b
@@ -158,9 +164,9 @@ function sample_lambda(trainer::Trainer)
     for sentence in trainer.dataset.train_sentences
         # Go through each word in the sentence, excluding the BOS and EOS tokens.
         for index in 3:sentence.num_segments - 1
-            word::String = get_nth_word_string(sentence, index)
-            word_id::UInt = get_nth_word_id(sentence, index)
-            word_length::UInt = get_nth_segment_length(sentence, index)
+            word::UTF32String = get_nth_word_string(sentence, index)
+            word_id::Int = get_nth_word_id(sentence, index)
+            word_length::Int = get_nth_segment_length(sentence, index)
             if word_length > trainer.npylm.max_word_length
                 continue
             end
@@ -187,7 +193,7 @@ This function tries to generate a word randomly from the CHPYLM. Used by the fun
 
 `skip_eow` means that EOW shouldn't be generated as the next char, because there is only BOW in the current word so far.
 """
-function sample_next_char_from_chpylm_given_context(trainer::Trainer, context_chars::Vector{Char}, sample_t::UInt, skip_eow::Bool)
+function sample_next_char_from_chpylm_given_context(trainer::Trainer, context_chars::Vector{Char}, sample_t::Int, skip_eow::Bool)
     context_length = length(context_chars)
     prob_sum = 0.0
     chpylm = trainer.model.npylm.chpylm
@@ -219,14 +225,14 @@ This function updates the cache of the probability of sampling a word of length 
 
 As mentioned in Section 4.3 of the paper, a Monte Carlo method is employed to generate words randomly from the CHPYLM so that empirical estimates of p(k|chpylm) can be obtained.
 """
-function update_p_k_given_chpylm(trainer::Trainer, num_samples::UInt = 20000, early_stopping_threshold::UInt = 10)
+function update_p_k_given_chpylm(trainer::Trainer, num_samples::Int = 20000, early_stopping_threshold::Int = 10)
     max_word_length = get_max_word_length(trainer.model)
     p_k_chpylm = trainer.model.npylm.p_k_chpylm
     # Do you mean num_characters. Eh.
     # It's 1 longer than the original max_word_length, probably we have 0 in order to incorporate the possibility of getting length 0 word?
     # This array keeps track of total numbers of words of length k.
     # max_word_length + 1 because also a special case of k > max_word_length needs to be tracked?
-    num_words_of_length_k = OffsetVector{UInt}(0, 0:max_word_length + 1)
+    num_words_of_length_k = OffsetVector{Int}(0, 0:max_word_length + 1)
     for i in 0:max_word_length + 1
         p_k_chpylm[i] = 0.0
     end
@@ -405,7 +411,7 @@ function compute_log_likelihood_dev(trainer::Trainer)
     return compute_log_likelihood(trainer, trainer.dataset.dev_sentences)
 end
 
-function print_segmentations(trainer::Trainer, num_to_print::UInt, sentences::Vector{Sentence}, rand_indices::Vector{UInt})
+function print_segmentations(trainer::Trainer, num_to_print::Int, sentences::Vector{Sentence}, rand_indices::Vector{Int})
     num_to_print = min(length(sentences), num_to_print)
     for n in 1:num_to_print
         sentence_index = rand_indices[n]
@@ -417,11 +423,11 @@ function print_segmentations(trainer::Trainer, num_to_print::UInt, sentences::Ve
     end
 end
 
-function print_segmentations_train(trainer::Trainer, num_to_print::UInt)
+function print_segmentations_train(trainer::Trainer, num_to_print::Int)
     return print_segmentations(trainer, num_to_print, trainer.dataset.train_sentences)
 end
 
-function print_segmentations_dev(trainer::Trainer, num_to_print::UInt)
+function print_segmentations_dev(trainer::Trainer, num_to_print::Int)
     shuffle!(trainer.rand_indices_dev)
     return print_segmentations(trainer, num_to_print, trainer.dataset.dev_sentences)
 end
@@ -444,7 +450,7 @@ function read_file_into_corpus(path, corpus)
     sentences = [[c for c in line if !Base.isspace(c)] for line in readlines(f) if !isempty(line)]
     # Here each entry in `sentences` is an array of Char. Need to convert it into an actual string.
     for char_array in sentences
-        add_sentence(corpus, String(char_array))
+        add_sentence(corpus, utf32(String(char_array)))
     end
 end
 

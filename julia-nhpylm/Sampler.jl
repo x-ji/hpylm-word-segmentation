@@ -8,10 +8,10 @@ This structs holds all the necessary fields and functions for sampling sentence 
 mutable struct Sampler
     npylm::NPYLM
     "The word_ids of the current 3-gram being calculated"
-    word_ids::Vector{UInt}
+    word_ids::Vector{Int}
     "Cache of ids of some words previously segmented in this sentence."
-    # substring_word_id_cache::Array{UInt, 2}
-    substring_word_id_cache::OffsetArray{UInt}
+    # substring_word_id_cache::Array{Int, 2}
+    substring_word_id_cache::OffsetArray{Int}
     "3-dimensional tensor that contains the forward variables, i.e. in α[t][k][j] at p.104 of the paper"
     # α_tensor::Array{Float64, 3}
     α_tensor::OffsetArray{Float64}
@@ -48,19 +48,19 @@ mutable struct Sampler
 
     e.g. viterbi_backward_indices[t,k,j] = 2 means when the first gram (i) has length 2, the probability is maximized. This is why there isn't a `i` index, unlike the p_w_h_cache array
     """
-    viterbi_backward_indices::Vector{UInt}
+    viterbi_backward_indices::Array{Int, 3}
 
     # I can probably make this one non-mutable if I change the representation of these two a bit. Let's see.
     "This is L in the paper, i.e. the maximum length allowed for a word."
-    max_word_length::UInt
+    max_word_length::Int
     # I feel that this is just a convenience variable to preallocate array space so that even the longest sentence can be accomodated. I don't think the model itself has any sort of max length restriction on sentences.
-    max_sentence_length::UInt
+    max_sentence_length::Int
 
-    function Sampler(npylm::NPYLM, max_word_length::UInt, max_sentence_length::UInt)
+    function Sampler(npylm::NPYLM, max_word_length::Int, max_sentence_length::Int)
         sampler = new()
         sampler.npylm = npylm
         # TODO: Adapt this to the bigram case.
-        sampler.word_ids = Vector{UInt}(undef, 3)
+        sampler.word_ids = Vector{Int}(undef, 3)
         # TODO: Need to write this function still.
         allocate_capacity(sampler, max_word_length, max_sentence_length)
         return sampler
@@ -68,7 +68,7 @@ mutable struct Sampler
 end
 
 # I'm not totally sure if this is still needed in Julia. Let's first see how it goes then.
-function extend_capacity(sampler::Sampler, max_word_length::UInt, max_sentence_length::UInt)
+function extend_capacity(sampler::Sampler, max_word_length::Int, max_sentence_length::Int)
     # If the existing capacity is already good enough then no need to extend
     if (max_word_length <= sampler.max_word_length && max_sentence_length <= sampler.max_sentence_length)
         return
@@ -77,14 +77,14 @@ function extend_capacity(sampler::Sampler, max_word_length::UInt, max_sentence_l
     end
 end
 
-function allocate_capacity(sampler::Sampler, max_word_length::UInt, max_sentence_length::UInt)
+function allocate_capacity(sampler::Sampler, max_word_length::Int, max_sentence_length::Int)
     sampler.max_word_length = max_word_length
     sampler.max_sentence_length = max_sentence_length
     # Size of arrays that contain the various values. Because we need to take care of situations involving BOS, the size of such arrays should be 1 longer than only the max_sentence_length
     size = max_sentence_length + 1
     sampler.log_z = Vector{Float64}(undef, size)
     sampler.scaling_coefficients = Vector{Float64}(undef, size)
-    sampler.viterbi_backward_indices = Array{Float64, 3}(undef, size, max_word_length+1, max_word_length+1)
+    sampler.viterbi_backward_indices = Array{Float64, 3}(undef, (size, max_word_length+1, max_word_length+1))
     sampler.backward_sampling_table = Vector{Float64}(undef, max_word_length * max_word_length)
 
     # The + 1 part is because we have to accomodate for the index 0, which indicates that we have BOS as one of the grams.
@@ -92,8 +92,8 @@ function allocate_capacity(sampler::Sampler, max_word_length::UInt, max_sentence
     sampler.α_tensor = OffsetArray{Float64}(undef, 0:size + 1, max_word_length + 1, max_word_length + 1)
     # sampler.p_w_h_cache = Array{Float64, 4}(undef, size, max_word_length + 1, max_word_length + 1, max_word_length + 1)
     sampler.p_w_h_cache = OffsetArray{Float64}(undef, 0:size - 1, 0:max_word_length, 0:max_word_length, 0:max_word_length)
-    # sampler.substring_word_id_cache = Array{UInt, 2}(undef, size, max_word_length + 1)
-    sampler.substring_word_id_cache = OffsetArray{UInt}(undef, 0:size-1, 0:max_word_length)
+    # sampler.substring_word_id_cache = Array{Int, 2}(undef, size, max_word_length + 1)
+    sampler.substring_word_id_cache = OffsetArray{Int}(undef, 0:size-1, 0:max_word_length)
 end
 
 """
@@ -103,7 +103,7 @@ This function returns the id of the word constituted by the last k characters of
 
 Note that since this function already takes care of the index shift that's needed in Julia, the callers will still just call it normally.
 """
-function get_substring_word_id_at_t_k(sampler::Sampler, sentence::Sentence, t::UInt, k::UInt)::UInt
+function get_substring_word_id_at_t_k(sampler::Sampler, sentence::Sentence, t::Int, k::Int)::Int
     word_id = sampler.substring_word_id_cache[t,k]
     # 0 is used to indicate the initial state, where there's no cache.
     # Though wouldn't it conflict with BOS? Let's see then.
@@ -124,7 +124,7 @@ Note that in this trigram case, α[t][k][j] = \sum^{t-k-j}_{i=1} p(c^t_{t-k+1} |
 
 That is to say, we first fix both the third gram and the second gram, and marginalize over different lengths of the first gram, indicated by the changing index i here.
 """
-function calculate_α_t_k_j(sampler::Sampler, sentence::Sentence, t::UInt, k::UInt, j::UInt, prod_scaling::Float64)
+function calculate_α_t_k_j(sampler::Sampler, sentence::Sentence, t::Int, k::Int, j::Int, prod_scaling::Float64)
     word_k_id = get_substring_word_id_at_t_k(sampler, sentence, t, k)
     sentence_as_chars = sentence.characters
     # I'm really unsatisfied with the constant manual generation of BOS and EOS. I mean why not generate it already when first reading in the corpus? This can probably save tons of problems.
@@ -221,7 +221,7 @@ function backward_sampling(sampler::Sampler, sentence::Sentence)
     sum_length = 0
     (k, j) = backward_sample_k_and_j(sampler, sentence, t, 1)
     # I'm not sure yet why the segments array should contain their lengths instead of the word ids themselves. I guess it's just a way to increase efficiency and all that.
-    segment_lengths = UInt[]
+    segment_lengths = Int[]
     push!(segment_lengths, k)
 
     # There's only one word in total for the sentence.
@@ -263,7 +263,7 @@ Returns k and j in a tuple
 
 "next_word" really means the target word, the last gram in the 3 gram, e.g. the EOS in p(EOS | c^N_{N-k} c^{N-k}_{N-k-j})
 """
-function backward_sample_k_and_j(sampler::Sampler, sentence::Sentence, t::UInt, third_gram_length::UInt)::Tuple{UInt,UInt}
+function backward_sample_k_and_j(sampler::Sampler, sentence::Sentence, t::Int, third_gram_length::Int)::Tuple{Int,Int}
     # Indices start from 1
     table_index = 1
     sentence_as_chars = sentence.characters
@@ -368,7 +368,7 @@ end
 
 # For the 3-gram case, we need to use viterbi decoding to eventually produce the most likely sequence of segments.
 # TODO: OK so what's the difference between the viterbi methods and the original methods without viterbi? I'm kinda lost again. Guess I'll first have to look through the whole training and evaluation flows to look for clues then. Let's see.
-function viterbi_argmax_calculate_α_t_k_j(sampler::Sampler, sentence::Sentence, t::UInt, k::UInt, j::UInt)
+function viterbi_argmax_calculate_α_t_k_j(sampler::Sampler, sentence::Sentence, t::Int, k::Int, j::Int)
     word_k_id = get_substring_word_id_at_t_k(sampler, sentence, t, k)
     sentence_as_chars = sentence.characters
     # Special case 1: j == 0 means there's no actual *second* gram, i.e. the first two tokens are both BOS!
@@ -442,7 +442,7 @@ function viterbi_forward_filtering(sampler::Sampler, sentence::Sentence)
 end
 
 "This method is called when we know the third gram is EOS, so we're only sampling the first gram and second gram."
-function viterbi_argmax_backward_sample_k_and_j_to_eos(sampler::Sampler, sentence::Sentence, t::UInt, third_gram_length::UInt)::Tuple{UInt,UInt}
+function viterbi_argmax_backward_sample_k_and_j_to_eos(sampler::Sampler, sentence::Sentence, t::Int, third_gram_length::Int)::Tuple{Int,Int}
     # Indices start from 1
     table_index = 1
     sentence_as_chars = sentence.characters
@@ -491,7 +491,7 @@ function viterbi_argmax_backward_sample_k_and_j_to_eos(sampler::Sampler, sentenc
 end
 
 function viterbi_backward_sampling(sampler::Sampler, sentence::Sentence)
-    segment_lengths = UInt[]
+    segment_lengths = Int[]
     t = length(sentence)
     sum_length = 0
     (k, j) = viterbi_argmax_backward_sample_k_and_j_to_eos(sampler, sentence, t, 1)

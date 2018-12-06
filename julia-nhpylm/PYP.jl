@@ -3,7 +3,7 @@ using Compat, Random, Distributions
 # include("Def.jl")
 
 # TODO: Just don't use this function and initialize d_array and θ_array to be really large from the get go.
-function init_hyperparameters_at_depth_if_needed(depth::UInt, d_array::Vector{Float64}, θ_array::Vector{Float64})
+function init_hyperparameters_at_depth_if_needed(depth::Int, d_array::Vector{Float64}, θ_array::Vector{Float64})
     # The depth is dynamically increasing. Therefore we might need to push new hyperparameters into the array if needed.
     # However, why don't we on the contrary just initialize an array of ridiculous depth that this should never become a problem? I think that might make the operations a bit more efficient
     if depth >= length(d_array)
@@ -19,7 +19,7 @@ end
 """
 Each node is essentially a Pitman-Yor process in the hierarchical Pitman-Yor language model
 
-We use a type parameter because it can be either for characters (Char) or for words (String/Int?)
+We use a type parameter because it can be either for characters (Char) or for words (UTF32String/Int?)
 
 The root PYP (depth 0) contains zero context. The deeper the depth, the longer the context.
 """
@@ -43,7 +43,7 @@ mutable struct PYP{T}
 
     This is why we need a Vector to contain all those different tables serving this same dish (key)
     """
-    tablegroups::Dict{T,Vector{UInt}}
+    tablegroups::Dict{T,Vector{Int}}
 
     """
     This is just a convenient variable to keep track of the total number of table groups, i.e. unique dishes, present in this `CRP` so far.
@@ -55,7 +55,7 @@ mutable struct PYP{T}
     """
     This keeps track of the number of total tables (not just table groups)
     """
-    ntables::UInt
+    ntables::Int
 
     """
     +This is a convenient variable to keep track of the total number of customers for each unique dish. The key of the `Dict` is the dish, while the value of the `Dict` is the total number of customers for this dish.+
@@ -67,20 +67,20 @@ mutable struct PYP{T}
     TODO: I can experiment to see if the other way round is faster. For now let me follow the C++ implementation.
     """
     # ncustomers::Dict{T,Int}
-    ncustomers::UInt
+    ncustomers::Int
 
     "Useful only for CHPYLM. The number of times that the process has stopped at this Node."
-    stopcount::UInt
+    stopcount::Int
 
     "Useful only for CHPYLM. The number of times that the process has passed through this node."
-    passcount::UInt
+    passcount::Int
 
     """
     The depth of this PYP node in the hierarchical structure.
 
     Note that by definition the depth of a tree begins from 0
     """
-    depth::UInt
+    depth::Int
 
     """
     Each PYP represents a particular context.
@@ -98,7 +98,8 @@ mutable struct PYP{T}
     function PYP(context::T) where T
         pyp = new{T}()
         pyp.children = Dict{T,PYP{T}}()
-        pyp.ntablegroups = 0
+        # pyp.ntablegroups = 0
+        # pyp.ntables = 0
         pyp.ncustomers = 0
         pyp.stopcount = 0
         pyp.passcount = 0
@@ -126,11 +127,11 @@ end
 """
 This function explicitly returns the number of **tables** (i.e. not customers) serving a dish!
 """
-function get_num_tables_serving_dish(pyp::PYP{T}, dish::T)::UInt where T
+function get_num_tables_serving_dish(pyp::PYP{T}, dish::T)::Int where T
     return length(get(pyp.tablegroups, dish, []))
 end
 
-function get_num_customers_for_dish(pyp::PYP{T},dish::T)::UInt where T
+function get_num_customers_for_dish(pyp::PYP{T},dish::T)::Int where T
     tablegroup = get(pyp.tablegroups, dish, nothing)
 
     if (tablegroup == nothing)
@@ -159,7 +160,7 @@ end
 
 # I think we won't need to duplicate the code. Just use a union type. Let's see if that works.
 "The second item returned in the tuple is the index of the table to which the customer is added."
-function add_customer_to_table(pyp::PYP{T}, dish::T, table_index::UInt, G_0_or_parent_pws::Union{Float64, Vector{Float64}}, d_array::Vector{Float64}, θ_array::Vector{Float64})::Tuple{Bool, UInt} where T
+function add_customer_to_table(pyp::PYP{T}, dish::T, table_index::Int, G_0_or_parent_pws::Union{Float64, Vector{Float64}}, d_array::Vector{Float64}, θ_array::Vector{Float64})::Tuple{Bool, Int} where T
     tablegroup = get(pyp.tablegroups, dish, nothing)
 
     if tablegroup == nothing
@@ -175,7 +176,7 @@ function add_customer_to_table(pyp::PYP{T}, dish::T, table_index::UInt, G_0_or_p
     return true
 end
 
-function add_customer_to_new_table(pyp::PYP{T}, dish::T, G_0_or_parent_pws::Union{Float64, Vector{Float64}}, d_array::Vector{Float64}, θ_array::Vector{Float64})::Tuple{Bool, UInt} where T
+function add_customer_to_new_table(pyp::PYP{T}, dish::T, G_0_or_parent_pws::Union{Float64, Vector{Float64}}, d_array::Vector{Float64}, θ_array::Vector{Float64})::Tuple{Bool, Int} where T
     add_customer_to_new_table(pyp, dish)
     if pyp.parent != nothing
         (success, index_of_table_in_root) = add_customer(dish, G_0_or_parent_pws, d_array, θ_array, false)
@@ -198,7 +199,7 @@ function add_customer_to_new_table(pyp::PYP{T}, dish::T) where T
     pyp.ncustomers += 1
 end
 
-function remove_customer_from_table(pyp::PYP{T}, dish::T, table_index::UInt) where T
+function remove_customer_from_table(pyp::PYP{T}, dish::T, table_index::Int) where T
     # The tablegroup should always be found.
     tablegroup = pyp.tablegroups[dish]
 
@@ -226,7 +227,7 @@ end
 # Right, so d_array and θ_array are really the arrays that hold *all* hyperparameters for *all levels*
 # And then we're going to get the hyperparameters for this level, i.e. d_u and \theta_u from those arrays.
 # Another approach to do it, for sure.
-function add_customer(pyp::PYP{T}, dish::T, G_0_or_parent_pws::Union{Float64, Vector{Float64}}, d_array::Vector{Float64}, θ_array::Vector{Float64}, update_beta_count::Bool, )::Tuple{Bool, UInt} where T
+function add_customer(pyp::PYP{T}, dish::T, G_0_or_parent_pws::Union{Float64, Vector{Float64}}, d_array::Vector{Float64}, θ_array::Vector{Float64}, update_beta_count::Bool, )::Tuple{Bool, Int} where T
     # The argument to return at the end of the function, indicating the index of the table to which this customer is added.
     index_of_table_in_root = 0
     init_hyperparameters_at_depth_if_needed(pyp.depth, d_array, θ_array)
@@ -261,7 +262,7 @@ function add_customer(pyp::PYP{T}, dish::T, G_0_or_parent_pws::Union{Float64, Ve
         for k in 1:length(tablegroup)
             sum += max(0.0, tablegroup[k] - d_u)
         end
-        t_u::Float64 = pyp.ntablegroups
+        t_u::Float64 = pyp.ntables
         sum += (θ_u + d_u * t_u) * parent_pw
 
         normalizer::Float64 = 1.0 / sum
@@ -301,7 +302,7 @@ function add_customer(pyp::PYP{T}, dish::T, G_0_or_parent_pws::Union{Float64, Ve
     end
 end
 
-function remove_customer(pyp::PYP{T}, dish::T, update_beta_count::Bool)::Tuple{Bool,UInt} where T
+function remove_customer(pyp::PYP{T}, dish::T, update_beta_count::Bool)::Tuple{Bool,Int} where T
     index_of_table_in_root = 0
     tablegroup = get(pyp.tablegroups, dish, nothing)
     sum = sum(tablegroup)
@@ -335,7 +336,7 @@ function compute_p_w(pyp::PYP{T}, dish::T, G_0_or_parent_pw::Float64, d_array::V
     init_hyperparameters_at_depth_if_needed(pyp.depth, d_array, θ_array)
     d_u = d_array[pyp.depth + 1]
     θ_u = θ_array[pyp.depth + 1]
-    t_u = pyp.ntablegroups
+    t_u = pyp.ntables
     c_u = pyp.ncustomers
     tablegroup = get(pyp.tablegroups, dish, nothing)
     if tablegroup == nothing
@@ -442,8 +443,8 @@ function delete_child_node(pyp::PYP{T}, dish::T) where T
 end
 
 "Basically a DFS to get the maximum depth of the tree with this `pyp` as its root"
-function get_max_depth(pyp::PYP{T}, base::UInt)::UInt where T
-    max_depth::UInt = base
+function get_max_depth(pyp::PYP{T}, base::Int)::Int where T
+    max_depth::Int = base
     for child in pyp.children
         depth = get_max_depth(child, base + 1)
         if (depth > max_depth)
@@ -454,8 +455,8 @@ function get_max_depth(pyp::PYP{T}, base::UInt)::UInt where T
 end
 
 "A DFS to get the total number of nodes with this `pyp` as the root"
-function get_num_nodes(pyp::PYP{T})::UInt where T
-    count::UInt = length(pyp.children)
+function get_num_nodes(pyp::PYP{T})::Int where T
+    count::Int = length(pyp.children)
     for child in pyp.children
         count += get_num_nodes(child)
     end
@@ -463,7 +464,7 @@ function get_num_nodes(pyp::PYP{T})::UInt where T
     return count
 end
 
-function get_num_tables(pyp::PYP{T})::UInt where T
+function get_num_tables(pyp::PYP{T})::Int where T
     # The "length" of each tablegroup is exactly the "total number of tables" in that group.
     # TODO: Do without the unnecessary summation
     count = sum(length, pyp.tablegroups)
@@ -473,25 +474,25 @@ function get_num_tables(pyp::PYP{T})::UInt where T
     return count
 end
 
-function get_num_customers(pyp::PYP{T})::UInt where T
+function get_num_customers(pyp::PYP{T})::Int where T
     # TODO: Do without the unnecessary summation
-    count::UInt = sum(Iterators.flatten(pyp.tablegroups))
+    count::Int = sum(Iterators.flatten(pyp.tablegroups))
     @assert(count== pyp.ncustomers)
     count += sum(get_num_customers, pyp.children)
     return count
 end
 
 # TODO: Not using a function for this is probably faster.
-function get_pass_counts(pyp::PYP{T})::UInt where T
+function get_pass_counts(pyp::PYP{T})::Int where T
     return pyp.pass_count + sum(get_pass_counts, pyp.children)
 end
 
-function get_stop_counts(pyp::PYP{T})::UInt where T
+function get_stop_counts(pyp::PYP{T})::Int where T
     return pyp.stop_count + sum(get_stop_counts, pyp.children)
 end
 
 "If run successfully, this function should put all pyps at the specified depth into the accumulator vector."
-function get_all_pyps_at_depth(pyp::PYP{T}, depth::UInt, accumulator::Vector{PYP{T}}) where T
+function get_all_pyps_at_depth(pyp::PYP{T}, depth::Int, accumulator::Vector{PYP{T}}) where T
     if pyp.depth == depth
         push!(accumulator, pyp)
         # TODO: This implementation feels a bit inefficient. If the method already pushed the PYP at this level, then self evidently the PYP at the next level will not be a target?

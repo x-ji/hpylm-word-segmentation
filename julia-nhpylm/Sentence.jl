@@ -1,11 +1,12 @@
 import Base.length
+using LegacyStrings
 
 #= Begin Sentence =#
 mutable struct Sentence
-    num_segments::UInt
+    num_segments::Int
     "The length of the segments within this sentence."
-    segments_lengths::Vector{UInt}
-    segment_starting_positions::Vector{UInt}
+    segments_lengths::Vector{Int}
+    segment_starting_positions::Vector{Int}
     "Indicates whether the sentence contains the true segmentation already."
     supervised::Bool
     """
@@ -18,7 +19,7 @@ mutable struct Sentence
     > a[1]
     '我': Unicode U+6211 (category Lo: Letter, other)
     > a[2]
-    ERROR: StringIndexError("我们", 2)
+    ERROR: UTF32StringIndexError("我们", 2)
     > a[4]
     '们': Unicode U+4eec (category Lo: Letter, other)
 
@@ -28,30 +29,34 @@ mutable struct Sentence
     Therefore, we can't do much with the sentence_string by trying to directly index-access it!
     """
     characters::Vector{Char}
-    "The corresponding integer representations of the words. This includes both bos (2) and eos (1)"
+    "The corresponding integer representations of the words. This includes both bos (2) and eos (1)
+    
+    Because `hash` returns UInt, the contents also need to be UInt.
+    "
     word_ids::Vector{UInt}
     "The string that makes up the sentence"
-    sentence_string::String
-    function Sentence(sentence_string::String)
+    sentence_string::UTF32String
+    function Sentence(sentence_string::UTF32String)
         s = new()
 
         s.sentence_string = sentence_string
         s.characters = Vector{Char}(sentence_string)
         s.word_ids = zeros(UInt, length(sentence_string) + 3)
-        s.segments_lengths = zeros(UInt, length(sentence_string) + 3)
-        s.segment_starting_positions = zeros(UInt, length(sentence_string) + 3)
+        s.segments_lengths = zeros(Int, length(sentence_string) + 3)
+        s.segment_starting_positions = zeros(Int, length(sentence_string) + 3)
 
         # TODO: Optimize this process so that BOS and EOS tokens are already added when the sentences are read in.
         s.word_ids[1] = BOS
         s.word_ids[2] = BOS
-        s.word_ids[3] = get_substr_word_id(1, length(sentence_string))
+        # println("sentence_string: $(sentence_string), length of sentence_string: $(length(sentence_string))")
+        s.word_ids[3] = get_substr_word_id(s, 1, length(sentence_string))
         s.word_ids[4] = EOS
 
         # Of course the lengths of BOS and EOS etc. are all 1.
-        s.segment_lengths[1] = 1
-        s.segment_lengths[2] = 1
-        s.segment_lengths[3] = length(sentence_string)
-        s.segment_lengths[4] = 1
+        s.segments_lengths[1] = 1
+        s.segments_lengths[2] = 1
+        s.segments_lengths[3] = length(sentence_string)
+        s.segments_lengths[4] = 1
 
         s.segment_starting_positions[1] = 1
         s.segment_starting_positions[2] = 1
@@ -64,7 +69,7 @@ mutable struct Sentence
 
         return s
     end
-    function sentence(sentence_string::String, supervised::Bool)
+    function sentence(sentence_string::UTF32String, supervised::Bool)
         sentence = Sentence(sentence_string)
         sentence.supervised = supervised
         return sentence
@@ -80,17 +85,17 @@ function get_num_segments_without_special_tokens(s::Sentence)
     return s.num_segments - 3
 end
 
-function get_nth_segment_length(s::Sentence, n::UInt)
+function get_nth_segment_length(s::Sentence, n::Int)
     @assert(n <= s.num_segments)
     return s.segment_lengths[n]
 end
 
-function get_nth_word_id(s::Sentence, n::UInt)
+function get_nth_word_id(s::Sentence, n::Int)
     @assert(n <= s.num_segments)
     return s.word_ids[n]
 end
 
-function get_nth_word_string(s::Sentence, n::UInt)
+function get_nth_word_string(s::Sentence, n::Int)
     # The last segment is <EOS>
     @assert(n < s.num_segments - 1)
     # TODO: This is all hard-coded. We'll need to change them if we're to support bigrams.
@@ -114,7 +119,7 @@ end
 
 # This method is to split the sentence using an already calculated segment_lengths vector, which contains the lengths of each segment.
 # Note that the segment_lengths array is without containing any BOS or EOS tokens.
-function split_sentence(sentence::Sentence, segment_lengths::Vector{UInt}, num_segments_without_special_tokens::UInt)
+function split_sentence(sentence::Sentence, segment_lengths::Vector{Int}, num_segments_without_special_tokens::Int)
     cur_start = 1
     index = 1
     while index < num_segments_without_special_tokens
@@ -140,18 +145,23 @@ function split_sentence(sentence::Sentence, segment_lengths::Vector{UInt}, num_s
 end
 
 
-function split_sentence(sentence::Sentence, segment_lengths::Vector{UInt})
+function split_sentence(sentence::Sentence, segment_lengths::Vector{Int})
     num_segments_without_special_tokens = length(segment_lengths)
     split_sentence(sentence, segment_lengths, num_segments_without_special_tokens)
 end
 
 # TODO: Apparently he wrote a custom hash function for the words? Might try to directly feed in strings instead of their hashes and see how the memory cost goes.
 # Or just use the built-in hash method if we're to keep the original structure. I'm pretty sure that all the words in a language is not going to break the hashing process.
-"Get the word id of the substring with start_index and end_index. Note that in Julia the end_index is inclusive."
-function get_substr_word_id(s::Sentence, start_index::UInt, end_index::UInt)
+"""
+Get the word id of the substring with start_index and end_index. Note that in Julia the end_index is inclusive.
+
+Note that the `hash` method returns UInt! This makes sense because a 2-fold increase in potential hash values can actually help a lot.
+"""
+function get_substr_word_id(s::Sentence, start_index::Int, end_index::Int)::UInt
+    # println("Start index: $(start_index), end index: $(end_index), length of the sentence: $(length(s))")
     return hash(s.sentence_string[start_index:end_index])
 end
 
-function get_substr(s::Sentence, start_index::UInt, end_index::UInt)
+function get_substr(s::Sentence, start_index::Int, end_index::Int)
     return s.sentence_string[start_index:end_index]
 end

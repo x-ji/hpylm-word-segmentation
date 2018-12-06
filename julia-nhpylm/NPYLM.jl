@@ -23,22 +23,22 @@ mutable struct NPYLM
 
     Remember that each dish can be served at multiple tables, i.e. there is a certain probability that a customer sits at a new table.
     Therefore, the outermost Vector in Vector{Vector{Int}} keeps tracks of the different tables that this token is served at!
-    Compare it with the field `tablegroups::Dict{T, Vector{UInt}}` in PYP.jl
+    Compare it with the field `tablegroups::Dict{T, Vector{Int}}` in PYP.jl
 
     For the *innermost* Vector{Int}, the index of the entry corresponds to the char index, the value of the entry corresponds to the depth of that particular char entry.
     This is to say, for *a particular table* that the token is served at, the breakdown of char depths is recorded in that vector.
     """
-    recorded_depth_arrays_for_tablegroups_of_token::Dict{UInt, Vector{Vector{Int}}}
+    recorded_depth_arrays_for_tablegroups_of_token::Dict{Int, Vector{Vector{Int}}}
 
     "The cache of WHPYLM G_0. This will be invalidated once the seating arrangements in the CHPYLM change."
-    whpylm_G_0_cache::Dict{UInt, Float64}
+    whpylm_G_0_cache::Dict{Int, Float64}
     "The cache of CHPYLM G_0"
-    chpylm_G_0_cache::Dict{UInt, Float64}
+    chpylm_G_0_cache::Dict{Int, Float64}
     λ_for_types::Vector{Float64}
     "Probability of generating a word of length k from the CHPYLM"
     p_k_chpylm::OffsetVector{Float64}
-    max_word_length::UInt
-    max_sentence_length::UInt
+    max_word_length::Int
+    max_sentence_length::Int
     """
     The shape parameter of the Gamma distribution for estimating the λ value for the Poisson distribution. (Expression (16) of the paper)
 
@@ -61,7 +61,7 @@ mutable struct NPYLM
     """
     most_recent_word_added_to_chpylm::Vector{Char}
 
-    function NPYLM(max_word_length::UInt, max_sentence_length::UInt, G_0::Float64, initial_λ_a::Float64, initial_λ_b::Float64, chpylm_beta_stop::Float64, chpylm_beta_pass::Float64)
+    function NPYLM(max_word_length::Int, max_sentence_length::Int, G_0::Float64, initial_λ_a::Float64, initial_λ_b::Float64, chpylm_beta_stop::Float64, chpylm_beta_pass::Float64)
         npylm = new()
 
         whpylm = WHPYLM(3)
@@ -80,7 +80,8 @@ mutable struct NPYLM
         npylm.most_recent_word_added_to_chpylm = Vector{Char}(undef, max_sentence_length + 2)
         # There are two extra cases where k = 1 and k > max_word_length
         # We initialize them with a uniform distribution. Later we'll use a Monte Carlo sampling to update the estimates (in function update_p_k_given_chpylm)
-        npylm.p_k_chpylm = Vector{Float64}((1.0 / (max_word_length + 1)), 0:max_word_length)
+        # npylm.p_k_chpylm = OffsetVector{Float64}((1.0 / (max_word_length + 1)), 0:max_word_length)
+        npylm.p_k_chpylm = fill(1.0 / (max_word_length + 1), 0:max_word_length)
         # for k in 0:max_word_length + 1
         #     npylm.p_k_chpylm[k] = 1.0 / (max_word_length + 1)
         # end
@@ -88,7 +89,7 @@ mutable struct NPYLM
     end
 end
 
-function produce_word_with_bow_and_eow(sentence_as_chars::Vector{Char}, word_begin_index::UInt, word_end_index::UInt, word::Vector{Char})
+function produce_word_with_bow_and_eow(sentence_as_chars::Vector{Char}, word_begin_index::Int, word_end_index::Int, word::Vector{Char})
     word[1] = BOW
     # # The length is end - begin + 1. This is always the case.
     # for i in 1:word_end_index - word_begin_index + 1
@@ -101,7 +102,7 @@ function produce_word_with_bow_and_eow(sentence_as_chars::Vector{Char}, word_beg
 end
 
 
-function extend_capacity(npylm::NPYLM, max_sentence_length::UInt)
+function extend_capacity(npylm::NPYLM, max_sentence_length::Int)
     if (max_sentence_length <= npylm.max_sentence_length)
         return
     else
@@ -109,7 +110,7 @@ function extend_capacity(npylm::NPYLM, max_sentence_length::UInt)
     end
 end
 
-function allocate_capacity(npylm::NPYLM, max_sentence_length::UInt)
+function allocate_capacity(npylm::NPYLM, max_sentence_length::Int)
     npylm.max_sentence_length = max_sentence_length
     npylm.most_recent_word_added_to_chpylm = Vector{Char}(max_sentence_length + 2)
 end
@@ -129,20 +130,20 @@ function sample_λ_with_initial_params(npylm::NPYLM)
     for i in 1:NUM_WORD_TYPES
         # scale = 1/rate
         dist = Gamma(npylm.λ_a, 1/npylm.λ_b)
-        npylm.λ_for_types[i] = rand(dist, Float64)
+        npylm.λ_for_types[i] = rand(dist)
     end
 end
 
-function add_customer_at_index_n(npylm::NPYLM, sentence::Sentence, n::UInt)::Bool
+function add_customer_at_index_n(npylm::NPYLM, sentence::Sentence, n::Int)::Bool
     @assert(n > 2)
-    token_n::UInt = get_nth_word_id(sentence, n)
-    pyp::PYP{UInt} = find_node_by_tracing_back_context(npylm, sentence.characters, n, npylm.whpylm_parent_p_w_cache, true, false)
+    token_n::Int = get_nth_word_id(sentence, n)
+    pyp::PYP{Int} = find_node_by_tracing_back_context(npylm, sentence.characters, n, npylm.whpylm_parent_p_w_cache, true, false)
     @assert pyp != nothing
-    num_tables_before_addition::UInt = npylm.whpylm.root.ntables
+    num_tables_before_addition::Int = npylm.whpylm.root.ntables
     word_begin_index = sentence.segment_begining_positions[n]
     word_end_index = word_begin_index + sentence.segment_lengths[n] - 1
     (_, index_of_table_added_to_in_root) = add_customer(pyp, token_n, npylm.whpylm_parent_p_w_cache, npylm.whpylm.d_array, npylm.whpylm.θ_array)
-    num_tables_after_addition::UInt = npylm.whpylm.root.ntables
+    num_tables_after_addition::Int = npylm.whpylm.root.ntables
     # If the number of tables in the root is increased, we'll need to break down the word into characters and add them to the chpylm as well.
     # Remember that a customer has a certain probability to sit at a new table. However, it might also join an old table, in which case the G_0 doesn't change?
     if (num_tables_before_addition < num_tables_after_addition)
@@ -169,7 +170,7 @@ function add_customer_at_index_n(npylm::NPYLM, sentence::Sentence, n::UInt)::Boo
 end
 
 # Yeah OK so token_ids is just a temporary variable holding all the characters to be added into the chpylm? What a weird design... Why can't we do better let's see how we might refactor this code later.
-function add_word_to_chpylm(npylm::NPYLM, sentence_as_chars::Vector{Char}, word_begin_index::UInt, word_end_index::UInt, word::Vector{Char}, recorded_depths::Vector{UInt})
+function add_word_to_chpylm(npylm::NPYLM, sentence_as_chars::Vector{Char}, word_begin_index::Int, word_end_index::Int, word::Vector{Char}, recorded_depths::Vector{Int})
     @assert length(recorded_depths) == 0
     @assert word_end_index >= word_begin_index
     # This is probably to avoid EOS?
@@ -184,18 +185,18 @@ function add_word_to_chpylm(npylm::NPYLM, sentence_as_chars::Vector{Char}, word_
     end
 end
 
-function remove_customer_at_index_n(npylm::NPYLM, sentence::Sentence, n::UInt)
+function remove_customer_at_index_n(npylm::NPYLM, sentence::Sentence, n::Int)
     @assert n > 2
     token_n = get_nth_word_id(sentence, n)
     pyp = find_node_by_tracing_back_context_from_index_n(npylm, sentence.word_ids, sentence.num_segments, n, false, false)
     @assert pyp != nothing
-    num_tables_before_removal::UInt = npylm.whpylm.root.ntables
+    num_tables_before_removal::Int = npylm.whpylm.root.ntables
     index_of_table_removed_from = 0
     word_begin_index = sentence.segment_begining_positions[n]
     word_end_index = word_begin_index + sentence.segment_lengths[n] - 1
     remove_customer(pyp, token_n, index_of_table_removed_from)
 
-    num_tables_after_removal::UInt = npylm.whpylm.root.ntables
+    num_tables_after_removal::Int = npylm.whpylm.root.ntables
     if num_tables_before_removal > num_tables_after_removal
         # The CHPYLM is changed, so we need to clear the cache.
         npylm.whpylm_G_0_cache = Dict()
@@ -219,7 +220,7 @@ function remove_customer_at_index_n(npylm::NPYLM, sentence::Sentence, n::UInt)
     return true
 end
 
-function remove_word_from_chpylm(npylm::NPYLM, sentence_as_chars::Vector{Char}, word_begin_index::UInt, word_end_index::UInt, word::Vector{Char}, recorded_depths::Vector{UInt})
+function remove_word_from_chpylm(npylm::NPYLM, sentence_as_chars::Vector{Char}, word_begin_index::Int, word_end_index::Int, word::Vector{Char}, recorded_depths::Vector{Int})
     @assert length(recorded_depths) > 0
     @assert word_end_index >= word_begin_index
     @assert word_end_index <= npylm.max_sentence_length
@@ -232,7 +233,7 @@ function remove_word_from_chpylm(npylm::NPYLM, sentence_as_chars::Vector{Char}, 
     end
 end
 
-function find_node_by_tracing_back_context_from_index_n(npylm::NPYLM, word_ids::Vector{UInt}, n::UInt, generate_if_not_found::Bool, return_middle_node::Bool)
+function find_node_by_tracing_back_context_from_index_n(npylm::NPYLM, word_ids::Vector{Int}, n::Int, generate_if_not_found::Bool, return_middle_node::Bool)
     # TODO: These all need to change when the bigram model is supported.
     @assert n > 2
     @assert n < length(word_ids)
@@ -240,7 +241,7 @@ function find_node_by_tracing_back_context_from_index_n(npylm::NPYLM, word_ids::
     # TODO: Why only 2?
     for depth in 1:2
         # There are currently two BOS tokens.
-        context::UInt = BOS
+        context::Int = BOS
         if n - depth > 0
             context = word_ids[n - depth]
         end
@@ -258,7 +259,7 @@ function find_node_by_tracing_back_context_from_index_n(npylm::NPYLM, word_ids::
 end
 
 
-function find_node_by_tracing_back_context_from_index_n(npylm::NPYLM, sentence_as_chars::Vector{Char}, word_ids::Vector{UInt}, n::UInt, word_begin_index::UInt, word_end_index::UInt, parent_p_w_cache::Vector{Float64}, generate_if_not_found::Bool, return_middle_node::Bool)
+function find_node_by_tracing_back_context_from_index_n(npylm::NPYLM, sentence_as_chars::Vector{Char}, word_ids::Vector{Int}, n::Int, word_begin_index::Int, word_end_index::Int, parent_p_w_cache::Vector{Float64}, generate_if_not_found::Bool, return_middle_node::Bool)
     @assert n > 2
     @assert n < length(word_ids)
     @assert word_begin_index > 0
@@ -344,12 +345,12 @@ function compute_G_0_of_word_at_index_n(npylm::NPYLM, sentence_as_chars::Vector{
     end
 end
 
-function sample_poisson_k_λ(k::UInt, λ::Float64)
+function sample_poisson_k_λ(k::Int, λ::Float64)
     dist = Poisson(λ)
     return pdf(dist, k)
 end
 
-function compute_p_k_given_chpylm(npylm::NPYLM, k::UInt)
+function compute_p_k_given_chpylm(npylm::NPYLM, k::Int)
     if k > npylm.max_word_length
         return 0
     end
@@ -379,14 +380,14 @@ function compute_probability_of_sentence(npylm::NPYLM, sentence::Sentence)
 end
 
 # This is the real "compute_p_w"... The above ones don't have much to do with p_w I reckon. They are about whole sentences. Eh.
-function compute_p_w_of_nth_word(npylm::NPYLM, sentence::Sentence, n::UInt)
+function compute_p_w_of_nth_word(npylm::NPYLM, sentence::Sentence, n::Int)
     word_begin_index = sentence.segment_starting_positions[n]
     # I mean, why don't you just record the end index directly anyways. The current implementation is such a torture.
     word_end_index = word_begin_index + sentence.segment_lengths[n] - 1
     return compute_p_w_of_nth_word(npylm, sentence.characters, sentence.word_ids, sentence.num_segments, n, word_begin_index, word_end_index)
 end
 
-function compute_p_w_of_nth_word(npylm::NPYLM, sentence_as_chars::String, word_ids::Vector{UInt}, n::UInt, word_begin_index::UInt, word_end_index::UInt)
+function compute_p_w_of_nth_word(npylm::NPYLM, sentence_as_chars::UTF32String, word_ids::Vector{Int}, n::Int, word_begin_index::Int, word_end_index::Int)
     word_id = word_ids[n]
     
     # generate_if_not_found = false, return_middle_node = true

@@ -9,12 +9,12 @@ mutable struct A
     end
 end
 
-function test(a::UInt)
+function test(a::Int)
     b = a
     b += 1
 end
 
-function test(a::UInt, b::UInt)
+function test(a::Int, b::Int)
     c = a + b
     c += 1
 end
