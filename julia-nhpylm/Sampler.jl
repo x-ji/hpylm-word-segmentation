@@ -8,10 +8,10 @@ This structs holds all the necessary fields and functions for sampling sentence 
 mutable struct Sampler
     npylm::NPYLM
     "The word_ids of the current 3-gram being calculated"
-    word_ids::Vector{Int}
+    word_ids::Vector{UInt}
     "Cache of ids of some words previously segmented in this sentence."
     # substring_word_id_cache::Array{Int, 2}
-    substring_word_id_cache::OffsetArray{Int}
+    substring_word_id_cache::OffsetArray{UInt}
     "3-dimensional tensor that contains the forward variables, i.e. in α[t][k][j] at p.104 of the paper"
     # α_tensor::Array{Float64, 3}
     α_tensor::OffsetArray{Float64}
@@ -48,7 +48,7 @@ mutable struct Sampler
 
     e.g. viterbi_backward_indices[t,k,j] = 2 means when the first gram (i) has length 2, the probability is maximized. This is why there isn't a `i` index, unlike the p_w_h_cache array
     """
-    viterbi_backward_indices::Array{Int, 3}
+    viterbi_backward_indices::OffsetArray{Int, 3}
 
     # I can probably make this one non-mutable if I change the representation of these two a bit. Let's see.
     "This is L in the paper, i.e. the maximum length allowed for a word."
@@ -60,7 +60,7 @@ mutable struct Sampler
         sampler = new()
         sampler.npylm = npylm
         # TODO: Adapt this to the bigram case.
-        sampler.word_ids = Vector{Int}(undef, 3)
+        sampler.word_ids = Vector{UInt}(undef, 3)
         # TODO: Need to write this function still.
         allocate_capacity(sampler, max_word_length, max_sentence_length)
         return sampler
@@ -84,16 +84,17 @@ function allocate_capacity(sampler::Sampler, max_word_length::Int, max_sentence_
     size = max_sentence_length + 1
     sampler.log_z = Vector{Float64}(undef, size)
     sampler.scaling_coefficients = Vector{Float64}(undef, size)
-    sampler.viterbi_backward_indices = Array{Float64, 3}(undef, (size, max_word_length+1, max_word_length+1))
+    println("max_word_length: $(max_word_length), max_sentence_length: $(max_sentence_length)")
+    sampler.viterbi_backward_indices = OffsetArray{Int, 3}(undef, (0:max_sentence_length, 0:max_word_length, 0:max_word_length))
     sampler.backward_sampling_table = Vector{Float64}(undef, max_word_length * max_word_length)
 
     # The + 1 part is because we have to accomodate for the index 0, which indicates that we have BOS as one of the grams.
     # sampler.α_tensor = Array{Float64, 3}(undef, size + 1, max_word_length + 1, max_word_length + 1)
-    sampler.α_tensor = OffsetArray{Float64}(undef, 0:size + 1, max_word_length + 1, max_word_length + 1)
+    sampler.α_tensor = OffsetArray{Float64}(undef, 0:size, 0:max_word_length, 0:max_word_length)
     # sampler.p_w_h_cache = Array{Float64, 4}(undef, size, max_word_length + 1, max_word_length + 1, max_word_length + 1)
     sampler.p_w_h_cache = OffsetArray{Float64}(undef, 0:size - 1, 0:max_word_length, 0:max_word_length, 0:max_word_length)
     # sampler.substring_word_id_cache = Array{Int, 2}(undef, size, max_word_length + 1)
-    sampler.substring_word_id_cache = OffsetArray{Int}(undef, 0:size-1, 0:max_word_length)
+    sampler.substring_word_id_cache = OffsetArray{UInt}(undef, 0:size-1, 0:max_word_length)
 end
 
 """
@@ -103,7 +104,7 @@ This function returns the id of the word constituted by the last k characters of
 
 Note that since this function already takes care of the index shift that's needed in Julia, the callers will still just call it normally.
 """
-function get_substring_word_id_at_t_k(sampler::Sampler, sentence::Sentence, t::Int, k::Int)::Int
+function get_substring_word_id_at_t_k(sampler::Sampler, sentence::Sentence, t::Int, k::Int)::UInt
     word_id = sampler.substring_word_id_cache[t,k]
     # 0 is used to indicate the initial state, where there's no cache.
     # Though wouldn't it conflict with BOS? Let's see then.
@@ -182,7 +183,7 @@ function calculate_α_t_k_j(sampler::Sampler, sentence::Sentence, t::Int, k::Int
 end
 
 function forward_filtering(sampler::Sampler, sentence::Sentence, with_scaling::Bool)
-    sampler.α_array[0,0,0] = 1
+    sampler.α_tensor[0,0,0] = 1
     for t in 1:length(sentence)
         prod_scaling = 1.0
         # The original paper most likely made a mistake on this. Apparently one should take min(t, L) instead of max(1, t - L) which makes no sense.
@@ -356,8 +357,8 @@ end
 function blocked_gibbs_segment(sampler::Sampler, sentence::Sentence, with_scaling::Bool)
     array_length = length(sentence) + 1
 
-    for i in 0:array_length
-        for j in 0:sampler.max_word_length + 1
+    for i in 0:length(sentence)
+        for j in 0:sampler.max_word_length
             sampler.substring_word_id_cache[i,j] = 0
         end
     end

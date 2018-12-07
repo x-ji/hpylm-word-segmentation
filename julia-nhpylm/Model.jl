@@ -156,7 +156,7 @@ Sample lambda values for different types of characters
 function sample_lambda(trainer::Trainer)
     a_array = zeros(NUM_WORD_TYPES + 1, Float64)
     b_array = zeros(NUM_WORD_TYPES + 1, Float64)
-    word_ids::Set{Int} = Set()
+    word_ids::Set{UInt} = Set()
     for t in 1:NUM_WORD_TYPES
         a_array[t] = trainer.npylm.λ_a
         b_array[t] = trainer.npylm.λ_b
@@ -322,7 +322,7 @@ function blocked_gibbs_sampling(trainer::Trainer)
             end
 
             # We need to later decide by some criteria whether to accept the new segmentation or just keep the old one.
-            if trainer.always_accept_new_segment_lengths == false
+            if trainer.always_accept_new_segmentation == false
                 num_old_segments = get_num_segments_without_special_tokens(sentence)
                 for i in 1:num_old_segments
                     # We save the old segmentation but get rid of the BOS and EOS tokens
@@ -337,7 +337,7 @@ function blocked_gibbs_sampling(trainer::Trainer)
             split_sentence(sentence, new_segment_lengths)
 
             # TODO: There might be a way to avoid performing the check twice? Using a single Sentence struct to hold all these stuffs is quite a bit restrictive.
-            if trainer.always_accept_new_segment_lengths == false
+            if trainer.always_accept_new_segmentation == false
                 old_log_p_s = compute_log_probability_of_sentence(trainer.model.npylm, sentence)
                 # When the log probability of the new segmentation is lower, accept the new segmentation only with a certain probability
                 bernoulli = min(1.0, exp(new_log_p_s - old_log_p_s))

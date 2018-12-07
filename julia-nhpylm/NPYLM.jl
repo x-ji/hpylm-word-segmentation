@@ -64,8 +64,12 @@ mutable struct NPYLM
     function NPYLM(max_word_length::Int, max_sentence_length::Int, G_0::Float64, initial_λ_a::Float64, initial_λ_b::Float64, chpylm_beta_stop::Float64, chpylm_beta_pass::Float64)
         npylm = new()
 
-        whpylm = WHPYLM(3)
-        chpylm = CHPYLM(G_0, max_sentence_length, chpylm_beta_stop, chpylm_beta_pass)
+        npylm.whpylm = WHPYLM(3)
+        npylm.chpylm = CHPYLM(G_0, max_sentence_length, chpylm_beta_stop, chpylm_beta_pass)
+
+        npylm.recorded_depth_arrays_for_tablegroups_of_token = Dict{Int, Vector{Vector{Int}}}()
+        npylm.whpylm_G_0_cache = Dict{Int, Float64}()
+        npylm.chpylm_G_0_cache = Dict{Int, Float64}()
 
         # TODO: Expand upon word types and use different poisson distributions for different types.
         npylm.λ_for_types = zeros(Float64, NUM_WORD_TYPES)
@@ -233,7 +237,7 @@ function remove_word_from_chpylm(npylm::NPYLM, sentence_as_chars::Vector{Char}, 
     end
 end
 
-function find_node_by_tracing_back_context_from_index_n(npylm::NPYLM, word_ids::Vector{Int}, n::Int, generate_if_not_found::Bool, return_middle_node::Bool)
+function find_node_by_tracing_back_context_from_index_n(npylm::NPYLM, word_ids::Vector{UInt}, n::Int, generate_if_not_found::Bool, return_middle_node::Bool)
     # TODO: These all need to change when the bigram model is supported.
     @assert n > 2
     @assert n < length(word_ids)
@@ -259,9 +263,9 @@ function find_node_by_tracing_back_context_from_index_n(npylm::NPYLM, word_ids::
 end
 
 
-function find_node_by_tracing_back_context_from_index_n(npylm::NPYLM, sentence_as_chars::Vector{Char}, word_ids::Vector{Int}, n::Int, word_begin_index::Int, word_end_index::Int, parent_p_w_cache::Vector{Float64}, generate_if_not_found::Bool, return_middle_node::Bool)
+function find_node_by_tracing_back_context_from_index_n(npylm::NPYLM, sentence_as_chars::Vector{Char}, word_ids::Vector{UInt}, n::Int, word_begin_index::Int, word_end_index::Int, parent_p_w_cache::Vector{Float64}, generate_if_not_found::Bool, return_middle_node::Bool)
     @assert n > 2
-    @assert n < length(word_ids)
+    @assert n <= length(word_ids)
     @assert word_begin_index > 0
     @assert word_end_index >= word_begin_index
     cur_node = npylm.whpylm.root
@@ -303,7 +307,8 @@ function compute_G_0_of_word_at_index_n(npylm::NPYLM, sentence_as_chars::Vector{
         produce_word_with_bow_and_eow(sentence_as_chars, word_begin_index, word_end_index, token_ids)
         # Add bow and eow
         word_length_with_symbols = word_length + 2
-        p_w = compute_p_w(npylm.chpylm, token_ids, word_length_with_symbols)
+        # p_w = compute_p_w(npylm.chpylm, token_ids, word_length_with_symbols)
+        p_w = compute_p_w(npylm.chpylm, token_ids)
 
         # If it's the very first iteration where there isn't any word yet, we cannot compute G_0 based on the chpylm.
         if word_length > npylm.max_word_length
@@ -387,7 +392,7 @@ function compute_p_w_of_nth_word(npylm::NPYLM, sentence::Sentence, n::Int)
     return compute_p_w_of_nth_word(npylm, sentence.characters, sentence.word_ids, sentence.num_segments, n, word_begin_index, word_end_index)
 end
 
-function compute_p_w_of_nth_word(npylm::NPYLM, sentence_as_chars::UTF32String, word_ids::Vector{Int}, n::Int, word_begin_index::Int, word_end_index::Int)
+function compute_p_w_of_nth_word(npylm::NPYLM, sentence_as_chars::Vector{Char}, word_ids::Vector{UInt}, n::Int, word_begin_index::Int, word_end_index::Int)
     word_id = word_ids[n]
     
     # generate_if_not_found = false, return_middle_node = true

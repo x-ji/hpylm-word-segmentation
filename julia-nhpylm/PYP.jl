@@ -1,9 +1,9 @@
-using Compat, Random, Distributions
+using Compat, Random, Distributions, OffsetArrays
 
 # include("Def.jl")
 
 # TODO: Just don't use this function and initialize d_array and θ_array to be really large from the get go.
-function init_hyperparameters_at_depth_if_needed(depth::Int, d_array::Vector{Float64}, θ_array::Vector{Float64})
+function init_hyperparameters_at_depth_if_needed(depth::Int, d_array::OffsetVector{Float64}, θ_array::OffsetVector{Float64})
     # The depth is dynamically increasing. Therefore we might need to push new hyperparameters into the array if needed.
     # However, why don't we on the contrary just initialize an array of ridiculous depth that this should never become a problem? I think that might make the operations a bit more efficient
     if depth >= length(d_array)
@@ -70,10 +70,10 @@ mutable struct PYP{T}
     ncustomers::Int
 
     "Useful only for CHPYLM. The number of times that the process has stopped at this Node."
-    stopcount::Int
+    stop_count::Int
 
     "Useful only for CHPYLM. The number of times that the process has passed through this node."
-    passcount::Int
+    pass_count::Int
 
     """
     The depth of this PYP node in the hierarchical structure.
@@ -98,11 +98,14 @@ mutable struct PYP{T}
     function PYP(context::T) where T
         pyp = new{T}()
         pyp.children = Dict{T,PYP{T}}()
+        pyp.parent = nothing
+        pyp.tablegroups = Dict{T, Vector{Int}}()
         # pyp.ntablegroups = 0
-        # pyp.ntables = 0
+        pyp.ntables = 0
         pyp.ncustomers = 0
-        pyp.stopcount = 0
-        pyp.passcount = 0
+        pyp.stop_count = 0
+        pyp.pass_count = 0
+        # pyp.depth = 0
         pyp.context = context
         # No need to initialize parent when it's a null value.
         return pyp
@@ -332,10 +335,10 @@ Compute the possibility of the word/char `dish` being generated from this pyp (i
 
 When is_parent_pw == True, the third argument is the parent_p_w. Otherwise it's simply the G_0.
 """
-function compute_p_w(pyp::PYP{T}, dish::T, G_0_or_parent_pw::Float64, d_array::Vector{Float64}, θ_array::Vector{Float64}, is_parent_pw::Bool=false) where T
+function compute_p_w(pyp::PYP{T}, dish::T, G_0_or_parent_pw::Float64, d_array::OffsetVector{Float64}, θ_array::OffsetVector{Float64}, is_parent_pw::Bool=false) where T
     init_hyperparameters_at_depth_if_needed(pyp.depth, d_array, θ_array)
-    d_u = d_array[pyp.depth + 1]
-    θ_u = θ_array[pyp.depth + 1]
+    d_u = d_array[pyp.depth]
+    θ_u = θ_array[pyp.depth]
     t_u = pyp.ntables
     c_u = pyp.ncustomers
     tablegroup = get(pyp.tablegroups, dish, nothing)

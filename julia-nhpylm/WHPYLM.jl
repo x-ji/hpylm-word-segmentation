@@ -53,6 +53,7 @@ mutable struct WHPYLM{Int} <: HPYLM{Int}
             push!(parent(whpylm.α_array), HPYLM_α)
             push!(parent(whpylm.β_array), HPYLM_β)
         end
+        return whpylm
     end
 end
 

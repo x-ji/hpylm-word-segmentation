@@ -62,9 +62,9 @@ mutable struct CHPYLM{Char} <: HPYLM{Char}
         chpylm = new{Char}()
         @assert(G_0 > 0)
         # The point is just that the root node doesn't have any context, naturally, so this one should be a character that's never occurring?
-        root = PYP(BOW)
+        chpylm.root = PYP(BOW)
         # I think theoretically the depth of a tree does begin from 0?
-        root.depth = 0
+        chpylm.root.depth = 0
         chpylm.beta_stop = beta_stop
         chpylm.beta_pass = beta_pass
         chpylm.depth = 0
@@ -82,6 +82,7 @@ mutable struct CHPYLM{Char} <: HPYLM{Char}
         chpylm.b_array = OffsetVector{Float64}(undef, 0:0)
         chpylm.α_array = OffsetVector{Float64}(undef, 0:0)
         chpylm.β_array = OffsetVector{Float64}(undef, 0:0)
+        return chpylm
     end
 end
 
@@ -269,7 +270,7 @@ function compute_log_p_w(chpylm::CHPYLM, characters::Vector{Char})
 
     for n in 2:length(characters)
         # I sense that the way this calculation is written is simply not very efficient. Surely we can do better than this?
-        log_p_w += log(compute_p_w_given_h(characters, 0, n))
+        log_p_w += log(compute_p_w_given_h(chpylm, characters, 0, n))
     end
 end
 
@@ -277,7 +278,7 @@ end
 # TODO: Improve the efficiency of these calls.
 function compute_p_w_given_h(chpylm::CHPYLM, characters::Vector{Char}, context_begin::Int, context_end::Int)
     target_char = characters[context_end + 1]
-    return compute_p_w_given_h(target_char, characters, context_begin, context_end)
+    return compute_p_w_given_h(chpylm, target_char, characters, context_begin, context_end)
 end
 
 function compute_p_w_given_h(chpylm::CHPYLM, target_char::Char, characters::Vector{Char}, context_begin::Int, context_end::Int)
