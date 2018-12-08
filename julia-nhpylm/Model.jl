@@ -309,54 +309,51 @@ function blocked_gibbs_sampling(trainer::Trainer)
             end
             trainer.added_to_chpylm_train[sentence_index] = true
         else
-            old_segment_lengths = Vector{Int}(undef, max_sentence_length + 3)
-            num_old_segments = 0
-            old_log_p_s = 0.0
-            new_log_p_s = 0.0
-
             # TODO: I thought this has more to do with the iteration of sampling? Do we really need such a mechanism anyways. But where is the iteration number in the first place eh.
-            if trainer.added_to_chpylm_train[sentence_index]
+            if trainer.added_to_chpylm_train[sentence_index] == true
+                old_segment_lengths = Vector{Int}(undef, max_sentence_length + 3)
+                num_old_segments = 0
+                old_log_p_s = 0.0
+                new_log_p_s = 0.0
+
                 for n in 3:sentence.num_segments
                     remove_customer_at_index_n(trainer.model.npylm, sentence, n)
                 end
-            end
 
-            # We need to later decide by some criteria whether to accept the new segmentation or just keep the old one.
-            if trainer.always_accept_new_segmentation == false
-                num_old_segments = get_num_segments_without_special_tokens(sentence)
-                for i in 1:num_old_segments
-                    # We save the old segmentation but get rid of the BOS and EOS tokens
-                    # Two BOS in the beginning.
-                    old_segment_lengths[i] = sentence.segments[i + 2]
+                # We need to later decide by some criteria whether to accept the new segmentation or just keep the old one.
+                if trainer.always_accept_new_segmentation == false
+                    num_old_segments = get_num_segments_without_special_tokens(sentence)
+                    for i in 1:num_old_segments
+                        # We save the old segmentation but get rid of the BOS and EOS tokens
+                        # Two BOS in the beginning.
+                        old_segment_lengths[i] = sentence.segments[i + 2]
+                    end
+                    old_log_p_s = compute_log_probability_of_sentence(trainer.model.npylm, sentence)
                 end
-                old_log_p_s = compute_log_probability_of_sentence(trainer.model.npylm, sentence)
-            end
 
-            # Produce the new segmentation
-            new_segment_lengths = blocked_gibbs_segment(trainer.model.sampler, sentence, true)
-            split_sentence(sentence, new_segment_lengths)
+                # Produce the new segmentation
+                new_segment_lengths = blocked_gibbs_segment(trainer.model.sampler, sentence, true)
+                split_sentence(sentence, new_segment_lengths)
 
-            # TODO: There might be a way to avoid performing the check twice? Using a single Sentence struct to hold all these stuffs is quite a bit restrictive.
-            if trainer.always_accept_new_segmentation == false
-                old_log_p_s = compute_log_probability_of_sentence(trainer.model.npylm, sentence)
-                # When the log probability of the new segmentation is lower, accept the new segmentation only with a certain probability
-                bernoulli = min(1.0, exp(new_log_p_s - old_log_p_s))
-                r = rand(Float64)
-                if bernoulli < r
-                    split_sentence(sentence, old_segment_lengths, num_old_segments)
-                    trainer.num_segmentation_rejections += 1
-                else
-                    trainer.num_segmentation_acceptances += 1
+                # TODO: There might be a way to avoid performing the check twice? Using a single Sentence struct to hold all these stuffs is quite a bit restrictive.
+                if trainer.always_accept_new_segmentation == false
+                    old_log_p_s = compute_log_probability_of_sentence(trainer.model.npylm, sentence)
+                    # When the log probability of the new segmentation is lower, accept the new segmentation only with a certain probability
+                    bernoulli = min(1.0, exp(new_log_p_s - old_log_p_s))
+                    r = rand(Float64)
+                    if bernoulli < r
+                        split_sentence(sentence, old_segment_lengths, num_old_segments)
+                        trainer.num_segmentation_rejections += 1
+                    else
+                        trainer.num_segmentation_acceptances += 1
+                    end
                 end
             end
-
             for n in 3:sentence.num_segments
                 add_customer_at_index_n(trainer.model.npylm, sentence, n)
             end
             trainer.added_to_chpylm_train[sentence_index] = true
         end
-
-
     end
 end
 
