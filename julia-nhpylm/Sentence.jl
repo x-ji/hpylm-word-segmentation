@@ -5,8 +5,8 @@ using LegacyStrings
 mutable struct Sentence
     num_segments::Int
     "The length of the segments within this sentence."
-    segments_lengths::Vector{Int}
-    segment_starting_positions::Vector{Int}
+    segment_lengths::Vector{Int}
+    segment_begin_positions::Vector{Int}
     "Indicates whether the sentence contains the true segmentation already."
     supervised::Bool
     """
@@ -42,8 +42,8 @@ mutable struct Sentence
         s.sentence_string = sentence_string
         s.characters = Vector{Char}(sentence_string)
         s.word_ids = zeros(UInt, length(sentence_string) + 3)
-        s.segments_lengths = zeros(Int, length(sentence_string) + 3)
-        s.segment_starting_positions = zeros(Int, length(sentence_string) + 3)
+        s.segment_lengths = zeros(Int, length(sentence_string) + 3)
+        s.segment_begin_positions = zeros(Int, length(sentence_string) + 3)
 
         # TODO: Optimize this process so that BOS and EOS tokens are already added when the sentences are read in.
         s.word_ids[1] = BOS
@@ -53,15 +53,15 @@ mutable struct Sentence
         s.word_ids[4] = EOS
 
         # Of course the lengths of BOS and EOS etc. are all 1.
-        s.segments_lengths[1] = 1
-        s.segments_lengths[2] = 1
-        s.segments_lengths[3] = length(sentence_string)
-        s.segments_lengths[4] = 1
+        s.segment_lengths[1] = 1
+        s.segment_lengths[2] = 1
+        s.segment_lengths[3] = length(sentence_string)
+        s.segment_lengths[4] = 1
 
-        s.segment_starting_positions[1] = 1
-        s.segment_starting_positions[2] = 1
-        s.segment_starting_positions[3] = 1
-        s.segment_starting_positions[4] = length(sentence_string)
+        s.segment_begin_positions[1] = 1
+        s.segment_begin_positions[2] = 1
+        s.segment_begin_positions[3] = 1
+        s.segment_begin_positions[4] = length(sentence_string)
 
         s.num_segments = 4
 
@@ -103,7 +103,7 @@ function get_nth_word_string(s::Sentence, n::Int)
     if n <= 2
         return "<BOS>"
     else
-        start_position = s.segment_starting_positions[n]
+        start_position = s.segment_begin_positions[n]
         end_position = start_position + s.segment_lengths[n]
         return s.sentence_string[start_position:end_position]
     end
@@ -126,7 +126,7 @@ function split_sentence(sentence::Sentence, segment_lengths::Vector{Int}, num_se
         cur_length = segment_lengths[index]
         sentence.segment_lengths[index + 2] = cur_length
         sentence.word_ids[index + 2] = get_substr_word_id(sentence, cur_start, cur_start + cur_length - 1)
-        sentence.segment_starting_positions[index + 2] = cur_start
+        sentence.segment_begin_positions[index + 2] = cur_start
         cur_start += cur_length
         index += 1
     end
@@ -134,12 +134,12 @@ function split_sentence(sentence::Sentence, segment_lengths::Vector{Int}, num_se
     sentence.segment_lengths[index + 2] = 1
     sentence.word_ids[index + 2] = EOS
     # So the EOS token is considered to be a part of the last word?
-    sentence.segment_starting_positions[index + 2] = sentence.segment_starting_positions[index + 1]
+    sentence.segment_begin_positions[index + 2] = sentence.segment_begin_positions[index + 1]
     index += 1
     # Yeah we did initialize the lengths of those things to be length(sentence_string) + 3, but weren't they initialized to 0s from the very beginning?
     # for n in index:length(sentence.sentence_string)
     #     sentence.segment_lengths[n + 2] = 0
-    #     sentence.segment_starting_positions[n + 2] = 0
+    #     sentence.segment_begin_positions[n + 2] = 0
     # end
     sentence.num_segments = num_segments_without_special_tokens + 3
 end

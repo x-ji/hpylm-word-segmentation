@@ -153,7 +153,7 @@ function find_child_pyp(pyp::PYP{T}, dish::T, generate_if_not_found::Bool=false)
         child = PYP(dish)
         child.parent = pyp
         child.depth = pyp.depth + 1
-        pyp[dish] = child
+        pyp.children[dish] = child
         return child
     else
         # In this case the result is just nothing.
@@ -165,8 +165,10 @@ end
 "The second item returned in the tuple is the index of the table to which the customer is added."
 function add_customer_to_table(pyp::PYP{T}, dish::T, table_index::Int, G_0_or_parent_pws::Union{Float64, Vector{Float64}}, d_array::Vector{Float64}, θ_array::Vector{Float64})::Tuple{Bool, Int} where T
     tablegroup = get(pyp.tablegroups, dish, nothing)
+    println("in add_customer_to_table, tablegroup is $(tablegroup)")
 
     if tablegroup == nothing
+        println("in add_customer_to_table, tablegroup is nothing?")
         return add_customer_to_new_table(pyp, dish, G_0_or_parent_pws, d_array, θ_array);
     end
 
@@ -191,10 +193,13 @@ end
 function add_customer_to_new_table(pyp::PYP{T}, dish::T) where T
     # TODO: This introduces type instability but should avoid repeated lookups? Let's see.
     tablegroup = get(pyp.tablegroups, dish, nothing)
+    println(pyp.tablegroups)
 
     if tablegroup == nothing
+        # println("In add_customer_to_new_table, tablegroup is nothing, dish is $(dish)")
         pyp.tablegroups[dish] = [1]
     else
+        # println("In add_customer_to_new_table, tablegroup is found, dish is $(dish)")
         push!(tablegroup, 1)
     end
 
@@ -230,7 +235,7 @@ end
 # Right, so d_array and θ_array are really the arrays that hold *all* hyperparameters for *all levels*
 # And then we're going to get the hyperparameters for this level, i.e. d_u and \theta_u from those arrays.
 # Another approach to do it, for sure.
-function add_customer(pyp::PYP{T}, dish::T, G_0_or_parent_pws::Union{Float64, Vector{Float64}}, d_array::Vector{Float64}, θ_array::Vector{Float64}, update_beta_count::Bool, )::Tuple{Bool, Int} where T
+function add_customer(pyp::PYP{T}, dish::T, G_0_or_parent_pws::Union{Float64, OffsetVector{Float64}}, d_array::OffsetVector{Float64}, θ_array::OffsetVector{Float64}, update_beta_count::Bool)::Tuple{Bool, Int} where T
     # The argument to return at the end of the function, indicating the index of the table to which this customer is added.
     index_of_table_in_root = 0
     init_hyperparameters_at_depth_if_needed(pyp.depth, d_array, θ_array)
@@ -238,18 +243,20 @@ function add_customer(pyp::PYP{T}, dish::T, G_0_or_parent_pws::Union{Float64, Ve
     d_u = d_array[pyp.depth + 1]
     θ_u = θ_array[pyp.depth + 1]
     parent_pw::Float64 = 
-    if typeof(G_0_or_parent_pws == Float64) 
+    if typeof(G_0_or_parent_pws) == Float64
         if pyp.parent != nothing
             compute_p_w(pyp.parent, dish, G_0_or_parent_pws, d_array, θ_array)
         else 
             G_0_or_parent_pws
         end
-    elseif typeof(G_0_or_parent_pws == Vector{Float64})
+    elseif typeof(G_0_or_parent_pws) == Vector{Float64}
         G_0_or_parent_pws[pyp.depth]
     end
 
     tablegroup = get(pyp.tablegroups, dish, nothing)
+    println("In add_customer, the tablegroup is $(tablegroup)")
     if tablegroup == nothing
+        println("tablegroup is nothing")
         (_, index_of_table_in_root) = add_customer_to_new_table(dish, G_0_or_parent_pws, d_array, θ_array)
         if (update_beta_count)
             increment_stop_count(pyp)
@@ -261,6 +268,7 @@ function add_customer(pyp::PYP{T}, dish::T, G_0_or_parent_pws::Union{Float64, Ve
         end
         return true
     else
+        println("tablegroup is not nothing")
         sum::Float64 = 0
         for k in 1:length(tablegroup)
             sum += max(0.0, tablegroup[k] - d_u)
@@ -343,7 +351,8 @@ function compute_p_w(pyp::PYP{T}, dish::T, G_0_or_parent_pw::Float64, d_array::O
     c_u = pyp.ncustomers
     tablegroup = get(pyp.tablegroups, dish, nothing)
     if tablegroup == nothing
-        # println("In compute_p_w, tablegroup == nothing triggered")
+        # println(pyp.tablegroups)
+        # println("In compute_p_w, tablegroup == nothing triggered, dish is $(dish)")
         coeff::Float64 = (θ_u + d_u * t_u) / (θ_u + c_u)
         if pyp.parent != nothing
             return compute_p_w(pyp.parent, dish, G_0_or_parent_pw, d_array, θ_array) * coeff
@@ -351,7 +360,7 @@ function compute_p_w(pyp::PYP{T}, dish::T, G_0_or_parent_pw::Float64, d_array::O
             return G_0_or_parent_pw * coeff
         end
     else
-        println("In compute_p_w, tablegroup != nothing")
+        println("In compute_p_w, tablegroup != nothing, dish is $(dish)")
         parent_pw = 
         if is_parent_pw
             G_0_or_parent_pw

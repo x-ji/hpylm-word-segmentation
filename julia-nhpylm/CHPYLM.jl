@@ -97,6 +97,7 @@ This function adds the customer
 function add_customer_at_index_n(chpylm::CHPYLM, string_as_chars::Vector{Char}, n::Int, depth::Int)::Tuple{Bool,Int}
     node = find_node_by_tracing_back_context(string_as_chars, n, depth, chpylm.parent_p_w_cache)
     char_n = string_as_chars[n]
+    println("In add_customer_at_index_n")
     return add_customer(node, char_n, chpylm.parent_pw_cache, chpylm.d_array, chpylm.θ_array, true)
 end
 
@@ -116,6 +117,7 @@ function add_customer_at_index_n(chpylm::CHPYLM, characters::Vector{Char}, n::In
     end
     @assert(node.depth = depth)
     char_n::Char = characters[n]
+    println("In add_customer_at_index_n")
     return add_customer(node, char_n, parent_pw_cache, chpylm.d_array, chpylm.θ_array, true)
 end
 

@@ -141,13 +141,13 @@ end
 
 function add_customer_at_index_n(npylm::NPYLM, sentence::Sentence, n::Int)::Bool
     @assert(n > 2)
-    token_n::Int = get_nth_word_id(sentence, n)
-    pyp::PYP{Int} = find_node_by_tracing_back_context(npylm, sentence.characters, n, npylm.whpylm_parent_p_w_cache, true, false)
+    token_n::UInt = get_nth_word_id(sentence, n)
+    pyp::PYP{UInt} = find_node_by_tracing_back_context_from_index_n(npylm, sentence, n, npylm.whpylm_parent_p_w_cache, true, false)
     @assert pyp != nothing
     num_tables_before_addition::Int = npylm.whpylm.root.ntables
-    word_begin_index = sentence.segment_begining_positions[n]
+    word_begin_index = sentence.segment_begin_positions[n]
     word_end_index = word_begin_index + sentence.segment_lengths[n] - 1
-    (_, index_of_table_added_to_in_root) = add_customer(pyp, token_n, npylm.whpylm_parent_p_w_cache, npylm.whpylm.d_array, npylm.whpylm.θ_array)
+    (_, index_of_table_added_to_in_root) = add_customer(pyp, token_n, npylm.whpylm_parent_p_w_cache, npylm.whpylm.d_array, npylm.whpylm.θ_array, true)
     num_tables_after_addition::Int = npylm.whpylm.root.ntables
     # If the number of tables in the root is increased, we'll need to break down the word into characters and add them to the chpylm as well.
     # Remember that a customer has a certain probability to sit at a new table. However, it might also join an old table, in which case the G_0 doesn't change?
@@ -176,6 +176,7 @@ end
 
 # Yeah OK so token_ids is just a temporary variable holding all the characters to be added into the chpylm? What a weird design... Why can't we do better let's see how we might refactor this code later.
 function add_word_to_chpylm(npylm::NPYLM, sentence_as_chars::Vector{Char}, word_begin_index::Int, word_end_index::Int, word::Vector{Char}, recorded_depths::Vector{Int})
+    println("In add_word_to_chpylm")
     @assert length(recorded_depths) == 0
     @assert word_end_index >= word_begin_index
     # This is probably to avoid EOS?
@@ -197,7 +198,7 @@ function remove_customer_at_index_n(npylm::NPYLM, sentence::Sentence, n::Int)
     @assert pyp != nothing
     num_tables_before_removal::Int = npylm.whpylm.root.ntables
     index_of_table_removed_from = 0
-    word_begin_index = sentence.segment_begining_positions[n]
+    word_begin_index = sentence.segment_begin_positions[n]
     word_end_index = word_begin_index + sentence.segment_lengths[n] - 1
     remove_customer(pyp, token_n, index_of_table_removed_from)
 
@@ -261,6 +262,13 @@ function find_node_by_tracing_back_context_from_index_n(npylm::NPYLM, word_ids::
     end
     @assert cur_node.depth == 2
     return cur_node
+end
+
+# Used by add_customer
+function find_node_by_tracing_back_context_from_index_n(npylm::NPYLM, sentence::Sentence, n::Int, parent_p_w_cache::OffsetVector{Float64}, generate_if_not_found::Bool, return_middle_node::Bool)
+    word_begin_index = sentence.segment_begin_positions[n]
+    word_end_index = word_begin_index + sentence.segment_lengths[n] - 1
+    return find_node_by_tracing_back_context_from_index_n(npylm, sentence.characters, sentence.word_ids, n, word_begin_index, word_end_index, parent_p_w_cache, generate_if_not_found, return_middle_node)
 end
 
 
@@ -389,7 +397,7 @@ end
 
 # This is the real "compute_p_w"... The above ones don't have much to do with p_w I reckon. They are about whole sentences. Eh.
 function compute_p_w_of_nth_word(npylm::NPYLM, sentence::Sentence, n::Int)
-    word_begin_index = sentence.segment_starting_positions[n]
+    word_begin_index = sentence.segment_begin_positions[n]
     # I mean, why don't you just record the end index directly anyways. The current implementation is such a torture.
     word_end_index = word_begin_index + sentence.segment_lengths[n] - 1
     return compute_p_w_of_nth_word(npylm, sentence.characters, sentence.word_ids, sentence.num_segments, n, word_begin_index, word_end_index)
