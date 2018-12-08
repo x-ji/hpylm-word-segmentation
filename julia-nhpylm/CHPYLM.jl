@@ -108,7 +108,7 @@ This is a version to be called from the NPYLM.
 
 If the parent_pw_cache is already set, then update the path_nodes as well.
 """
-function add_customer_at_index_n(chpylm::CHPYLM, characters::Vector{Char}, n::Int, depth::Int, parent_pw_cache::Vector{Float64}, path_nodes::Vector{PYP{Char}})::Tuple{Bool, Int}
+function add_customer_at_index_n(chpylm::CHPYLM, characters::Vector{Char}, n::Int, depth::Int, parent_pw_cache::OffsetVector{Float64}, path_nodes::Vector{PYP{Char}})::Tuple{Bool, Int}
     @assert(0 <= depth && depth <= n)
     node::PYP{Char} = find_node_by_tracing_back_context(characters, n, depth, path_nodes)
     # Seems to be just a check

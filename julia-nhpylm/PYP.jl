@@ -163,7 +163,7 @@ end
 
 # I think we won't need to duplicate the code. Just use a union type. Let's see if that works.
 "The second item returned in the tuple is the index of the table to which the customer is added."
-function add_customer_to_table(pyp::PYP{T}, dish::T, table_index::Int, G_0_or_parent_pws::Union{Float64, Vector{Float64}}, d_array::Vector{Float64}, θ_array::Vector{Float64})::Tuple{Bool, Int} where T
+function add_customer_to_table(pyp::PYP{T}, dish::T, table_index::Int, G_0_or_parent_pws::Union{Float64, OffsetVector{Float64}}, d_array::OffsetVector{Float64}, θ_array::OffsetVector{Float64})::Tuple{Bool, Int} where T
     tablegroup = get(pyp.tablegroups, dish, nothing)
     println("in add_customer_to_table, tablegroup is $(tablegroup)")
 
@@ -172,34 +172,30 @@ function add_customer_to_table(pyp::PYP{T}, dish::T, table_index::Int, G_0_or_pa
         return add_customer_to_new_table(pyp, dish, G_0_or_parent_pws, d_array, θ_array);
     end
 
-    # Guess it's just for debugging
-    @assert(table_index < length(tablegroup))
     tablegroup[table_index] += 1
     # TODO: Experiment to see which approach is faster.
     # pyp.ncustomers[dish] += 1
     pyp.ncustomers += 1
-    return true
+    # TODO: Should 0 be returned?
+    return (true, 0)
 end
 
-function add_customer_to_new_table(pyp::PYP{T}, dish::T, G_0_or_parent_pws::Union{Float64, Vector{Float64}}, d_array::Vector{Float64}, θ_array::Vector{Float64})::Tuple{Bool, Int} where T
+function add_customer_to_new_table(pyp::PYP{T}, dish::T, G_0_or_parent_pws::Union{Float64, OffsetVector{Float64}}, d_array::OffsetVector{Float64}, θ_array::OffsetVector{Float64})::Tuple{Bool, Int} where T
     add_customer_to_new_table(pyp, dish)
     if pyp.parent != nothing
-        (success, index_of_table_in_root) = add_customer(dish, G_0_or_parent_pws, d_array, θ_array, false)
+        (success, index_of_table_in_root) = add_customer(pyp, dish, G_0_or_parent_pws, d_array, θ_array, false)
         @assert(success == true)
     end
-    return true;
+    return (true, index_of_table_in_root);
 end
 
 function add_customer_to_new_table(pyp::PYP{T}, dish::T) where T
     # TODO: This introduces type instability but should avoid repeated lookups? Let's see.
     tablegroup = get(pyp.tablegroups, dish, nothing)
-    println(pyp.tablegroups)
 
     if tablegroup == nothing
-        # println("In add_customer_to_new_table, tablegroup is nothing, dish is $(dish)")
         pyp.tablegroups[dish] = [1]
     else
-        # println("In add_customer_to_new_table, tablegroup is found, dish is $(dish)")
         push!(tablegroup, 1)
     end
 
@@ -236,28 +232,31 @@ end
 # And then we're going to get the hyperparameters for this level, i.e. d_u and \theta_u from those arrays.
 # Another approach to do it, for sure.
 function add_customer(pyp::PYP{T}, dish::T, G_0_or_parent_pws::Union{Float64, OffsetVector{Float64}}, d_array::OffsetVector{Float64}, θ_array::OffsetVector{Float64}, update_beta_count::Bool)::Tuple{Bool, Int} where T
+    println("We're in add_customer")
     # The argument to return at the end of the function, indicating the index of the table to which this customer is added.
     index_of_table_in_root = 0
     init_hyperparameters_at_depth_if_needed(pyp.depth, d_array, θ_array)
     # Need to + 1 because by definition depth starts from 0 but array indexing starts from 1
     d_u = d_array[pyp.depth + 1]
     θ_u = θ_array[pyp.depth + 1]
-    parent_pw::Float64 = 
+    # println("What the hell")
+    parent_pw::Float64 =
+    # It seems that we do need to initialize this separately since sometimes this can result in nothing? Though why?
     if typeof(G_0_or_parent_pws) == Float64
         if pyp.parent != nothing
             compute_p_w(pyp.parent, dish, G_0_or_parent_pws, d_array, θ_array)
         else 
             G_0_or_parent_pws
         end
-    elseif typeof(G_0_or_parent_pws) == Vector{Float64}
+    # elseif typeof(G_0_or_parent_pws) == OffsetVector{Float64}
+    # It must be of another type anyways.
+    else
         G_0_or_parent_pws[pyp.depth]
     end
 
     tablegroup = get(pyp.tablegroups, dish, nothing)
-    println("In add_customer, the tablegroup is $(tablegroup)")
     if tablegroup == nothing
-        println("tablegroup is nothing")
-        (_, index_of_table_in_root) = add_customer_to_new_table(dish, G_0_or_parent_pws, d_array, θ_array)
+        (_, index_of_table_in_root) = add_customer_to_new_table(pyp, dish, G_0_or_parent_pws, d_array, θ_array)
         if (update_beta_count)
             increment_stop_count(pyp)
         end
@@ -266,9 +265,8 @@ function add_customer(pyp::PYP{T}, dish::T, G_0_or_parent_pws::Union{Float64, Of
             # Still why in this case return 0 instead of k though. Let's see.
             index_of_table_in_root = 0
         end
-        return true
+        return (true, index_of_table_in_root)
     else
-        println("tablegroup is not nothing")
         sum::Float64 = 0
         for k in 1:length(tablegroup)
             sum += max(0.0, tablegroup[k] - d_u)
@@ -284,7 +282,7 @@ function add_customer(pyp::PYP{T}, dish::T, G_0_or_parent_pws::Union{Float64, Of
         for k in 1:length(tablegroup)
             stack += max(0.0, tablegroup[k] - d_u) * normalizer
             if bernoulli <= stack
-                (_, index_of_table_in_root) = add_customer_to_table(dish, k, G_0_or_parent_pws, d_array, θ_array)
+                (_, index_of_table_in_root) = add_customer_to_table(pyp, dish, k, G_0_or_parent_pws, d_array, θ_array)
                 if update_beta_count
                     increment_stop_count(pyp)
                 end
@@ -292,7 +290,7 @@ function add_customer(pyp::PYP{T}, dish::T, G_0_or_parent_pws::Union{Float64, Of
                     index_of_table_in_root = k
                 end
 
-                return true
+                return (true, index_of_table_in_root)
             end
         end
 
