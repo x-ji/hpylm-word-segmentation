@@ -84,7 +84,6 @@ function allocate_capacity(sampler::Sampler, max_word_length::Int, max_sentence_
     size = max_sentence_length + 1
     sampler.log_z = Vector{Float64}(undef, size)
     sampler.scaling_coefficients = Vector{Float64}(undef, size)
-    println("max_word_length: $(max_word_length), max_sentence_length: $(max_sentence_length)")
     sampler.viterbi_backward_indices = OffsetArray{Int, 3}(undef, (0:max_sentence_length, 0:max_word_length, 0:max_word_length))
     sampler.backward_sampling_table = Vector{Float64}(undef, max_word_length * max_word_length)
 
@@ -219,8 +218,10 @@ end
 
 function backward_sampling(sampler::Sampler, sentence::Sentence)
     t = length(sentence)
+    k = 0
+    j = 0
     sum_length = 0
-    (k, j) = backward_sample_k_and_j(sampler, sentence, t, 1)
+    (k, j) = backward_sample_k_and_j(sampler, sentence, t, 1, k, j)
     # I'm not sure yet why the segments array should contain their lengths instead of the word ids themselves. I guess it's just a way to increase efficiency and all that.
     segment_lengths = Int[]
     push!(segment_lengths, k)
@@ -241,11 +242,12 @@ function backward_sampling(sampler::Sampler, sentence::Sentence)
             k = 1
             j = 0
         else
-            (k, j) = backward_sample_k_and_j(sampler, sentence, t, next_word_length)
+            (k, j) = backward_sample_k_and_j(sampler, sentence, t, next_word_length, k, j)
         end
         push!(segment_lengths, k)
         t -= k
         if j == 0
+            # println("t is $(t)")
             @assert(t == 0)
         else
             push!(segment_lengths, j)
@@ -264,7 +266,7 @@ Returns k and j in a tuple
 
 "next_word" really means the target word, the last gram in the 3 gram, e.g. the EOS in p(EOS | c^N_{N-k} c^{N-k}_{N-k-j})
 """
-function backward_sample_k_and_j(sampler::Sampler, sentence::Sentence, t::Int, third_gram_length::Int)::Tuple{Int,Int}
+function backward_sample_k_and_j(sampler::Sampler, sentence::Sentence, t::Int, third_gram_length::Int, orig_k::Int, orig_j::Int)::Tuple{Int,Int}
     # Indices start from 1
     table_index = 1
     sentence_as_chars = sentence.characters
@@ -272,13 +274,13 @@ function backward_sample_k_and_j(sampler::Sampler, sentence::Sentence, t::Int, t
     sum_p = 0.0
     for k in 1:min(t, sampler.max_word_length)
         for j in 1:min(t - k, sampler.max_word_length)
-            word_j_id = get_substring_word_id_at_t_k(sentence, t - k, j)
-            word_k_id = get_substring_word_id_at_t_k(sentence, t, k)
+            word_j_id = get_substring_word_id_at_t_k(sampler, sentence, t - k, j)
+            word_k_id = get_substring_word_id_at_t_k(sampler, sentence, t, k)
             # When we begin the backward sampling on a sentence, note that the final token is always EOS. We have probabilities p(EOS | c^N_{N-k} c^{N-k}_{N-k-j}) * α[N][k][j])
             word_t_id = EOS
             if t < length(sentence)
                 # Otherwise the final token is not EOS already but an actual word. Still the principles for sampling don't change.
-                word_t_id = get_substring_word_id_at_t_k(sentence, t + third_gram_length, third_gram_length)
+                word_t_id = get_substring_word_id_at_t_k(sampler, sentence, t + third_gram_length, third_gram_length)
             end
             sampler.word_ids[1] = word_j_id
             sampler.word_ids[2] = word_k_id
@@ -295,6 +297,7 @@ function backward_sample_k_and_j(sampler::Sampler, sentence::Sentence, t::Int, t
             p = p_w_h * sampler.α_tensor[t,k,j]
             sampler.backward_sampling_table[table_index] = p
             sum_p += p
+            # println("p_w_h is $(p_w_h), sampler.α_tensor[t,k,j] is $(sampler.α_tensor[t,k,j]), p is $(p), sum_p is $(sum_p)")
             table_index += 1
         end
         # TODO: One can likely refactor this code a bit more.
@@ -329,12 +332,14 @@ function backward_sample_k_and_j(sampler::Sampler, sentence::Sentence, t::Int, t
     # Eventually, the table should have (min(t, sampler.max_word_length) * min(t - k, sampler.max_word_length)) + 1 entries
     # This is such a pain. We should definitely be able to simplify the code much more than this. Eh.
     normalizer = 1.0 / sum_p
+    println("Normalizer is $(normalizer), sum_p is $(sum_p)")
     randnum = rand(Float64)
     index = 1
     stack = 0.0
     for k in 1:min(t, sampler.max_word_length)
         for j in 1:min(t - k, sampler.max_word_length)
             stack += sampler.backward_sampling_table[index] * normalizer
+            # println("randnum is $(randnum), stack is $(stack)")
             if randnum < stack
                 return (k, j)
             end
@@ -343,6 +348,7 @@ function backward_sample_k_and_j(sampler::Sampler, sentence::Sentence, t::Int, t
 
         # The special case where the first gram is BOS. The last entry of the table.
         if t == k
+            println("t == k triggered!")
             stack += sampler.backward_sampling_table[index] * normalizer
             if randnum < stack
                 return (k, 0)
@@ -350,6 +356,9 @@ function backward_sample_k_and_j(sampler::Sampler, sentence::Sentence, t::Int, t
             index += 1
         end
     end
+    # Sometimes this can somehow fall through?
+    println("Fell through!")
+    return (orig_k, orig_j)
 end
 
 # TODO: This function name is not totally accurate as "blocked Gibbs" is really the name of the whole procedure, while this function only takes care of the "draw segmentation" part. 

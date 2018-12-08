@@ -7,7 +7,7 @@ Character Hierarchical Pitman-Yor Language Model
 
 In this case the HPYLM for characters is an infinite Markov model, different from that used for the words.
 """
-mutable struct CHPYLM{Char} <: HPYLM{Char}
+mutable struct CHPYLM{T} <: HPYLM{T}
     #= Fields from the base HPYLM struct =#
     "Root PYP which has no context"
     root::PYP{Char}
@@ -270,8 +270,11 @@ function compute_log_p_w(chpylm::CHPYLM, characters::Vector{Char})
 
     for n in 2:length(characters)
         # I sense that the way this calculation is written is simply not very efficient. Surely we can do better than this?
-        log_p_w += log(compute_p_w_given_h(chpylm, characters, 0, n))
+        # n - 1 because that argument is the end of the context `h`, not the actual word itself.
+        log_p_w += log(compute_p_w_given_h(chpylm, characters, 0, n - 1))
     end
+
+    return log_p_w
 end
 
 "Compute the probability of generating the character `characters[end + 1]` with `characters[begin:end]` as the context."
@@ -364,7 +367,7 @@ function sample_depth_at_index_n(chpylm::CHPYLM, characters::Vector{Char}, n::In
                 break
             end
             if index < n
-                context_char = characters[n - index]
+                context_char = characters[n - index - 1]
                 cur_node = find_child_pyp(cur_node, context_char)
             end
         end

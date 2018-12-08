@@ -343,6 +343,7 @@ function compute_p_w(pyp::PYP{T}, dish::T, G_0_or_parent_pw::Float64, d_array::O
     c_u = pyp.ncustomers
     tablegroup = get(pyp.tablegroups, dish, nothing)
     if tablegroup == nothing
+        # println("In compute_p_w, tablegroup == nothing triggered")
         coeff::Float64 = (θ_u + d_u * t_u) / (θ_u + c_u)
         if pyp.parent != nothing
             return compute_p_w(pyp.parent, dish, G_0_or_parent_pw, d_array, θ_array) * coeff
@@ -350,6 +351,7 @@ function compute_p_w(pyp::PYP{T}, dish::T, G_0_or_parent_pw::Float64, d_array::O
             return G_0_or_parent_pw * coeff
         end
     else
+        println("In compute_p_w, tablegroup != nothing")
         parent_pw = 
         if is_parent_pw
             G_0_or_parent_pw

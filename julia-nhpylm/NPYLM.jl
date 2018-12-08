@@ -31,7 +31,7 @@ mutable struct NPYLM
     recorded_depth_arrays_for_tablegroups_of_token::Dict{Int, Vector{Vector{Int}}}
 
     "The cache of WHPYLM G_0. This will be invalidated once the seating arrangements in the CHPYLM change."
-    whpylm_G_0_cache::Dict{Int, Float64}
+    whpylm_G_0_cache::Dict{UInt, Float64}
     "The cache of CHPYLM G_0"
     chpylm_G_0_cache::Dict{Int, Float64}
     λ_for_types::Vector{Float64}
@@ -53,7 +53,7 @@ mutable struct NPYLM
     """
     λ_b::Float64
     "Cache for easier computation"
-    whpylm_parent_p_w_cache::Vector{Float64}
+    whpylm_parent_p_w_cache::OffsetVector{Float64}
     """
     Cache for the characters that make up the sentence that was last added to the chpylm
 
@@ -68,13 +68,14 @@ mutable struct NPYLM
         npylm.chpylm = CHPYLM(G_0, max_sentence_length, chpylm_beta_stop, chpylm_beta_pass)
 
         npylm.recorded_depth_arrays_for_tablegroups_of_token = Dict{Int, Vector{Vector{Int}}}()
-        npylm.whpylm_G_0_cache = Dict{Int, Float64}()
+        npylm.whpylm_G_0_cache = Dict{UInt, Float64}()
         npylm.chpylm_G_0_cache = Dict{Int, Float64}()
 
         # TODO: Expand upon word types and use different poisson distributions for different types.
         npylm.λ_for_types = zeros(Float64, NUM_WORD_TYPES)
-        # Currently we use a three-gram model.
-        npylm.whpylm_parent_p_w_cache = zeros(Float64, 3)
+        # Currently we use a trigram model.
+        # TODO: bigram model
+        npylm.whpylm_parent_p_w_cache = fill(0.0, 0:2)
         set_λ_prior(npylm, initial_λ_a, initial_λ_b)
 
         npylm.max_sentence_length = max_sentence_length
@@ -263,7 +264,7 @@ function find_node_by_tracing_back_context_from_index_n(npylm::NPYLM, word_ids::
 end
 
 
-function find_node_by_tracing_back_context_from_index_n(npylm::NPYLM, sentence_as_chars::Vector{Char}, word_ids::Vector{UInt}, n::Int, word_begin_index::Int, word_end_index::Int, parent_p_w_cache::Vector{Float64}, generate_if_not_found::Bool, return_middle_node::Bool)
+function find_node_by_tracing_back_context_from_index_n(npylm::NPYLM, sentence_as_chars::Vector{Char}, word_ids::Vector{UInt}, n::Int, word_begin_index::Int, word_end_index::Int, parent_p_w_cache::OffsetVector{Float64}, generate_if_not_found::Bool, return_middle_node::Bool)
     @assert n > 2
     @assert n <= length(word_ids)
     @assert word_begin_index > 0
@@ -277,7 +278,7 @@ function find_node_by_tracing_back_context_from_index_n(npylm::NPYLM, sentence_a
         if n - depth > 0
             context = word_ids[n - depth]
         end
-        p_w = compute_p_w(word_n_id, parent_p_w, npylm.whpylm.d_array, npylm.whpylm.θ_array, true)
+        p_w = compute_p_w(cur_node, word_n_id, parent_p_w, npylm.whpylm.d_array, npylm.whpylm.θ_array, true)
         # TODO: Should probably be depth + 1?
         parent_p_w_cache[depth] = p_w
         child = find_child_pyp(cur_node, context, generate_if_not_found)
@@ -316,7 +317,7 @@ function compute_G_0_of_word_at_index_n(npylm::NPYLM, sentence_as_chars::Vector{
             return p_w
         else
             # See section 4.3: p(k|Θ) is the probability that a word of *length* k will be generated from Θ, where Θ refers to the CHPYLM.
-            p_k_given_chpylm = compute_p_k_given_chpylm(word_length)
+            p_k_given_chpylm = compute_p_k_given_chpylm(npylm, word_length)
 
             # Here supposedly each word type will have a different Poisson parameter. I'm not sure if that's the way things work though... Let's see.
             t = 1
@@ -331,15 +332,17 @@ function compute_G_0_of_word_at_index_n(npylm::NPYLM, sentence_as_chars::Vector{
 
             # Very rarely the result will exceed 1
             if !(0 < G_0 && G_0 < 1)
-                for i in word_begin_index:word_end_index
-                    print(sentence_as_chars[i])
-                end
-                print("\n")
-                println(p_w)
-                println(poisson_sample)
-                println(p_k_given_chpylm)
-                println(G_0)
-                println(word_length)
+                # Now there is a bug and this branch is triggered all the time.
+                # println("Very rarely the result will exceed 1")
+                # for i in word_begin_index:word_end_index
+                #     print(sentence_as_chars[i])
+                # end
+                # print("\n")
+                # println(p_w)
+                # println(poisson_sample)
+                # println(p_k_given_chpylm)
+                # println(G_0)
+                # println(word_length)
             end
             npylm.whpylm_G_0_cache[word_n_id] = G_0
             return G_0
