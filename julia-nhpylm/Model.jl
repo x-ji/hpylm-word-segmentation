@@ -154,12 +154,12 @@ end
 Sample lambda values for different types of characters
 """
 function sample_lambda(trainer::Trainer)
-    a_array = zeros(NUM_WORD_TYPES + 1, Float64)
-    b_array = zeros(NUM_WORD_TYPES + 1, Float64)
+    a_array = zeros(Float64, NUM_WORD_TYPES)
+    b_array = zeros(Float64, NUM_WORD_TYPES)
     word_ids::Set{UInt} = Set()
     for t in 1:NUM_WORD_TYPES
-        a_array[t] = trainer.npylm.λ_a
-        b_array[t] = trainer.npylm.λ_b
+        a_array[t] = trainer.model.npylm.λ_a
+        b_array[t] = trainer.model.npylm.λ_b
     end
     for sentence in trainer.dataset.train_sentences
         # Go through each word in the sentence, excluding the BOS and EOS tokens.
@@ -167,12 +167,12 @@ function sample_lambda(trainer::Trainer)
             word::UTF32String = get_nth_word_string(sentence, index)
             word_id::Int = get_nth_word_id(sentence, index)
             word_length::Int = get_nth_segment_length(sentence, index)
-            if word_length > trainer.npylm.max_word_length
+            if word_length > trainer.model.npylm.max_word_length
                 continue
             end
 
             if !in(word_id, word_ids)
-                tablegroups = trainer.npylm.whpylm.root.tablegroups[word_id]
+                tablegroups = trainer.model.npylm.whpylm.root.tablegroups[word_id]
                 num_tablegroups = length(tablegroups)
                 # TODO: Need to properly detect the word type.
                 t = 1
@@ -183,7 +183,7 @@ function sample_lambda(trainer::Trainer)
         end
         for t in 1:NUM_WORD_TYPES
             dist = Gamma(a_array[t], 1 / b_array[t])
-            trainer.npylm.λ_for_types[t] = rand(dist, Float64)
+            trainer.model.npylm.λ_for_types[t] = rand(dist, Float64)
         end
     end
 end

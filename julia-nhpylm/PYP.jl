@@ -165,7 +165,7 @@ end
 "The second item returned in the tuple is the index of the table to which the customer is added."
 function add_customer_to_table(pyp::PYP{T}, dish::T, table_index::Int, G_0_or_parent_pws::Union{Float64, OffsetVector{Float64}}, d_array::OffsetVector{Float64}, θ_array::OffsetVector{Float64})::Tuple{Bool, Int} where T
     tablegroup = get(pyp.tablegroups, dish, nothing)
-    println("in add_customer_to_table, tablegroup is $(tablegroup)")
+    println("in add_customer_to_table, tablegroup is $(tablegroup), table_index is $(table_index)")
 
     if tablegroup == nothing
         println("in add_customer_to_table, tablegroup is nothing?")
@@ -232,7 +232,7 @@ end
 # And then we're going to get the hyperparameters for this level, i.e. d_u and \theta_u from those arrays.
 # Another approach to do it, for sure.
 function add_customer(pyp::PYP{T}, dish::T, G_0_or_parent_pws::Union{Float64, OffsetVector{Float64}}, d_array::OffsetVector{Float64}, θ_array::OffsetVector{Float64}, update_beta_count::Bool)::Tuple{Bool, Int} where T
-    println("We're in add_customer")
+    println("We're in add_customer, the dish is $(dish)")
     # The argument to return at the end of the function, indicating the index of the table to which this customer is added.
     index_of_table_in_root = 0
     init_hyperparameters_at_depth_if_needed(pyp.depth, d_array, θ_array)
@@ -531,7 +531,7 @@ function sample_log_x_u(pyp::PYP{T}, θ_u::Float64)::Float64 where T
     if pyp.ncustomers >= 2
         dist = Beta(θ_u + 1, pyp.ncustomers - 1)
         # TODO: The C++ code added 1e-8 to the result. Is it necessary? (Apparently this is to prevent underflow, i.e. when the sampling result is 0. Can a Beta distribution sampling ever return 0? Let me run the code as it is for now.)
-        return log(rand(dist, Float64))
+        return log(rand(dist))
     else
         return 0.0
     end
@@ -550,7 +550,7 @@ function sample_summed_y_ui(pyp::PYP{T}, d_u::Float64, θ_u::Float64, is_one_min
             @assert(denom > 0)
             prob = θ_u / denom
             dist = Bernoulli(prob)
-            y_ui = rand(dist, Float64)
+            y_ui = rand(dist)
             if is_one_minus
                 sum += (1 - y_ui)
             else
@@ -579,7 +579,7 @@ function sample_summed_one_minus_z_uwkj(pyp::PYP{T}, d_u::Float64)::Float64 wher
                     @assert(j - d_u > 0)
                     prob = (j - 1) / (j - d_u)
                     dist = Bernoulli(prob)
-                    sum += 1 - rand(dist, Float64)
+                    sum += 1 - rand(dist)
                 end
             end
         end
