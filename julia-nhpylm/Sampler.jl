@@ -218,10 +218,12 @@ end
 
 function backward_sampling(sampler::Sampler, sentence::Sentence)
     t = length(sentence)
-    k = 0
-    j = 0
+    kc = IntContainer(0)
+    jc = IntContainer(0)
     sum_length = 0
-    (k, j) = backward_sample_k_and_j(sampler, sentence, t, 1, k, j)
+    backward_sample_k_and_j(sampler, sentence, t, 1, kc, jc)
+    k = kc.int
+    j = jc.int
     # I'm not sure yet why the segments array should contain their lengths instead of the word ids themselves. I guess it's just a way to increase efficiency and all that.
     segment_lengths = Int[]
     push!(segment_lengths, k)
@@ -266,7 +268,7 @@ Returns k and j in a tuple
 
 "next_word" really means the target word, the last gram in the 3 gram, e.g. the EOS in p(EOS | c^N_{N-k} c^{N-k}_{N-k-j})
 """
-function backward_sample_k_and_j(sampler::Sampler, sentence::Sentence, t::Int, third_gram_length::Int, orig_k::Int, orig_j::Int)::Tuple{Int,Int}
+function backward_sample_k_and_j(sampler::Sampler, sentence::Sentence, t::Int, third_gram_length::Int, sampled_k::IntContainer, sampled_j::IntContainer)
     # Indices start from 1
     table_index = 1
     sentence_as_chars = sentence.characters
@@ -341,7 +343,9 @@ function backward_sample_k_and_j(sampler::Sampler, sentence::Sentence, t::Int, t
             stack += sampler.backward_sampling_table[index] * normalizer
             # println("randnum is $(randnum), stack is $(stack)")
             if randnum < stack
-                return (k, j)
+                sampled_k.int = k
+                sampled_j.int = j
+                return
             end
             index += 1
         end
@@ -351,14 +355,15 @@ function backward_sample_k_and_j(sampler::Sampler, sentence::Sentence, t::Int, t
             println("t == k triggered!")
             stack += sampler.backward_sampling_table[index] * normalizer
             if randnum < stack
-                return (k, 0)
+                sampled_k.int = k
+                sampled_j.int = 0
+                return
             end
             index += 1
         end
     end
     # Sometimes this can somehow fall through?
     println("Fell through!")
-    return (orig_k, orig_j)
 end
 
 # TODO: This function name is not totally accurate as "blocked Gibbs" is really the name of the whole procedure, while this function only takes care of the "draw segmentation" part. 
@@ -452,14 +457,14 @@ function viterbi_forward_filtering(sampler::Sampler, sentence::Sentence)
 end
 
 "This method is called when we know the third gram is EOS, so we're only sampling the first gram and second gram."
-function viterbi_argmax_backward_sample_k_and_j_to_eos(sampler::Sampler, sentence::Sentence, t::Int, third_gram_length::Int)::Tuple{Int,Int}
+function viterbi_argmax_backward_sample_k_and_j_to_eos(sampler::Sampler, sentence::Sentence, t::Int, third_gram_length::Int, argmax_k::IntContainer, argmax_j::IntContainer)
     # Indices start from 1
     table_index = 1
     sentence_as_chars = sentence.characters
     sentence_length = length(sentence)
     max_log_p = 0.0
-    argmax_k = 0
-    argmax_j = 0
+    argmax_k.int = 0
+    argmax_j.int = 0
     for k in 1:min(t, sampler.max_word_length)
         for j in 1:min(t - k, sampler.max_word_length)
             word_j_id = get_substring_word_id_at_t_k(sentence, t - k, j)
@@ -470,11 +475,13 @@ function viterbi_argmax_backward_sample_k_and_j_to_eos(sampler::Sampler, sentenc
             sampler.word_ids[3] = EOS
             # It's still the EOS. We just wrote it in a simpler way.
             p_w_h = compute_p_w_of_nth_word(sampler.npylm, sentence_as_chars, sampler.word_ids, 3, t, t)
+            @assert sampler.α_tensor[t][k][j] <= 0
             temp = log(p_w_h) + sampler.α_tensor[t,k,j]
-            if (argmax_k == 0 || temp > max_log_p)
+            @assert temp <= 0
+            if (argmax_k.int == 0 || temp > max_log_p)
                 max_log_p = temp
-                argmax_k = k
-                argmax_j = j
+                argmax_k.int = k
+                argmax_j.int = j
             end
         end
         # TODO: One can likely refactor this code a bit more.
@@ -488,23 +495,28 @@ function viterbi_argmax_backward_sample_k_and_j_to_eos(sampler::Sampler, sentenc
             sampler.word_ids[2] = word_k_id
             sampler.word_ids[3] = word_t_id
             p_w_h = compute_p_w_of_nth_word(sampler.npylm, sentence_as_chars, sampler.word_ids, 3, t, t)
+            @assert sampler.α_tensor[t][k][0] <= 0
             # p(3rd_gram | c^N_{N-k} c^{N-k}_{N-k-j}) * α[N][k][j])
             temp = log(p_w_h) + sampler.α_tensor[t,k,0]
-            if argmax_k == 0 || temp > max_log_p
+            @assert temp <= 0
+            if argmax_k.int == 0 || temp > max_log_p
                 max_log_p = temp
-                argmax_k = k
-                argmax_j = 0
+                argmax_k.int = k
+                argmax_j.int = 0
             end
         end
     end
-    return (argmax_k, argmax_j)
 end
 
 function viterbi_backward_sampling(sampler::Sampler, sentence::Sentence)
     segment_lengths = Int[]
     t = length(sentence)
     sum_length = 0
-    (k, j) = viterbi_argmax_backward_sample_k_and_j_to_eos(sampler, sentence, t, 1)
+    kc = IntContainer(0)
+    jc = IntContainer(0)
+    viterbi_argmax_backward_sample_k_and_j_to_eos(sampler, sentence, t, 1, kc, jc)
+    k = kc.int
+    j = jc.int
     # I'm not sure yet why the segments array should contain their lengths instead of the word ids themselves. I guess it's just a way to increase efficiency and all that.
     push!(segment_lengths, k)
     sum_length += k
@@ -544,6 +556,7 @@ function viterbi_backward_sampling(sampler::Sampler, sentence::Sentence)
     end
     @assert(t == 0)
     @assert(sum_length == length(sentence))
+    @assert length(segment_lengths) > 0
     return reverse(segment_lengths)
 end
 

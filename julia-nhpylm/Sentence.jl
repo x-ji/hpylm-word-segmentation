@@ -97,7 +97,7 @@ end
 
 function get_nth_word_string(s::Sentence, n::Int)
     # The last segment is <EOS>
-    @assert(n < s.num_segments - 1)
+    @assert(n < s.num_segments)
     # TODO: This is all hard-coded. We'll need to change them if we're to support bigrams.
     # Can't we make the code a bit more generic? Don't think it would be that hard eh.
     if n <= 2

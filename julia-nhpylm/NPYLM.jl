@@ -145,9 +145,10 @@ function add_customer_at_index_n(npylm::NPYLM, sentence::Sentence, n::Int)::Bool
     pyp::PYP{UInt} = find_node_by_tracing_back_context_from_index_n(npylm, sentence, n, npylm.whpylm_parent_p_w_cache, true, false)
     @assert pyp != nothing
     num_tables_before_addition::Int = npylm.whpylm.root.ntables
+    index_of_table_added_to_in_root::IntContainer = IntContainer(-1)
     word_begin_index = sentence.segment_begin_positions[n]
     word_end_index = word_begin_index + sentence.segment_lengths[n] - 1
-    (_, index_of_table_added_to_in_root) = add_customer(pyp, token_n, npylm.whpylm_parent_p_w_cache, npylm.whpylm.d_array, npylm.whpylm.θ_array, true)
+    add_customer(pyp, token_n, npylm.whpylm_parent_p_w_cache, npylm.whpylm.d_array, npylm.whpylm.θ_array, true, index_of_table_added_to_in_root)
     num_tables_after_addition::Int = npylm.whpylm.root.ntables
     # If the number of tables in the root is increased, we'll need to break down the word into characters and add them to the chpylm as well.
     # Remember that a customer has a certain probability to sit at a new table. However, it might also join an old table, in which case the G_0 doesn't change?
@@ -159,7 +160,7 @@ function add_customer_at_index_n(npylm::NPYLM, sentence::Sentence, n::Int)::Bool
             add_customer(npylm.chpylm.root, token_n, npylm.chpylm.G_0, npylm.chpylm.d_array, npylm.chpylm.θ_array, true, index_of_table_added_to_in_root)
             return true
         end
-        @assert(index_of_table_added_to_in_root != 0)
+        @assert(index_of_table_added_to_in_root != -1)
         # Get the depths recorded for each table in the tablegroup of token_n.
         depth_arrays_for_the_tablegroup = npylm.recorded_depth_arrays_for_tablegroups_of_token[token_n]
         # This is a new table that didn't exist before *in the tablegroup for this token*.

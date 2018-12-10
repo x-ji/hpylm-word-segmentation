@@ -163,34 +163,32 @@ end
 
 # I think we won't need to duplicate the code. Just use a union type. Let's see if that works.
 "The second item returned in the tuple is the index of the table to which the customer is added."
-function add_customer_to_table(pyp::PYP{T}, dish::T, table_index::Int, G_0_or_parent_pws::Union{Float64, OffsetVector{Float64}}, d_array::OffsetVector{Float64}, θ_array::OffsetVector{Float64})::Tuple{Bool, Int} where T
+function add_customer_to_table(pyp::PYP{T}, dish::T, table_index::Int, G_0_or_parent_pws::Union{Float64, OffsetVector{Float64}}, d_array::OffsetVector{Float64}, θ_array::OffsetVector{Float64}, table_index_in_root::IntContainer)::Bool where T
     tablegroup = get(pyp.tablegroups, dish, nothing)
     println("in add_customer_to_table, tablegroup is $(tablegroup), table_index is $(table_index)")
 
     if tablegroup == nothing
         println("in add_customer_to_table, tablegroup is nothing?")
-        return add_customer_to_new_table(pyp, dish, G_0_or_parent_pws, d_array, θ_array);
+        return add_customer_to_new_table(pyp, dish, G_0_or_parent_pws, d_array, θ_array, table_index_in_root);
     end
 
     tablegroup[table_index] += 1
     # TODO: Experiment to see which approach is faster.
     # pyp.ncustomers[dish] += 1
     pyp.ncustomers += 1
-    # TODO: Should 0 be returned?
-    return (true, 0)
+    return true
 end
 
-function add_customer_to_new_table(pyp::PYP{T}, dish::T, G_0_or_parent_pws::Union{Float64, OffsetVector{Float64}}, d_array::OffsetVector{Float64}, θ_array::OffsetVector{Float64})::Tuple{Bool, Int} where T
+function add_customer_to_new_table(pyp::PYP{T}, dish::T, G_0_or_parent_pws::Union{Float64, OffsetVector{Float64}}, d_array::OffsetVector{Float64}, θ_array::OffsetVector{Float64}, table_index_in_root::IntContainer)::Bool where T
     add_customer_to_new_table(pyp, dish)
     if pyp.parent != nothing
-        (success, index_of_table_in_root) = add_customer(pyp, dish, G_0_or_parent_pws, d_array, θ_array, false)
+        success = add_customer(pyp, dish, G_0_or_parent_pws, d_array, θ_array, false, table_index_in_root)
         @assert(success == true)
     end
-    return (true, index_of_table_in_root);
+    return true;
 end
 
 function add_customer_to_new_table(pyp::PYP{T}, dish::T) where T
-    # TODO: This introduces type instability but should avoid repeated lookups? Let's see.
     tablegroup = get(pyp.tablegroups, dish, nothing)
 
     if tablegroup == nothing
@@ -203,7 +201,7 @@ function add_customer_to_new_table(pyp::PYP{T}, dish::T) where T
     pyp.ncustomers += 1
 end
 
-function remove_customer_from_table(pyp::PYP{T}, dish::T, table_index::Int) where T
+function remove_customer_from_table(pyp::PYP{T}, dish::T, table_index::Int, table_index_in_root::IntContainer) where T
     # The tablegroup should always be found.
     tablegroup = pyp.tablegroups[dish]
 
@@ -213,7 +211,7 @@ function remove_customer_from_table(pyp::PYP{T}, dish::T, table_index::Int) wher
     @assert(tablegroup[table_index] >= 0)
     if (tablegroup[table_index] == 0)
         if (pyp.parent != nothing)
-            (success, index_of_table_in_root) = remove_customer(dish, false)
+            success = remove_customer(dish, false, table_index_in_root)
             @assert(success == true)
         end
 
@@ -225,16 +223,14 @@ function remove_customer_from_table(pyp::PYP{T}, dish::T, table_index::Int) wher
             # Will also have to delete the table from the count if we use that other system.
         end
     end
-    return (true, index_of_table_in_root)
+    return true
 end
 
 # Right, so d_array and θ_array are really the arrays that hold *all* hyperparameters for *all levels*
 # And then we're going to get the hyperparameters for this level, i.e. d_u and \theta_u from those arrays.
 # Another approach to do it, for sure.
-function add_customer(pyp::PYP{T}, dish::T, G_0_or_parent_pws::Union{Float64, OffsetVector{Float64}}, d_array::OffsetVector{Float64}, θ_array::OffsetVector{Float64}, update_beta_count::Bool)::Tuple{Bool, Int} where T
+function add_customer(pyp::PYP{T}, dish::T, G_0_or_parent_pws::Union{Float64, OffsetVector{Float64}}, d_array::OffsetVector{Float64}, θ_array::OffsetVector{Float64}, update_beta_count::Bool, index_of_table_in_root::IntContainer)::Bool where T
     println("We're in add_customer, the dish is $(dish)")
-    # The argument to return at the end of the function, indicating the index of the table to which this customer is added.
-    index_of_table_in_root = 0
     init_hyperparameters_at_depth_if_needed(pyp.depth, d_array, θ_array)
     # Need to + 1 because by definition depth starts from 0 but array indexing starts from 1
     d_u = d_array[pyp.depth + 1]
@@ -256,16 +252,17 @@ function add_customer(pyp::PYP{T}, dish::T, G_0_or_parent_pws::Union{Float64, Of
 
     tablegroup = get(pyp.tablegroups, dish, nothing)
     if tablegroup == nothing
-        (_, index_of_table_in_root) = add_customer_to_new_table(pyp, dish, G_0_or_parent_pws, d_array, θ_array)
+        add_customer_to_new_table(pyp, dish, G_0_or_parent_pws, d_array, θ_array, index_of_table_in_root)
         if (update_beta_count)
             increment_stop_count(pyp)
         end
         # Root PYP
         if (pyp.depth == 0)
-            # Still why in this case return 0 instead of k though. Let's see.
-            index_of_table_in_root = 0
+            # I think the thing is that if the table doesn't exist in root then of course this index will be given as 0.
+            # TODO: Wait, should this be 0 or be 1? Should be 1 right?
+            index_of_table_in_root.int = 1
         end
-        return (true, index_of_table_in_root)
+        return true
     else
         sum::Float64 = 0
         for k in 1:length(tablegroup)
@@ -282,21 +279,21 @@ function add_customer(pyp::PYP{T}, dish::T, G_0_or_parent_pws::Union{Float64, Of
         for k in 1:length(tablegroup)
             stack += max(0.0, tablegroup[k] - d_u) * normalizer
             if bernoulli <= stack
-                (_, index_of_table_in_root) = add_customer_to_table(pyp, dish, k, G_0_or_parent_pws, d_array, θ_array)
+                add_customer_to_table(pyp, dish, k, G_0_or_parent_pws, d_array, θ_array, index_of_table_in_root)
                 if update_beta_count
                     increment_stop_count(pyp)
                 end
                 if pyp.depth == 0
-                    index_of_table_in_root = k
+                    index_of_table_in_root.int = k
                 end
 
-                return (true, index_of_table_in_root)
+                return true
             end
         end
 
         # If we went through the whole loop but still haven't returned, we know that we should add it to a new table.
 
-        (_, index_of_table_in_root) = add_customer_to_new_table(pyp, dish, G_0_or_parent_pws, d_array, θ_array)
+        add_customer_to_new_table(pyp, dish, G_0_or_parent_pws, d_array, θ_array, index_of_table_in_root)
 
         if update_beta_count
             increment_stop_count(pyp)
@@ -304,15 +301,15 @@ function add_customer(pyp::PYP{T}, dish::T, G_0_or_parent_pws::Union{Float64, Of
 
         # In this case, we added it to the newly created table, thus set the index as such.
         if pyp.depth == 0
-            index_of_table_in_root = length(tablegroup)
+            # TODO: Wait, isn't this the same as the last already existing table? Is this even correct?
+            index_of_table_in_root.int = length(tablegroup)
         end
 
-        return (true, index_of_table_in_root)
+        return true
     end
 end
 
-function remove_customer(pyp::PYP{T}, dish::T, update_beta_count::Bool)::Tuple{Bool,Int} where T
-    index_of_table_in_root = 0
+function remove_customer(pyp::PYP{T}, dish::T, update_beta_count::Bool, index_of_table_in_root::IntContainer)::Bool where T
     tablegroup = get(pyp.tablegroups, dish, nothing)
     sum = sum(tablegroup)
 
@@ -323,16 +320,28 @@ function remove_customer(pyp::PYP{T}, dish::T, update_beta_count::Bool)::Tuple{B
         stack += tablegroup[k] * normalizer
         if bernoulli <= stack
             # Does it really need to keep track of the exact index of the table in root?
-            (_, index_of_table_in_root) = remove_customer_from_table(pyp, dish, k)
+            remove_customer_from_table(pyp, dish, k, index_of_table_in_root)
             if update_beta_count
                 decrement_stop_count(pyp)
             end
             if pyp.depth == 0
                 index_of_table_in_root = k
             end
-            return (true, index_of_table_in_root)
+            return true
         end
     end
+    # If we went through the whole tablegroup without picking one, we have to remove it from the last one anyways.
+    # Basically a repeat of the above procedure. Any way to simplify this code?
+    # Can definitely just use a sampling method, right?
+    # TODO: Use the built-in sampling method on tablegroup[k] instead of this shit.
+    remove_customer_from_table(pyp, dish, length(tablegroup), index_of_table_in_root)
+    if update_beta_count
+        decrement_stop_count(pyp)
+    end
+    if pyp.depth == 0
+        index_of_table_in_root = length(tablegroup)
+    end
+    return true
 end
 
 # Note that I added a final Bool argument to indicate whether the thing is already parent_pw or is G_0, so that I don't end up duplicating the  method.

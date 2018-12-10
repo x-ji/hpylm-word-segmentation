@@ -26,4 +26,7 @@ const CHPYLM_ϵ = 1e-12
 # TODO: Expand upon this later, if necessary
 const NUM_WORD_TYPES = 1
 
-# Will need to create a zero-indexed array to fully support some use cases, e.g. where the depth of a tree starts from 0.
+# In C++ code you can pass in integers by reference. Here I guess you can only create such a struct to hold an integer.
+mutable struct IntContainer
+    int::Int
+end
