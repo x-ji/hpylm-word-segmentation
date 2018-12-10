@@ -251,6 +251,7 @@ Special in the sense that this is exclusively for the prob of the PYP of G_1 in 
 The special processing is that we know that pyp.base is *directly* the top-level char-type PYPContainer. There's no annoying BackoffBase struct standing in between. So we need to invoke the prob(PYPContainer, ctx, dish) method. Thus, we need to break the word dish down into a character dish.
 """
 function special_prob(pyp::PYP, dish::String)
+    # println("special_prob is invoked. The dish is $dish")
     # Using AbstractString as the base type might be the more efficient way let's see. Though this doesn't seem to invoke a lot of memory usage it seems.
     # Yeah the memory usage seems to be about 39MB. Definitely not the foremost thing to be worried about then.
     char_seq = collect(String, Base.split(dish))
@@ -415,6 +416,7 @@ If there is no such a `PYP` struct with `ctx` context, a new one will be initial
 """
 function increment(pyp_container::PYPContainer, ctx::Array{String,1}, dish::String)
     # Special treatment for the transition.
+    # println("increment is invoked. context: $ctx, dish: $dish")
     if pyp_container.is_for_words && pyp_container.order == 1
         char_seq = collect(String, Base.split(dish))
         add_sentence_to_model(pyp_container.backoff, char_seq)
@@ -432,6 +434,7 @@ Run `decrement` method on the `PYP` struct with context `ctx`, using dish `dish`
 The caller is responsible for ensuring that the `PYP` struct with context `ctx` already exists, and that `dish` already exists in that `PYP`.
 """
 function decrement(pyp_container::PYPContainer, ctx::Array{String,1}, dish::String)
+    # println("decrement is invoked. context: $ctx, dish: $dish")
     if pyp_container.is_for_words && pyp_container.order == 1
         char_seq = collect(String, Base.split(dish))
         remove_sentence_from_model(pyp_container.backoff, char_seq)
@@ -449,6 +452,7 @@ function prob(pyp_container::PYPContainer, ctx::Array{String,1}, dish::String)
     # What we know:
     # The G_0(w) is either the probability derived from a properly implemented infinite-gram char HPYLM, or as a substitution, just the multiplied probability out of a 3-gram char HPYLM.
     # So OK it seems that we need to properly take care of pyp.base and perform some sort of transformation on `dish` as well then.
+    # println("prob is invoked. PYPContainer: $pyp_container, context: $ctx, dish: $dish")
     if pyp_container.is_for_words && pyp_container.order == 1
         # In this case, the `get` method returns the PYP of G_1, which doesn't have any context to speak of whatsoever. This is to say, at G_1 level there's only *one single PYP object* contained in the `pyp_container.models` field.
         # We need a special prob method. Maybe there are better ways to do this but let me go through with this implementation at first.

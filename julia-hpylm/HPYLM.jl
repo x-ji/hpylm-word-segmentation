@@ -179,7 +179,12 @@ function sample_segmentation(sentence::Array{String,1}, max_word_length::Int, np
     prob_matrix = fill(-1.0, (N, N))
     # First run the forward filtering
     for t in 1:N
+        # The candidate word will actually be (t - k + 1):t. Therefore, By making sure that k cannot be smaller than t - max_word_length, we're ensuring that the candidate word will not be longer than:
+        # t - (t - k + 1) + 1 = k
+        # Wait so this still isn't right. What the hell. k can still be up to t long???
         for k in max(1, t - max_word_length):t
+        # for k in 1:min(max_word_length, t)
+            # Maybe this should be sentence[1:t] then.
             forward_filtering(sentence, t, k, prob_matrix, npylm)
         end
     end
@@ -198,6 +203,7 @@ function sample_segmentation(sentence::Array{String,1}, max_word_length::Int, np
         probabilities = fill(0.0, max_word_length)
         # The idea: Keep the w and try out different variations of k, so that different segmentations serve as different context words to the w.
         # Seems that sometimes the max_word_length could be just too big.
+        # TODO: OK apparently I manually added this restriction for max_word_length while it just simply isn't there in the original paper. I wonder if something is getting mixed up in the process. Must figure this out.
         for k in 1:min(max_word_length, t)
             cur_segmentation = sentence[t - k + 1:t]
             cur_context = Base.join(cur_segmentation)
@@ -247,6 +253,7 @@ function forward_filtering(sentence::Array{String,1}, t::Int, k::Int, prob_matri
         string_rep_potential_context = Base.join(sentence[(t - k - j + 1):(t - k)])
         string_rep_potential_word = Base.join(sentence[(t - k + 1):t])
         # Memory cost: > 600MB. Not sure maybe it also has something to do with the fact that we're creating an array on the fly? Is there any better way though?
+        println("Potential context: $string_rep_potential_context, potential word: $string_rep_potential_word")
         bigram_prob = prob(npylm, [string_rep_potential_context], string_rep_potential_word)
 
         temp += bigram_prob * forward_filtering(sentence, (t - k), j, prob_matrix, npylm)
