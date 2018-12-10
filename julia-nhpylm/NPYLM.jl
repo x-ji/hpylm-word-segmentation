@@ -34,7 +34,7 @@ mutable struct NPYLM
     whpylm_G_0_cache::Dict{UInt, Float64}
     "The cache of CHPYLM G_0"
     chpylm_G_0_cache::Dict{Int, Float64}
-    λ_for_types::Vector{Float64}
+    λ_for_types::OffsetVector{Float64}
     "Probability of generating a word of length k from the CHPYLM"
     p_k_chpylm::OffsetVector{Float64}
     max_word_length::Int
@@ -59,7 +59,7 @@ mutable struct NPYLM
 
     Note that because this is a container that gets reused over and over again, its length is simply the maximum word length. The "actual word length" will be computed and passed in as a parameter to functions that use this variable. Not sure if this is the most sensible approach though. Maybe we can refactor it to a less tedious way later. The extra length parameter is no fun.
     """
-    most_recent_word_added_to_chpylm::Vector{Char}
+    most_recent_word_added_to_chpylm::OffsetVector{Char}
 
     function NPYLM(max_word_length::Int, max_sentence_length::Int, G_0::Float64, initial_λ_a::Float64, initial_λ_b::Float64, chpylm_beta_stop::Float64, chpylm_beta_pass::Float64)
         npylm = new()
@@ -72,7 +72,7 @@ mutable struct NPYLM
         npylm.chpylm_G_0_cache = Dict{Int, Float64}()
 
         # TODO: Expand upon word types and use different poisson distributions for different types.
-        npylm.λ_for_types = zeros(Float64, NUM_WORD_TYPES)
+        npylm.λ_for_types = zeros(Float64, 0:NUM_WORD_TYPES)
         # Currently we use a trigram model.
         # TODO: bigram model
         npylm.whpylm_parent_p_w_cache = fill(0.0, 0:2)
@@ -82,19 +82,16 @@ mutable struct NPYLM
         npylm.max_word_length = max_word_length
         # + 2 because of bow and eow
         # Not sure if this is the most sensible approach with Julia. Surely we can adjust for that.
-        npylm.most_recent_word_added_to_chpylm = Vector{Char}(undef, max_sentence_length + 2)
+        npylm.most_recent_word_added_to_chpylm = OffsetVector{Char}(undef, 0:max_sentence_length + 1)
         # There are two extra cases where k = 1 and k > max_word_length
         # We initialize them with a uniform distribution. Later we'll use a Monte Carlo sampling to update the estimates (in function update_p_k_given_chpylm)
         # npylm.p_k_chpylm = OffsetVector{Float64}((1.0 / (max_word_length + 1)), 0:max_word_length)
-        npylm.p_k_chpylm = fill(1.0 / (max_word_length + 1), 0:max_word_length)
-        # for k in 0:max_word_length + 1
-        #     npylm.p_k_chpylm[k] = 1.0 / (max_word_length + 1)
-        # end
+        npylm.p_k_chpylm = fill(1.0 / (max_word_length + 2), 0:max_word_length + 1)
         return npylm
     end
 end
 
-function produce_word_with_bow_and_eow(sentence_as_chars::Vector{Char}, word_begin_index::Int, word_end_index::Int, word::Vector{Char})
+function produce_word_with_bow_and_eow(sentence_as_chars::OffsetVector{Char}, word_begin_index::Int, word_end_index::Int, word::OffsetVector{Char})
     word[1] = BOW
     # # The length is end - begin + 1. This is always the case.
     # for i in 1:word_end_index - word_begin_index + 1
@@ -176,7 +173,7 @@ function add_customer_at_index_n(npylm::NPYLM, sentence::Sentence, n::Int)::Bool
 end
 
 # Yeah OK so token_ids is just a temporary variable holding all the characters to be added into the chpylm? What a weird design... Why can't we do better let's see how we might refactor this code later.
-function add_word_to_chpylm(npylm::NPYLM, sentence_as_chars::Vector{Char}, word_begin_index::Int, word_end_index::Int, word::Vector{Char}, recorded_depths::Vector{Int})
+function add_word_to_chpylm(npylm::NPYLM, sentence_as_chars::OffsetVector{Char}, word_begin_index::Int, word_end_index::Int, word::OffsetVector{Char}, recorded_depths::OffsetVector{Int})
     println("In add_word_to_chpylm")
     @assert length(recorded_depths) == 0
     @assert word_end_index >= word_begin_index
@@ -227,7 +224,7 @@ function remove_customer_at_index_n(npylm::NPYLM, sentence::Sentence, n::Int)
     return true
 end
 
-function remove_word_from_chpylm(npylm::NPYLM, sentence_as_chars::Vector{Char}, word_begin_index::Int, word_end_index::Int, word::Vector{Char}, recorded_depths::Vector{Int})
+function remove_word_from_chpylm(npylm::NPYLM, sentence_as_chars::OffsetVector{Char}, word_begin_index::Int, word_end_index::Int, word::OffsetVector{Char}, recorded_depths::OffsetVector{Int})
     @assert length(recorded_depths) > 0
     @assert word_end_index >= word_begin_index
     @assert word_end_index <= npylm.max_sentence_length
@@ -240,7 +237,7 @@ function remove_word_from_chpylm(npylm::NPYLM, sentence_as_chars::Vector{Char}, 
     end
 end
 
-function find_node_by_tracing_back_context_from_index_n(npylm::NPYLM, word_ids::Vector{UInt}, n::Int, generate_if_not_found::Bool, return_middle_node::Bool)
+function find_node_by_tracing_back_context_from_index_n(npylm::NPYLM, word_ids::OffsetVector{UInt}, n::Int, generate_if_not_found::Bool, return_middle_node::Bool)
     # TODO: These all need to change when the bigram model is supported.
     @assert n > 2
     @assert n < length(word_ids)
@@ -273,7 +270,7 @@ function find_node_by_tracing_back_context_from_index_n(npylm::NPYLM, sentence::
 end
 
 
-function find_node_by_tracing_back_context_from_index_n(npylm::NPYLM, sentence_as_chars::Vector{Char}, word_ids::Vector{UInt}, n::Int, word_begin_index::Int, word_end_index::Int, parent_p_w_cache::OffsetVector{Float64}, generate_if_not_found::Bool, return_middle_node::Bool)
+function find_node_by_tracing_back_context_from_index_n(npylm::NPYLM, sentence_as_chars::OffsetVector{Char}, word_ids::OffsetVector{UInt}, n::Int, word_begin_index::Int, word_end_index::Int, parent_p_w_cache::OffsetVector{Float64}, generate_if_not_found::Bool, return_middle_node::Bool)
     @assert n > 2
     @assert n <= length(word_ids)
     @assert word_begin_index > 0
@@ -303,7 +300,7 @@ function find_node_by_tracing_back_context_from_index_n(npylm::NPYLM, sentence_a
     return cur_node
 end
 
-function compute_G_0_of_word_at_index_n(npylm::NPYLM, sentence_as_chars::Vector{Char}, word_begin_index, word_end_index, word_n_id)
+function compute_G_0_of_word_at_index_n(npylm::NPYLM, sentence_as_chars::OffsetVector{Char}, word_begin_index, word_end_index, word_n_id)
     if word_n_id == EOS
         return npylm.chpylm.G_0
     end
@@ -404,7 +401,7 @@ function compute_p_w_of_nth_word(npylm::NPYLM, sentence::Sentence, n::Int)
     return compute_p_w_of_nth_word(npylm, sentence.characters, sentence.word_ids, sentence.num_segments, n, word_begin_index, word_end_index)
 end
 
-function compute_p_w_of_nth_word(npylm::NPYLM, sentence_as_chars::Vector{Char}, word_ids::Vector{UInt}, n::Int, word_begin_index::Int, word_end_index::Int)
+function compute_p_w_of_nth_word(npylm::NPYLM, sentence_as_chars::OffsetVector{Char}, word_ids::OffsetVector{UInt}, n::Int, word_begin_index::Int, word_end_index::Int)
     word_id = word_ids[n]
     
     # generate_if_not_found = false, return_middle_node = true

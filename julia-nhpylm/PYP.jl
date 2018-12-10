@@ -513,7 +513,7 @@ function get_stop_counts(pyp::PYP{T})::Int where T
 end
 
 "If run successfully, this function should put all pyps at the specified depth into the accumulator vector."
-function get_all_pyps_at_depth(pyp::PYP{T}, depth::Int, accumulator::Vector{PYP{T}}) where T
+function get_all_pyps_at_depth(pyp::PYP{T}, depth::Int, accumulator::OffsetVector{PYP{T}}) where T
     if pyp.depth == depth
         push!(accumulator, pyp)
         # TODO: This implementation feels a bit inefficient. If the method already pushed the PYP at this level, then self evidently the PYP at the next level will not be a target?

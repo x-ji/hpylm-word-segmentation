@@ -76,7 +76,7 @@ function set_chpylm_beta_pass(model::Model, pass::Float64)
     model.npylm.chpylm.beta_pass = pass
 end
 
-function segment_sentence(model::Model, sentence_string::UTF32String)::Vector{UTF32String}
+function segment_sentence(model::Model, sentence_string::UTF32String)::OffsetVector{UTF32String}
     extend_capacity(model.sampler, model.npylm.max_word_length, length(sentence_string))
     extend_capacity(model.npylm, length(sentence_string))
     segment_lengths = Int[]
@@ -110,16 +110,16 @@ end
 
 # Actually I'm not sure if we really need such a complicated Trainer class. Let's first go on though.
 mutable struct Trainer
-    rand_indices_train::Vector{Int}
-    rand_indices_dev::Vector{Int}
+    rand_indices_train::OffsetVector{Int}
+    rand_indices_dev::OffsetVector{Int}
     dataset::Dataset
     vocabulary::Vocabulary
     model::Model
-    chpylm_sampling_probability_table::Vector{Float64}
-    chpylm_sampling_id_table::Vector{Char}
+    chpylm_sampling_probability_table::OffsetVector{Float64}
+    chpylm_sampling_id_table::OffsetVector{Char}
     always_accept_new_segmentation::Bool
     # What does this mean
-    added_to_chpylm_train::Vector{Bool}
+    added_to_chpylm_train::OffsetVector{Bool}
     num_segmentation_rejections::Int
     num_segmentation_acceptances::Int
     function Trainer(dataset::Dataset, model::Model, always_accept_new_segmentation::Bool=true)
@@ -193,7 +193,7 @@ This function tries to generate a word randomly from the CHPYLM. Used by the fun
 
 `skip_eow` means that EOW shouldn't be generated as the next char, because there is only BOW in the current word so far.
 """
-function sample_next_char_from_chpylm_given_context(trainer::Trainer, context_chars::Vector{Char}, sample_t::Int, skip_eow::Bool)
+function sample_next_char_from_chpylm_given_context(trainer::Trainer, context_chars::OffsetVector{Char}, sample_t::Int, skip_eow::Bool)
     context_length = length(context_chars)
     prob_sum = 0.0
     chpylm = trainer.model.npylm.chpylm
@@ -359,7 +359,7 @@ end
 
 # TODO: Summarize the difference between the usgae of the Viterbi algorithm and the original blocked sampler.
 "Compute the perplexity based on optimal segmentation produced by the Viterbi algorithm"
-function compute_perplexity(trainer::Trainer, sentences::Vector{Sentence})
+function compute_perplexity(trainer::Trainer, sentences::OffsetVector{Sentence})
     num_sentences = length(sentences)
     if num_sentences == 0
         return 0.0
@@ -387,7 +387,7 @@ function compute_perplexity_dev(trainer::Trainer)
     return compute_perplexity(trainer, trainer.dataset.dev_sentences)
 end
 
-function compute_log_likelihood(trainer::Trainer, sentences::Vector{Sentence})
+function compute_log_likelihood(trainer::Trainer, sentences::OffsetVector{Sentence})
     num_sentences = length(sentences)
     if num_sentences == 0
         return 0.0
@@ -408,7 +408,7 @@ function compute_log_likelihood_dev(trainer::Trainer)
     return compute_log_likelihood(trainer, trainer.dataset.dev_sentences)
 end
 
-function print_segmentations(trainer::Trainer, num_to_print::Int, sentences::Vector{Sentence}, rand_indices::Vector{Int})
+function print_segmentations(trainer::Trainer, num_to_print::Int, sentences::OffsetVector{Sentence}, rand_indices::OffsetVector{Int})
     num_to_print = min(length(sentences), num_to_print)
     for n in 1:num_to_print
         sentence_index = rand_indices[n]

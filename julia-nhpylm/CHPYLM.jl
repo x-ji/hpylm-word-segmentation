@@ -94,7 +94,7 @@ The sampling process for the infinite Markov model is similar to that of the nor
 
 This function adds the customer
 """
-function add_customer_at_index_n(chpylm::CHPYLM, string_as_chars::Vector{Char}, n::Int, depth::Int)::Tuple{Bool,Int}
+function add_customer_at_index_n(chpylm::CHPYLM, string_as_chars::OffsetVector{Char}, n::Int, depth::Int)::Bool
     node = find_node_by_tracing_back_context(string_as_chars, n, depth, chpylm.parent_p_w_cache)
     char_n = string_as_chars[n]
     root_table_index::IntContainer = IntContainer(0)
@@ -108,9 +108,9 @@ This is a version to be called from the NPYLM.
 
 If the parent_pw_cache is already set, then update the path_nodes as well.
 """
-function add_customer_at_index_n(chpylm::CHPYLM, characters::Vector{Char}, n::Int, depth::Int, parent_pw_cache::OffsetVector{Float64}, path_nodes::Vector{PYP{Char}})::Tuple{Bool, Int}
+function add_customer_at_index_n(chpylm::CHPYLM, characters::OffsetVector{Char}, n::Int, depth::Int, parent_pw_cache::OffsetVector{Float64}, path_nodes::OffsetVector{PYP{Char}})::Bool
     @assert(0 <= depth && depth <= n)
-    node::PYP{Char} = find_node_by_tracing_back_context(characters, n, depth, path_nodes)
+    node::PYP{Char} = find_node_by_tracing_back_context(chpylm, characters, n, depth, path_nodes)
     # Seems to be just a check
     if depth > 0
         @assert(node.context == characters[n - depth])
@@ -130,7 +130,7 @@ The sampling process for the infinite Markov model is similar to that of the nor
 This function removes the customer
 """
 # Though why does the depth need to be passed in separately a kind of baffles me.
-function remove_customer_at_index_n(chpylm::CHPYLM, characters::Vector{Char}, n::Int, depth::Int)::Tuple{Bool,Int}
+function remove_customer_at_index_n(chpylm::CHPYLM, characters::OffsetVector{Char}, n::Int, depth::Int)::Bool
     @assert(0 <= depth && depth <= n)
     node::PYP{Char} = find_node_by_tracing_back_context(characters, n, depth, false, false)
     # Seems to be just a check
@@ -146,7 +146,7 @@ function remove_customer_at_index_n(chpylm::CHPYLM, characters::Vector{Char}, n:
     if need_to_remove_from_parent(node)
         remove_from_parent(node)
     end
-    return (true, 0)
+    return true
 end
 
 """
@@ -164,7 +164,7 @@ When we connect the node all the way up, we can reconstruct the full 2-gram cont
 This version is used during `remove_customer`.
 """
 # TODO: Try to reduce code duplication as much as possible here.
-function find_node_by_tracing_back_context(chpylm::CHPYLM, characters::Vector{Char}, n::Int, depth_of_n::Int, generate_if_not_found::Bool, return_cur_node_if_not_found::Bool)::Union{Nothing,PYP{Char}}
+function find_node_by_tracing_back_context(chpylm::CHPYLM, characters::OffsetVector{Char}, n::Int, depth_of_n::Int, generate_if_not_found::Bool, return_cur_node_if_not_found::Bool)::Union{Nothing,PYP{Char}}
     # This situation makes no sense, otherwise we'll go straight out of the start of the word.
     if n < depth_of_n
         return nothing
@@ -212,7 +212,7 @@ When we connect the node all the way up, we can reconstruct the full 2-gram cont
 This version is used during `add_customer`. It cachees the probabilities of generating the nth customer at each level of the tree, during the tracing.
 """
 # TODO: The use of parent_p_w_cache is confusing. Either keep it as a field or always operate on it as an external variable, eh?
-function find_node_by_tracing_back_context(chpylm::CHPYLM, characters::Vector{Char}, n::Int, depth_of_n::Int, parent_p_w_cache::OffsetVector{Float64})::Union{Nothing,PYP{Char}}
+function find_node_by_tracing_back_context(chpylm::CHPYLM, characters::OffsetVector{Char}, n::Int, depth_of_n::Int, parent_p_w_cache::OffsetVector{Float64})::Union{Nothing,PYP{Char}}
     # This situation makes no sense, otherwise we'll go straight out of the start of the word.
     if n < depth_of_n
         return nothing
@@ -240,7 +240,7 @@ function find_node_by_tracing_back_context(chpylm::CHPYLM, characters::Vector{Ch
     return cur_node
 end
 
-function find_node_by_tracing_back_context(chpylm::CHPYLM, characters::Vector{Char}, n::Int, depth_of_n::Int, path_nodes_cache::Vector{PYP{Char}})::Union{Nothing,PYP{Char}}
+function find_node_by_tracing_back_context(chpylm::CHPYLM, characters::OffsetVector{Char}, n::Int, depth_of_n::Int, path_nodes_cache::OffsetVector{PYP{Char}})::Union{Nothing,PYP{Char}}
     # This situation makes no sense, otherwise we'll go straight out of the start of the word.
     if n < depth_of_n
         return nothing
@@ -258,22 +258,23 @@ function find_node_by_tracing_back_context(chpylm::CHPYLM, characters::Vector{Ch
     return cur_node
 end
 
-function compute_p_w(chpylm::CHPYLM, characters::Vector{Char})
+function compute_p_w(chpylm::CHPYLM, characters::OffsetVector{Char})
     return exp(compute_log_p_w(chpylm, characters))
 end
 
 # It seems to have been mentioned that this is a relatively inefficient way to do so. Maybe we can do better?
-function compute_log_p_w(chpylm::CHPYLM, characters::Vector{Char})
-    char = characters[1]
+function compute_log_p_w(chpylm::CHPYLM, characters::OffsetVector{Char})
+    char = characters[0]
     log_p_w = 0.0
     # I still haven't fully wrapped my head around the inclusions and exclusions of BOS, EOS, BOW, EOW, etc. Let's see how this works out though.
     if char != BOW
         log_p_w += log(compute_p_w(chpylm.root, char, chpylm.G_0, chpylm.d_array, chpylm.θ_array, false))
     end
 
-    for n in 2:length(characters)
+    for n in 1:length(characters) - 1
         # I sense that the way this calculation is written is simply not very efficient. Surely we can do better than this?
         # n - 1 because that argument is the end of the context `h`, not the actual word itself.
+        # I sense another indexing error previously here. Why would it start from 0 instead of 1?
         log_p_w += log(compute_p_w_given_h(chpylm, characters, 0, n - 1))
     end
 
@@ -282,12 +283,12 @@ end
 
 "Compute the probability of generating the character `characters[end + 1]` with `characters[begin:end]` as the context."
 # TODO: Improve the efficiency of these calls.
-function compute_p_w_given_h(chpylm::CHPYLM, characters::Vector{Char}, context_begin::Int, context_end::Int)
+function compute_p_w_given_h(chpylm::CHPYLM, characters::OffsetVector{Char}, context_begin::Int, context_end::Int)
     target_char = characters[context_end + 1]
     return compute_p_w_given_h(chpylm, target_char, characters, context_begin, context_end)
 end
 
-function compute_p_w_given_h(chpylm::CHPYLM, target_char::Char, characters::Vector{Char}, context_begin::Int, context_end::Int)
+function compute_p_w_given_h(chpylm::CHPYLM, target_char::Char, characters::OffsetVector{Char}, context_begin::Int, context_end::Int)
     cur_node = chpylm.root
     parent_pass_probability = 1.0
     p = 0.0
@@ -312,8 +313,11 @@ function compute_p_w_given_h(chpylm::CHPYLM, target_char::Char, characters::Vect
 
             # Preparation for the next round.
             # We do this only in the else branch because if the cur_node is already `nothing`, it will just keep being `nothing` from then onwards.
-            # We've already gone so deep that the depth is greater than the actual context length. Of course there's no next node at such a depth.
+
+            # If wee've already gone so deep that the depth is greater than the actual context length. Of course there's no next node at such a depth.
             # Note that this operation is with regards to the next node, thus the + 1 on the left hand side.
+            # On the right hand side the + 1 is because we're getting the length, which requires + 1
+            # So the two +1's are not the same!
             if depth + 1 >= context_end - context_begin + 1
                 cur_node = nothing
             else
@@ -324,10 +328,11 @@ function compute_p_w_given_h(chpylm::CHPYLM, target_char::Char, characters::Vect
         end
         depth += 1
     end
+    @assert p > 0.0
     return p
 end
 
-function sample_depth_at_index_n(chpylm::CHPYLM, characters::Vector{Char}, n::Int, parent_p_w_cache::OffsetVector{Float64}, path_nodes::Vector{PYP{Char}})
+function sample_depth_at_index_n(chpylm::CHPYLM, characters::OffsetVector{Char}, n::Int, parent_p_w_cache::OffsetVector{Float64}, path_nodes::OffsetVector{PYP{Char}})
     # The first character should always be the BOW
     if (n == 1)
         return 0
