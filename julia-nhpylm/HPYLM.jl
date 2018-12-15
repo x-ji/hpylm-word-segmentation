@@ -51,35 +51,36 @@ end
 
 # TODO: Again, maybe we can do without this function.
 function init_hyperparameters_at_depth_if_needed(hpylm::HPYLM, depth::Int)
-    println("In init_hyperparameters_at_depth_if_needed. depth: $depth")
+    # println("In init_hyperparameters_at_depth_if_needed. depth: $depth. Type of HPYLM: $(typeof(HPYLM))")
+    # println("Length of d_array: $(length(hpylm.d_array))")
     if length(hpylm.d_array) <= depth
         while(length(hpylm.d_array) <= depth)
-            push!(hpylm.d_array, HPYLM_INITIAL_d)
+            push!(parent(hpylm.d_array), HPYLM_INITIAL_d)
         end
     end
     if length(hpylm.θ_array) <= depth
         while(length(hpylm.θ_array) <= depth)
-            push!(hpylm.θ_array, HPYLM_INITIAL_θ)
+            push!(parent(hpylm.θ_array), HPYLM_INITIAL_θ)
         end
     end
     if length(hpylm.a_array) <= depth
         while(length(hpylm.a_array) <= depth)
-            push!(hpylm.a_array, HPYLM_a)
+            push!(parent(hpylm.a_array), HPYLM_a)
         end
     end
     if length(hpylm.b_array) <= depth
         while(length(hpylm.b_array) <= depth)
-            push!(hpylm.b_array, HPYLM_b)
+            push!(parent(hpylm.b_array), HPYLM_b)
         end
     end
     if length(hpylm.α_array) <= depth
         while(length(hpylm.α_array) <= depth)
-            push!(hpylm.α_array, HPYLM_α)
+            push!(parent(hpylm.α_array), HPYLM_α)
         end
     end
     if length(hpylm.β_array) <= depth
         while(length(hpylm.β_array) <= depth)
-            push!(hpylm.β_array, HPYLM_β)
+            push!(parent(hpylm.β_array), HPYLM_β)
         end
     end
 end
@@ -135,7 +136,7 @@ function sample_hyperparameters(hpylm::HPYLM)
     init_hyperparameters_at_depth_if_needed(hpylm, hpylm.depth)
 
     for u in 0:hpylm.depth
-        println("The current depth is $(u), the a_array value is $(hpylm.a_array[u]), the sum_one_minus_y_ui_array value is $(sum_one_minus_y_ui_array[u]), the b_array value is $(hpylm.b_array[u]), the sum_one_minus_z_uwkj_array value is $(sum_one_minus_z_uwkj_array[u])")
+        # println("The current depth is $(u), the a_array value is $(hpylm.a_array[u]), the sum_one_minus_y_ui_array value is $(sum_one_minus_y_ui_array[u]), the b_array value is $(hpylm.b_array[u]), the sum_one_minus_z_uwkj_array value is $(sum_one_minus_z_uwkj_array[u])")
         dist1 = Beta(hpylm.a_array[u] + sum_one_minus_y_ui_array[u], hpylm.b_array[u] + sum_one_minus_z_uwkj_array[u])
         hpylm.d_array[u] = rand(dist1)
         

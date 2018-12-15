@@ -172,7 +172,9 @@ function sample_lambda(trainer::Trainer)
             end
 
             if !in(word_id, word_ids)
-                tablegroups = trainer.model.npylm.whpylm.root.tablegroups[word_id]
+                # Why would a word be non-present in WHPYLM even though it's already segmented though? Doesn't seem to make much sense.
+                # Anyways guess I should just put a zero there if that's the case.
+                tablegroups = get(trainer.model.npylm.whpylm.root.tablegroups, word_id, [])
                 num_tablegroups = length(tablegroups)
                 # TODO: Need to properly detect the word type.
                 t = 1

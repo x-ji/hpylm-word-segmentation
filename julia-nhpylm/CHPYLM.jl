@@ -76,12 +76,12 @@ mutable struct CHPYLM{T} <: HPYLM{T}
         chpylm.sampling_table = OffsetVector{Float64}(undef, 0:max_depth)
         chpylm.path_nodes = OffsetVector{PYP{Char}}(undef, 0:max_depth)
 
-        chpylm.d_array = OffsetVector{Float64}(undef, 0:0)
-        chpylm.θ_array = OffsetVector{Float64}(undef, 0:0)
-        chpylm.a_array = OffsetVector{Float64}(undef, 0:0)
-        chpylm.b_array = OffsetVector{Float64}(undef, 0:0)
-        chpylm.α_array = OffsetVector{Float64}(undef, 0:0)
-        chpylm.β_array = OffsetVector{Float64}(undef, 0:0)
+        chpylm.d_array = OffsetVector{Float64}(undef, 0:-1)
+        chpylm.θ_array = OffsetVector{Float64}(undef, 0:-1)
+        chpylm.a_array = OffsetVector{Float64}(undef, 0:-1)
+        chpylm.b_array = OffsetVector{Float64}(undef, 0:-1)
+        chpylm.α_array = OffsetVector{Float64}(undef, 0:-1)
+        chpylm.β_array = OffsetVector{Float64}(undef, 0:-1)
         return chpylm
     end
 end

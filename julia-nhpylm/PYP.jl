@@ -8,10 +8,10 @@ function init_hyperparameters_at_depth_if_needed(depth::Int, d_array::OffsetVect
     # However, why don't we on the contrary just initialize an array of ridiculous depth that this should never become a problem? I think that might make the operations a bit more efficient
     if depth >= length(d_array)
         while(length(d_array) <= depth)
-            push!(d_array, HPYLM_INITIAL_d)
+            push!(parent(d_array), HPYLM_INITIAL_d)
         end
         while(length(θ_array) <= depth)
-            push!(θ_array, HPYLM_INITIAL_θ)
+            push!(parent(θ_array), HPYLM_INITIAL_θ)
         end
     end
 end
@@ -233,8 +233,8 @@ function add_customer(pyp::PYP{T}, dish::T, G_0_or_parent_pws::Union{Float64, Of
     # println("We're in add_customer, the dish is $(dish)")
     init_hyperparameters_at_depth_if_needed(pyp.depth, d_array, θ_array)
     # Need to + 1 because by definition depth starts from 0 but array indexing starts from 1
-    d_u = d_array[pyp.depth + 1]
-    θ_u = θ_array[pyp.depth + 1]
+    d_u = d_array[pyp.depth]
+    θ_u = θ_array[pyp.depth]
     # println("What the hell")
     parent_pw::Float64 =
     # It seems that we do need to initialize this separately since sometimes this can result in nothing? Though why?

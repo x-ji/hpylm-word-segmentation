@@ -38,12 +38,13 @@ mutable struct WHPYLM{T} <: HPYLM{T}
         whpylm.root = PYP(UInt(0))
         whpylm.root.depth = 0
 
-        whpylm.d_array = OffsetVector{Float64}(undef, 0:0)
-        whpylm.θ_array = OffsetVector{Float64}(undef, 0:0)
-        whpylm.a_array = OffsetVector{Float64}(undef, 0:0)
-        whpylm.b_array = OffsetVector{Float64}(undef, 0:0)
-        whpylm.α_array = OffsetVector{Float64}(undef, 0:0)
-        whpylm.β_array = OffsetVector{Float64}(undef, 0:0)
+        # 0:-1 so that the length is actually 0. If it were 0:0, it would have length 1!
+        whpylm.d_array = OffsetVector{Float64}(undef, 0:-1)
+        whpylm.θ_array = OffsetVector{Float64}(undef, 0:-1)
+        whpylm.a_array = OffsetVector{Float64}(undef, 0:-1)
+        whpylm.b_array = OffsetVector{Float64}(undef, 0:-1)
+        whpylm.α_array = OffsetVector{Float64}(undef, 0:-1)
+        whpylm.β_array = OffsetVector{Float64}(undef, 0:-1)
 
         for n in 1:order
             push!(parent(whpylm.d_array), HPYLM_INITIAL_d)
