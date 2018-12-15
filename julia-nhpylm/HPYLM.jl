@@ -51,6 +51,7 @@ end
 
 # TODO: Again, maybe we can do without this function.
 function init_hyperparameters_at_depth_if_needed(hpylm::HPYLM, depth::Int)
+    println("In init_hyperparameters_at_depth_if_needed. depth: $depth")
     if length(hpylm.d_array) <= depth
         while(length(hpylm.d_array) <= depth)
             push!(hpylm.d_array, HPYLM_INITIAL_d)

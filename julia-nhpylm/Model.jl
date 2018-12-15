@@ -49,7 +49,7 @@ struct Model
     # function Model(file::IOStream)
     #     model = new()
     #     model.npylm = NPYLM()
-        
+
     #     return model
     # end
 end
@@ -84,9 +84,9 @@ function segment_sentence(model::Model, sentence_string::UTF32String)::OffsetVec
     sentence = Sentence(sentence_string)
     # I don't really get the difference between the viterbi_ methods and the normal methods. Is it the case that the viterbi_ methods just do the segmentation directly without trying to further train the model? A bit weird indeed. Let's see further.
     viterbi_decode(model.sampler, sentence, segment_lengths)
-    # This method is so insane. Why not print out the sentences immediately anyways. 
+    # This method is so insane. Why not print out the sentences immediately anyways.
     # split_sentence(sentence, segment_lengths)
-    
+
     # Skip the first two BOS in the sentence.
     # start_index = 3
 
@@ -110,16 +110,16 @@ end
 
 # Actually I'm not sure if we really need such a complicated Trainer class. Let's first go on though.
 mutable struct Trainer
-    rand_indices_train::OffsetVector{Int}
-    rand_indices_dev::OffsetVector{Int}
+    rand_indices_train::Vector{Int}
+    rand_indices_dev::Vector{Int}
     dataset::Dataset
     vocabulary::Vocabulary
     model::Model
-    chpylm_sampling_probability_table::OffsetVector{Float64}
-    chpylm_sampling_id_table::OffsetVector{Char}
+    chpylm_sampling_probability_table::Vector{Float64}
+    chpylm_sampling_id_table::Vector{Char}
     always_accept_new_segmentation::Bool
     # What does this mean
-    added_to_chpylm_train::OffsetVector{Bool}
+    added_to_chpylm_train::Vector{Bool}
     num_segmentation_rejections::Int
     num_segmentation_acceptances::Int
     function Trainer(dataset::Dataset, model::Model, always_accept_new_segmentation::Bool=true)
@@ -163,9 +163,9 @@ function sample_lambda(trainer::Trainer)
     end
     for sentence in trainer.dataset.train_sentences
         # Go through each word in the sentence, excluding the BOS and EOS tokens.
-        for index in 3:sentence.num_segments - 1
+        for index in 2:sentence.num_segments - 2
             word::UTF32String = get_nth_word_string(sentence, index)
-            word_id::Int = get_nth_word_id(sentence, index)
+            word_id::UInt = get_nth_word_id(sentence, index)
             word_length::Int = get_nth_segment_length(sentence, index)
             if word_length > trainer.model.npylm.max_word_length
                 continue
@@ -183,7 +183,7 @@ function sample_lambda(trainer::Trainer)
         end
         for t in 1:NUM_WORD_TYPES
             dist = Gamma(a_array[t], 1 / b_array[t])
-            trainer.model.npylm.λ_for_types[t] = rand(dist, Float64)
+            trainer.model.npylm.λ_for_types[t] = rand(dist)
         end
     end
 end
@@ -191,17 +191,17 @@ end
 """
 This function tries to generate a word randomly from the CHPYLM. Used by the function `update_p_k_given_chpylm`.
 
-`skip_eow` means that EOW shouldn't be generated as the next char, because there is only BOW in the current word so far.
+`skip_eow` means that EOW shouldn't be generated as the next char, when there is only BOW in the current word so far.
 """
-function sample_next_char_from_chpylm_given_context(trainer::Trainer, context_chars::OffsetVector{Char}, sample_t::Int, skip_eow::Bool)
-    context_length = length(context_chars)
+function sample_next_char_from_chpylm_given_context(trainer::Trainer, context_chars::OffsetVector{Char}, context_length::Int, sample_t::Int, skip_eow::Bool)
     prob_sum = 0.0
     chpylm = trainer.model.npylm.chpylm
     table_index = 1
     all_characters = trainer.vocabulary.all_characters
     num_characters = length(all_characters)
     for c in all_characters
-        p_w = compute_p_w_given_h(chpylm, c, context_chars, 1, context_length)
+        # context_begin: 0, context_end: length - 1
+        p_w = compute_p_w_given_h(chpylm, c, context_chars, 0, context_length - 1)
         prob_sum += p_w
         trainer.chpylm_sampling_probability_table[table_index] = p_w
         trainer.chpylm_sampling_id_table[table_index] = c
@@ -210,7 +210,7 @@ function sample_next_char_from_chpylm_given_context(trainer::Trainer, context_ch
 
     # Also record EOW as a probable character to be sampled.
     if !skip_eow
-        p_w = compute_p_w_given_h(chpylm, EOW, context_chars, 1, context_length)
+        p_w = compute_p_w_given_h(chpylm, EOW, context_chars, 0, context_length - 1)
         prob_sum += p_w
         trainer.chpylm_sampling_probability_table[table_index] = p_w
         trainer.chpylm_sampling_id_table[table_index] = EOW
@@ -226,28 +226,28 @@ This function updates the cache of the probability of sampling a word of length 
 As mentioned in Section 4.3 of the paper, a Monte Carlo method is employed to generate words randomly from the CHPYLM so that empirical estimates of p(k|chpylm) can be obtained.
 """
 function update_p_k_given_chpylm(trainer::Trainer, num_samples::Int = 20000, early_stopping_threshold::Int = 10)
-    max_word_length = get_max_word_length(trainer.model)
+    max_word_length = get_max_word_length(trainer.model) + 1
     p_k_chpylm = trainer.model.npylm.p_k_chpylm
     # Do you mean num_characters. Eh.
     # It's 1 longer than the original max_word_length, probably we have 0 in order to incorporate the possibility of getting length 0 word?
     # This array keeps track of total numbers of words of length k.
     # max_word_length + 1 because also a special case of k > max_word_length needs to be tracked?
-    num_words_of_length_k = OffsetVector{Int}(0, 0:max_word_length + 1)
-    for i in 0:max_word_length + 1
+    num_words_of_length_k = OffsetVector{Int}(0, 0:max_word_length)
+    for i in 0:max_word_length
         p_k_chpylm[i] = 0.0
     end
 
-    wrapped_chars = Vector{Char}[max_word_length + 3]
+    wrapped_chars = OffsetVector{Char}(undef, 0:max_word_length + 2)
     num_words_sampled = 0
     for itr in 1:num_samples
-        wrapped_chars[1] = BOW
+        wrapped_chars[0] = BOW
 
         # Keeps track of the actual word length
         cur_word_length = 0
-        for j in 1:max_word_length
+        for j in 0:max_word_length - 1
             # If we're only at the beginning of the sentence we shouldn't sample an EOW, because that would result in the "word" containing no characters at all.
-            skip_eow = (j == 1) ? true : false
-            next_char = sample_next_char_from_chpylm_given_context(trainer, wrapped_chars, j + 1, skip_eow)
+            skip_eow = (j == 0) ? true : false
+            next_char = sample_next_char_from_chpylm_given_context(trainer, wrapped_chars, j + 1, j + 1, skip_eow)
             wrapped_chars[j + 1] = next_char
             # EOW means the word is completely sampled.
             if next_char == EOW
@@ -255,18 +255,19 @@ function update_p_k_given_chpylm(trainer::Trainer, num_samples::Int = 20000, ear
             end
             cur_word_length += 1
         end
-        
+
         # In this case we just sampled an empty word, i.e. <BOW><EOW>. It cannot be used. Continue to the next round of sampling.
         if cur_word_length == 0
             continue
         end
 
+        @assert cur_word_length <= max_word_length
         num_words_of_length_k[cur_word_length] += 1
 
         # If all possible lengths have enough data generated, we can terminate the sampling early.
         if itr % 100 == 0
             can_stop = true
-            for k in 1:max_word_length + 1
+            for k in 1:max_word_length
                 if num_words_of_length_k[k] < early_stopping_threshold
                     can_stop = false
                     break
@@ -278,9 +279,11 @@ function update_p_k_given_chpylm(trainer::Trainer, num_samples::Int = 20000, ear
         end
     end
 
-    for k in 1:max_word_length + 1
-        # Put in a Laplace smoothing over the final figures.
-        p_k_chpylm[k] = (num_words_of_length_k[k] + 1) / (num_words_sampled + max_word_length + 1)
+    for k in 1:max_word_length
+        # Put in a Laplace smoothing over the final figures. Though seems that the divisor doesn't need this treatment anyways.
+        # p_k_chpylm[k] = (num_words_of_length_k[k] + 1) / (num_words_sampled + max_word_length + 1)
+        p_k_chpylm[k] = (num_words_of_length_k[k] + 1) / (num_words_sampled + max_word_length)
+        @assert p_k_chpylm[k] > 0
     end
 end
 
@@ -299,31 +302,32 @@ function blocked_gibbs_sampling(trainer::Trainer)
         if sentence.supervised
             # Remove the segmentation and add it again, so that the seating arrangements can be updated.
             if trainer.added_to_chpylm_train[sentence_index]
-                for n in 3:sentence.num_segments
+                for n in 2:sentence.num_segments - 1
                     remove_customer_at_index_n(trainer.model.npylm, sentence, n)
                 end
             end
             # Because this is supervised data, i.e. guaranteed to be the true segmentation, we don't need to resample the sentence at all.
-            for n in 3:sentence.num_segments
+            for n in 2:sentence.num_segments - 1
                 add_customer_at_index_n(trainer.model.npylm, sentence, n)
             end
             trainer.added_to_chpylm_train[sentence_index] = true
+            continue
         else
             # TODO: I thought this has more to do with the iteration of sampling? Do we really need such a mechanism anyways. But where is the iteration number in the first place eh.
             if trainer.added_to_chpylm_train[sentence_index] == true
-                old_segment_lengths = Vector{Int}(undef, max_sentence_length + 3)
+                old_segment_lengths = OffsetVector{Int}(undef, 0:max_sentence_length + 2)
                 num_old_segments = 0
                 old_log_p_s = 0.0
                 new_log_p_s = 0.0
 
-                for n in 3:sentence.num_segments
+                for n in 2:sentence.num_segments - 1
                     remove_customer_at_index_n(trainer.model.npylm, sentence, n)
                 end
 
                 # We need to later decide by some criteria whether to accept the new segmentation or just keep the old one.
                 if trainer.always_accept_new_segmentation == false
                     num_old_segments = get_num_segments_without_special_tokens(sentence)
-                    for i in 1:num_old_segments
+                    for i in 0:num_old_segments - 1
                         # We save the old segmentation but get rid of the BOS and EOS tokens
                         # Two BOS in the beginning.
                         old_segment_lengths[i] = sentence.segments[i + 2]
@@ -337,7 +341,7 @@ function blocked_gibbs_sampling(trainer::Trainer)
 
                 # TODO: There might be a way to avoid performing the check twice? Using a single Sentence struct to hold all these stuffs is quite a bit restrictive.
                 if trainer.always_accept_new_segmentation == false
-                    old_log_p_s = compute_log_probability_of_sentence(trainer.model.npylm, sentence)
+                    new_log_p_s = compute_log_probability_of_sentence(trainer.model.npylm, sentence)
                     # When the log probability of the new segmentation is lower, accept the new segmentation only with a certain probability
                     bernoulli = min(1.0, exp(new_log_p_s - old_log_p_s))
                     r = rand(Float64)
@@ -349,12 +353,15 @@ function blocked_gibbs_sampling(trainer::Trainer)
                     end
                 end
             end
-            for n in 3:sentence.num_segments
+
+            # Put in the new segmentation results
+            for n in 2:sentence.num_segments - 1
                 add_customer_at_index_n(trainer.model.npylm, sentence, n)
             end
             trainer.added_to_chpylm_train[sentence_index] = true
         end
     end
+    @assert trainer.model.npylm.whpylm.root.ntables <= get_num_customers(trainer.model.npylm.chpylm)
 end
 
 # TODO: Summarize the difference between the usgae of the Viterbi algorithm and the original blocked sampler.
@@ -374,7 +381,7 @@ function compute_perplexity(trainer::Trainer, sentences::OffsetVector{Sentence})
         # Why - 2 not - 3 though? EOS still needs to be taken into account in perplexity computation I guess?
         sum += compute_log_probability_of_sentence(trainer.model.npylm, sentence) / sentence.num_segments - 2
     end
-    
+
     ppl = exp(-sum / num_sentences)
     return ppl
 end
@@ -438,7 +445,7 @@ function build_corpus(path)
     else
         read_file_into_corpus(path, corpus)
     end
-    
+
     return corpus
 end
 

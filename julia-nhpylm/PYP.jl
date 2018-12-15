@@ -165,10 +165,10 @@ end
 "The second item returned in the tuple is the index of the table to which the customer is added."
 function add_customer_to_table(pyp::PYP{T}, dish::T, table_index::Int, G_0_or_parent_pws::Union{Float64, OffsetVector{Float64}}, d_array::OffsetVector{Float64}, θ_array::OffsetVector{Float64}, table_index_in_root::IntContainer)::Bool where T
     tablegroup = get(pyp.tablegroups, dish, nothing)
-    println("in add_customer_to_table, tablegroup is $(tablegroup), table_index is $(table_index)")
+    # println("in add_customer_to_table, tablegroup is $(tablegroup), table_index is $(table_index)")
 
     if tablegroup == nothing
-        println("in add_customer_to_table, tablegroup is nothing?")
+        # println("in add_customer_to_table, tablegroup is nothing?")
         return add_customer_to_new_table(pyp, dish, G_0_or_parent_pws, d_array, θ_array, table_index_in_root);
     end
 
@@ -230,7 +230,7 @@ end
 # And then we're going to get the hyperparameters for this level, i.e. d_u and \theta_u from those arrays.
 # Another approach to do it, for sure.
 function add_customer(pyp::PYP{T}, dish::T, G_0_or_parent_pws::Union{Float64, OffsetVector{Float64}}, d_array::OffsetVector{Float64}, θ_array::OffsetVector{Float64}, update_beta_count::Bool, index_of_table_in_root::IntContainer)::Bool where T
-    println("We're in add_customer, the dish is $(dish)")
+    # println("We're in add_customer, the dish is $(dish)")
     init_hyperparameters_at_depth_if_needed(pyp.depth, d_array, θ_array)
     # Need to + 1 because by definition depth starts from 0 but array indexing starts from 1
     d_u = d_array[pyp.depth + 1]
@@ -497,10 +497,24 @@ end
 
 function get_num_customers(pyp::PYP{T})::Int where T
     # TODO: Do without the unnecessary summation
-    count::Int = sum(Iterators.flatten(pyp.tablegroups))
-    @assert(count== pyp.ncustomers)
-    count += sum(get_num_customers, pyp.children)
-    return count
+    # The type of tablegroups is Dict{T, Vector{Int}}
+    # count::Int = sum(Iterators.flatten(values(pyp.tablegroups)))
+    # count::Int = sum([sum(tablegroup) for tablegroup in values(pyp.tablegroups) if length(tablegroup) > 0])
+    # Whatever this should always hold let's just substitute it.
+    # @assert(count== pyp.ncustomers)
+    # count += sum(get_num_customers, pyp.children)
+    # return count
+    # return pyp.ncustomers + sum(get_num_customers, values(pyp.children))
+    # return pyp.ncustomers + sum([get_num_customers(child) for child in values(pyp.children) if !isempty(child)])
+
+    # What the hell didn't expect it to be this complicated. Fuck that let me just write an imperative loop anyways.
+    temp = pyp.ncustomers
+    for child in values(pyp.children)
+        if !isempty(child)
+            temp += child.ncustomers
+        end
+    end
+    return temp
 end
 
 # TODO: Not using a function for this is probably faster.

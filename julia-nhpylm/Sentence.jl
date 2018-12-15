@@ -121,12 +121,16 @@ function get_nth_word_string(s::Sentence, n::Int)
     @assert(n < s.num_segments)
     # TODO: This is all hard-coded. We'll need to change them if we're to support bigrams.
     # Can't we make the code a bit more generic? Don't think it would be that hard eh.
+    # There are two BOS in the beginning if we use 3-gram.
     if n < 2
         return "<BOS>"
     else
         @assert n < s.num_segments - 1
         start_position = s.segment_begin_positions[n]
-        end_position = start_position + s.segment_lengths[n]
+        # OK I see. Somehow the "end_position" didn't - 1. What's this black magic?
+        end_position = start_position + s.segment_lengths[n] - 1
+        # println("The string length is $(length(s)), the start position is $(start_position), the end_position is $(end_position)")
+        # Now we have to + 1 because UTF32String cannot be 0-indexed.
         return s.sentence_string[start_position+1:end_position+1]
     end
 end
@@ -139,10 +143,8 @@ function Base.show(io::IO, s::Sentence)
     end
 end
 
-# This method is to split the sentence using an already calculated segment_lengths vector, which contains the lengths of each segment.
-# Note that the segment_lengths array is without containing any BOS or EOS tokens.
-function split_sentence(sentence::Sentence, segment_lengths::OffsetVector{Int})
-    num_segments_without_special_tokens = length(segment_lengths)
+function split_sentence(sentence::Sentence, segment_lengths::OffsetVector{Int}, actual_num_segments::Int)
+    num_segments_without_special_tokens = actual_num_segments
     cur_start = 0
     sum_length = 0
     index = 0
@@ -172,4 +174,11 @@ function split_sentence(sentence::Sentence, segment_lengths::OffsetVector{Int})
         sentence.segment_begin_positions[index + 2] = 0
     end
     sentence.num_segments = num_segments_without_special_tokens + 3
+end
+
+# This method is to split the sentence using an already calculated segment_lengths vector, which contains the lengths of each segment.
+# Note that the segment_lengths array is without containing any BOS or EOS tokens.
+function split_sentence(sentence::Sentence, segment_lengths::OffsetVector{Int})
+    num_segments_without_special_tokens = length(segment_lengths)
+    split_sentence(sentence, segment_lengths, num_segments_without_special_tokens)
 end
