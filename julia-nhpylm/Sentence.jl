@@ -148,7 +148,7 @@ function split_sentence(sentence::Sentence, segment_lengths::OffsetVector{Int}, 
     cur_start = 0
     sum_length = 0
     index = 0
-    while index < num_segments_without_special_tokens - 1
+    while index < num_segments_without_special_tokens
         @assert segment_lengths[index] > 0
         sum_length += segment_lengths[index]
 
@@ -161,7 +161,8 @@ function split_sentence(sentence::Sentence, segment_lengths::OffsetVector{Int}, 
         cur_start += cur_length
         index += 1
     end
-    @assert sum_length == length(sentence.sentence.string)
+    # println("sum_length is $sum_length, length of sentence_string is $(length(sentence.sentence_string)), sentence is $(sentence.sentence_string)")
+    @assert sum_length == length(sentence.sentence_string)
     # Also need to take care of EOS now that the actual string ended.
     sentence.segment_lengths[index + 2] = 1
     sentence.word_ids[index + 2] = EOS
@@ -172,6 +173,7 @@ function split_sentence(sentence::Sentence, segment_lengths::OffsetVector{Int}, 
     while index < length(sentence.sentence_string)
         sentence.segment_lengths[index + 2] = 0
         sentence.segment_begin_positions[index + 2] = 0
+        index += 1
     end
     sentence.num_segments = num_segments_without_special_tokens + 3
 end

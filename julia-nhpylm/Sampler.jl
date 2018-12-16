@@ -244,10 +244,10 @@ function backward_sampling(sampler::Sampler, sentence::Sentence)
     @assert(k.int > 0 && j.int > 0)
     @assert(j.int <= sampler.max_word_length)
 
-    push!(segment_lengths, j)
-    t -= (k + j)
-    sum_length += k + j
-    next_word_length = j
+    push!(segment_lengths, j.int)
+    t -= (k.int + j.int)
+    sum_length += k.int + j.int
+    next_word_length = j.int
 
     while (t > 0)
         # There's only ever one character left in the whole sentence
@@ -272,7 +272,7 @@ function backward_sampling(sampler::Sampler, sentence::Sentence)
     end
     @assert(t == 0)
     @assert(sum_length == length(sentence))
-    return reverse(segment_lengths)
+    return OffsetArray(reverse(segment_lengths), 0:length(segment_lengths) - 1)
 end
 
 """
@@ -322,12 +322,12 @@ function backward_sample_k_and_j(sampler::Sampler, sentence::Sentence, t::Int, t
         if t == k
             j = 0
             word_j_id = BOS
-            word_k_id = get_substring_word_id_at_t_k(sentence, t, k)
+            word_k_id = get_substring_word_id_at_t_k(sampler, sentence, t, k)
             word_t_id = EOS
             if t < length(sentence)
                 @assert(t + third_gram_length <= length(sentence))
                 @assert(third_gram_length > 0)
-                word_t_id = get_substring_word_id_at_t_k(sentence, t + third_gram_length, third_gram_length)
+                word_t_id = get_substring_word_id_at_t_k(sampler, sentence, t + third_gram_length, third_gram_length)
             end
             sampler.word_ids[0] = word_j_id
             sampler.word_ids[1] = word_k_id

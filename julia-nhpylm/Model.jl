@@ -339,6 +339,7 @@ function blocked_gibbs_sampling(trainer::Trainer)
 
                 # Produce the new segmentation
                 new_segment_lengths = blocked_gibbs_segment(trainer.model.sampler, sentence, true)
+                println("new_segment_lengths is $new_segment_lengths")
                 split_sentence(sentence, new_segment_lengths)
 
                 # TODO: There might be a way to avoid performing the check twice? Using a single Sentence struct to hold all these stuffs is quite a bit restrictive.

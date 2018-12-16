@@ -350,7 +350,7 @@ end
 function compute_G_0_of_word_at_index_n(npylm::NPYLM, sentence_as_chars::OffsetVector{Char}, word_begin_index, word_end_index, word_n_id)
     # println("In compute_G_0_of_word_at_index_n, sentence_as_chars is $sentence_as_chars, word_begin_index is $word_begin_index, word_end_index is $word_end_index, word_n_id is $word_n_id")
     if word_n_id == EOS
-        println("The word is EOS, directly return")
+        # println("The word is EOS, directly return")
         return npylm.chpylm.G_0
     end
 
@@ -409,7 +409,7 @@ function compute_G_0_of_word_at_index_n(npylm::NPYLM, sentence_as_chars::OffsetV
         end
     else
         # The cache already exists. No need for duplicated computation.
-        println("G_0 already exists in cache, it is $G_0")
+        # println("G_0 already exists in cache, it is $G_0")
         return G_0
     end
 end
@@ -470,8 +470,8 @@ function compute_p_w_of_nth_word(npylm::NPYLM, sentence_as_chars::OffsetVector{C
     @assert node != nothing
     # println("Node is $node")
     parent_p_w = npylm.whpylm_parent_p_w_cache[node.depth]
-    println("The parent_p_w is $parent_p_w")
+    # println("The parent_p_w is $parent_p_w")
     # The final `true` indicates that it's the with_parent_p_w variant of the function
-    println("What happened?")
+    # println("What happened?")
     return compute_p_w_with_parent_p_w(node, word_id, parent_p_w, npylm.whpylm.d_array, npylm.whpylm.θ_array)
 end
