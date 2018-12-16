@@ -290,6 +290,10 @@ function update_p_k_given_chpylm(trainer::Trainer, num_samples::Int = 20000, ear
 end
 
 function blocked_gibbs_sampling(trainer::Trainer)
+    # Yeah I think we're not doing any segmentation in the first round at all. Segmentations only start from the second round. So the behavior is normal.
+    # Still then the problem is why on only certain sentences they try to remove EOS twice from the table. Fucking hell this just simply doesn't make the least bit of sense whatsoever let's just go on and see then. Such a load of total jokes inded thoasdf otasd foatsdfas taosdfast aosdfasdftreadsfasdftadsfasdf total absdfoatr toasdlfasetrdf.
+    # temp_sentence = trainer.dataset.train_sentences[1]
+    # println("In blocked_gibbs_sampling, temp_sentence is $temp_sentence, temp_sentence.num_segments is $(temp_sentence.num_segments), temp_sentence.segment_lengths is $(temp_sentence.segment_lengths) ")
     num_sentences = length(trainer.dataset.train_sentences)
     max_sentence_length = trainer.dataset.max_sentence_length
 
@@ -303,7 +307,7 @@ function blocked_gibbs_sampling(trainer::Trainer)
 
         if sentence.supervised
             # Remove the segmentation and add it again, so that the seating arrangements can be updated.
-            if trainer.added_to_chpylm_train[sentence_index]
+            if trainer.added_to_chpylm_train[sentence_index] == true
                 for n in 2:sentence.num_segments - 1
                     remove_customer_at_index_n(trainer.model.npylm, sentence, n)
                 end
@@ -322,7 +326,9 @@ function blocked_gibbs_sampling(trainer::Trainer)
                 old_log_p_s = 0.0
                 new_log_p_s = 0.0
 
+                # Wait, why is this thing triggered in the first round already. Even this doesn't seem to make sense.
                 for n in 2:sentence.num_segments - 1
+                    println("In blocked_gibbs_sampling, n is $n, sentence is $sentence, sentence.num_segments is $(sentence.num_segments), sentence.segment_lengths is $(sentence.segment_lengths) ")
                     remove_customer_at_index_n(trainer.model.npylm, sentence, n)
                 end
 
@@ -339,7 +345,7 @@ function blocked_gibbs_sampling(trainer::Trainer)
 
                 # Produce the new segmentation
                 new_segment_lengths = blocked_gibbs_segment(trainer.model.sampler, sentence, true)
-                println("new_segment_lengths is $new_segment_lengths")
+                # println("new_segment_lengths is $new_segment_lengths")
                 split_sentence(sentence, new_segment_lengths)
 
                 # TODO: There might be a way to avoid performing the check twice? Using a single Sentence struct to hold all these stuffs is quite a bit restrictive.

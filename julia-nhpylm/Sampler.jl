@@ -237,8 +237,9 @@ function backward_sampling(sampler::Sampler, sentence::Sentence)
     push!(segment_lengths, k.int)
 
     # There's only one word in total for the sentence.
+    # Damn why did I return nothing here. This is dumb.
     if j.int == 0 && k.int == t
-        return
+        return OffsetArray(reverse(segment_lengths), 0:length(segment_lengths) - 1)
     end
 
     @assert(k.int > 0 && j.int > 0)
@@ -272,6 +273,8 @@ function backward_sampling(sampler::Sampler, sentence::Sentence)
     end
     @assert(t == 0)
     @assert(sum_length == length(sentence))
+    # result = OffsetArray(reverse(segment_lengths), 0:length(segment_lengths) - 1)
+    # println("In backward_sampling, sentence is $sentence, segment_lengths is $segment_lengths, result is $result")
     return OffsetArray(reverse(segment_lengths), 0:length(segment_lengths) - 1)
 end
 
@@ -356,7 +359,7 @@ function backward_sample_k_and_j(sampler::Sampler, sentence::Sentence, t::Int, t
     # Eventually, the table should have (min(t, sampler.max_word_length) * min(t - k, sampler.max_word_length)) + 1 entries
     # This is such a pain. We should definitely be able to simplify the code much more than this. Eh.
     normalizer = 1.0 / sum_p
-    println("Normalizer is $(normalizer), sum_p is $(sum_p)")
+    # println("Normalizer is $(normalizer), sum_p is $(sum_p)")
     randnum = rand(Float64)
     index = 0
     stack = 0.0
@@ -376,7 +379,7 @@ function backward_sample_k_and_j(sampler::Sampler, sentence::Sentence, t::Int, t
 
         # The special case where the first gram is BOS. The last entry of the table.
         if t == k
-            println("t == k triggered!")
+            # println("t == k triggered!")
             @assert(index < table_index)
             @assert(sampler.backward_sampling_table[index] > 0.0)
             stack += sampler.backward_sampling_table[index] * normalizer

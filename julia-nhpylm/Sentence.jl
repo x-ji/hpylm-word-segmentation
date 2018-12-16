@@ -176,6 +176,8 @@ function split_sentence(sentence::Sentence, segment_lengths::OffsetVector{Int}, 
         index += 1
     end
     sentence.num_segments = num_segments_without_special_tokens + 3
+    # There doesn't seem to be any problem in this method.
+    # println("In split_sentence, sentence is $sentence, sentence.num_segments = $(sentence.num_segments), sentence.segment_lengths is $(sentence.segment_lengths)")
 end
 
 # This method is to split the sentence using an already calculated segment_lengths vector, which contains the lengths of each segment.

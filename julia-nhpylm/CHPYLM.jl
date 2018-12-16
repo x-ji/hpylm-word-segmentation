@@ -53,9 +53,9 @@ mutable struct CHPYLM{T} <: HPYLM{T}
     # I don't think we really need a sampling table though, seeing that we can probably just run a native sampling function directly. Let's see.
     sampling_table::OffsetVector{Float64}
     # Used for high-speed computation
-    parent_pw_cache::OffsetVector{Float64}
+    parent_p_w_cache::OffsetVector{Float64}
     "This is also just a temporary variable to hold the path nodes during a lookup process."
-    path_nodes::OffsetVector{PYP{Char}}
+    path_nodes::OffsetVector{Union{Nothing,PYP{Char}}}
 
     #= Constructor =#
     function CHPYLM(G_0::Float64, max_depth::Int, beta_stop::Float64, beta_pass::Float64)
@@ -70,11 +70,11 @@ mutable struct CHPYLM{T} <: HPYLM{T}
         chpylm.depth = 0
         chpylm.G_0 = G_0
         chpylm.max_depth = max_depth
-        # chpylm.parent_pw_cache = zeros(Float64, max_depth + 1)
-        chpylm.parent_pw_cache = OffsetVector{Float64}(undef, 0:max_depth)
+        # chpylm.parent_p_w_cache = zeros(Float64, max_depth + 1)
+        chpylm.parent_p_w_cache = OffsetVector{Float64}(undef, 0:max_depth)
         # chpylm.sampling_table = zeros(Float64, max_depth + 1)
         chpylm.sampling_table = OffsetVector{Float64}(undef, 0:max_depth)
-        chpylm.path_nodes = OffsetVector{PYP{Char}}(undef, 0:max_depth)
+        chpylm.path_nodes = OffsetVector{Union{Nothing,PYP{Char}}}(undef, 0:max_depth)
 
         chpylm.d_array = OffsetVector{Float64}(undef, 0:-1)
         chpylm.θ_array = OffsetVector{Float64}(undef, 0:-1)
@@ -98,7 +98,7 @@ function add_customer_at_index_n(chpylm::CHPYLM, string_as_chars::OffsetVector{C
     node = find_node_by_tracing_back_context(string_as_chars, n, depth, chpylm.parent_p_w_cache)
     char_n = string_as_chars[n]
     root_table_index::IntContainer = IntContainer(0)
-    return add_customer(node, char_n, chpylm.parent_pw_cache, chpylm.d_array, chpylm.θ_array, true, root_table_index)
+    return add_customer(node, char_n, chpylm.parent_p_w_cache, chpylm.d_array, chpylm.θ_array, true, root_table_index)
 end
 
 """
@@ -106,19 +106,19 @@ This function adds the customer. See documentation above.
 
 This is a version to be called from the NPYLM.
 
-If the parent_pw_cache is already set, then update the path_nodes as well.
+If the parent_p_w_cache is already set, then update the path_nodes as well.
 """
-function add_customer_at_index_n(chpylm::CHPYLM, characters::OffsetVector{Char}, n::Int, depth::Int, parent_pw_cache::OffsetVector{Float64}, path_nodes::OffsetVector{PYP{Char}})::Bool
+function add_customer_at_index_n(chpylm::CHPYLM, characters::OffsetVector{Char}, n::Int, depth::Int, parent_p_w_cache::OffsetVector{Float64}, path_nodes::OffsetVector{Union{Nothing,PYP{Char}}})::Bool
     @assert(0 <= depth && depth <= n)
     node::PYP{Char} = find_node_by_tracing_back_context(chpylm, characters, n, depth, path_nodes)
     # Seems to be just a check
     if depth > 0
         @assert(node.context == characters[n - depth])
     end
-    @assert(node.depth = depth)
+    @assert(node.depth == depth)
     char_n::Char = characters[n]
     root_table_index::IntContainer = IntContainer(0)
-    return add_customer(node, char_n, parent_pw_cache, chpylm.d_array, chpylm.θ_array, true, root_table_index)
+    return add_customer(node, char_n, parent_p_w_cache, chpylm.d_array, chpylm.θ_array, true, root_table_index)
 end
 
 """
@@ -240,7 +240,7 @@ function find_node_by_tracing_back_context(chpylm::CHPYLM, characters::OffsetVec
     return cur_node
 end
 
-function find_node_by_tracing_back_context(chpylm::CHPYLM, characters::OffsetVector{Char}, n::Int, depth_of_n::Int, path_nodes_cache::OffsetVector{PYP{Char}})::Union{Nothing,PYP{Char}}
+function find_node_by_tracing_back_context(chpylm::CHPYLM, characters::OffsetVector{Char}, n::Int, depth_of_n::Int, path_nodes_cache::OffsetVector{Union{Nothing,PYP{Char}}})::Union{Nothing,PYP{Char}}
     # This situation makes no sense, otherwise we'll go straight out of the start of the word.
     if n < depth_of_n
         return nothing
@@ -333,7 +333,7 @@ function compute_p_w_given_h(chpylm::CHPYLM, target_char::Char, characters::Offs
     return p
 end
 
-function sample_depth_at_index_n(chpylm::CHPYLM, characters::OffsetVector{Char}, n::Int, parent_p_w_cache::OffsetVector{Float64}, path_nodes::OffsetVector{PYP{Char}})
+function sample_depth_at_index_n(chpylm::CHPYLM, characters::OffsetVector{Char}, n::Int, parent_p_w_cache::OffsetVector{Float64}, path_nodes::OffsetVector{Union{Nothing,PYP{Char}}})
     # The first character should always be the BOW
     if (n == 1)
         return 0
@@ -382,7 +382,7 @@ function sample_depth_at_index_n(chpylm::CHPYLM, characters::OffsetVector{Char},
         end
     end
     # The following samples the depth according to their respective probabilities.
-    depths = [0:sampling_table_size - 1]
+    depths = 0:sampling_table_size - 1
     return sample(depths, Weights(parent(chpylm.sampling_table)))
 
     # normalizer = 1.0 / sum

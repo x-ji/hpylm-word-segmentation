@@ -163,13 +163,13 @@ end
 
 # I think we won't need to duplicate the code. Just use a union type. Let's see if that works.
 "The second item returned in the tuple is the index of the table to which the customer is added."
-function add_customer_to_table(pyp::PYP{T}, dish::T, table_index::Int, G_0_or_parent_pws::Union{Float64, OffsetVector{Float64}}, d_array::OffsetVector{Float64}, θ_array::OffsetVector{Float64}, table_index_in_root::IntContainer)::Bool where T
+function add_customer_to_table(pyp::PYP{T}, dish::T, table_index::Int, G_0_or_parent_p_ws::Union{Float64, OffsetVector{Float64}}, d_array::OffsetVector{Float64}, θ_array::OffsetVector{Float64}, table_index_in_root::IntContainer)::Bool where T
     tablegroup = get(pyp.tablegroups, dish, nothing)
     # println("in add_customer_to_table, tablegroup is $(tablegroup), table_index is $(table_index)")
 
     if tablegroup == nothing
         # println("in add_customer_to_table, tablegroup is nothing?")
-        return add_customer_to_new_table(pyp, dish, G_0_or_parent_pws, d_array, θ_array, table_index_in_root);
+        return add_customer_to_new_table(pyp, dish, G_0_or_parent_p_ws, d_array, θ_array, table_index_in_root);
     end
 
     tablegroup[table_index] += 1
@@ -179,10 +179,17 @@ function add_customer_to_table(pyp::PYP{T}, dish::T, table_index::Int, G_0_or_pa
     return true
 end
 
-function add_customer_to_new_table(pyp::PYP{T}, dish::T, G_0_or_parent_pws::Union{Float64, OffsetVector{Float64}}, d_array::OffsetVector{Float64}, θ_array::OffsetVector{Float64}, table_index_in_root::IntContainer)::Bool where T
+function add_customer_to_new_table(pyp::PYP{T}, dish::T, G_0_or_parent_p_ws::Union{Float64, OffsetVector{Float64}}, d_array::OffsetVector{Float64}, θ_array::OffsetVector{Float64}, table_index_in_root::IntContainer)::Bool where T
+    # if dish == 1
+    #     println("In add_customer_to_new_table, dish is $dish, index_of_table_in_root is $table_index_in_root), pyp.depth is $(pyp.depth), pyp.tablegroups is $(pyp.tablegroups), pyp.parent is nothing? $(pyp.parent == nothing)")
+    # end
+
     add_customer_to_new_table(pyp, dish)
     if pyp.parent != nothing
-        success = add_customer(pyp, dish, G_0_or_parent_pws, d_array, θ_array, false, table_index_in_root)
+        # if dish == 1
+        #     println("Should also add the dish to pyp.parent")
+        # end
+        success = add_customer(pyp.parent, dish, G_0_or_parent_p_ws, d_array, θ_array, false, table_index_in_root)
         @assert(success == true)
     end
     return true;
@@ -212,6 +219,7 @@ function remove_customer_from_table(pyp::PYP{T}, dish::T, table_index::Int, tabl
     @assert(tablegroup[table_index] >= 0)
     if (tablegroup[table_index] == 0)
         if (pyp.parent != nothing)
+            # println("Now the customer count at this table is 0. We're trying to remove the same customer from the parent as well. table_index is $table_index, pyp.parent is $(pyp.parent), table_index_in_root is $table_index_in_root")
             success = remove_customer(pyp.parent, dish, false, table_index_in_root)
             @assert(success == true)
         end
@@ -230,30 +238,32 @@ end
 # Right, so d_array and θ_array are really the arrays that hold *all* hyperparameters for *all levels*
 # And then we're going to get the hyperparameters for this level, i.e. d_u and \theta_u from those arrays.
 # Another approach to do it, for sure.
-function add_customer(pyp::PYP{T}, dish::T, G_0_or_parent_pws::Union{Float64, OffsetVector{Float64}}, d_array::OffsetVector{Float64}, θ_array::OffsetVector{Float64}, update_beta_count::Bool, index_of_table_in_root::IntContainer)::Bool where T
-    # println("We're in add_customer, the dish is $(dish)")
+function add_customer(pyp::PYP{T}, dish::T, G_0_or_parent_p_ws::Union{Float64, OffsetVector{Float64}}, d_array::OffsetVector{Float64}, θ_array::OffsetVector{Float64}, update_beta_count::Bool, index_of_table_in_root::IntContainer)::Bool where T
+    # if dish == 1
+    #     println("In add_customer, dish is $dish, index_of_table_in_root is $index_of_table_in_root), pyp.depth is $(pyp.depth), pyp.tablegroups is $(pyp.tablegroups), pyp.parent is nothing? $(pyp.parent == nothing), pyp.parent.depth is $(pyp.parent.depth)")
+    # end
     init_hyperparameters_at_depth_if_needed(pyp.depth, d_array, θ_array)
     # Need to + 1 because by definition depth starts from 0 but array indexing starts from 1
     d_u = d_array[pyp.depth]
     θ_u = θ_array[pyp.depth]
     # println("What the hell")
-    parent_pw::Float64 =
+    parent_p_w::Float64 =
     # It seems that we do need to initialize this separately since sometimes this can result in nothing? Though why?
-    if typeof(G_0_or_parent_pws) == Float64
+    if typeof(G_0_or_parent_p_ws) == Float64
         if pyp.parent != nothing
-            compute_p_w(pyp.parent, dish, G_0_or_parent_pws, d_array, θ_array)
+            compute_p_w(pyp.parent, dish, G_0_or_parent_p_ws, d_array, θ_array)
         else 
-            G_0_or_parent_pws
+            G_0_or_parent_p_ws
         end
-    # elseif typeof(G_0_or_parent_pws) == OffsetVector{Float64}
+    # elseif typeof(G_0_or_parent_p_ws) == OffsetVector{Float64}
     # It must be of another type anyways.
     else
-        G_0_or_parent_pws[pyp.depth]
+        G_0_or_parent_p_ws[pyp.depth]
     end
 
     tablegroup = get(pyp.tablegroups, dish, nothing)
     if tablegroup == nothing
-        add_customer_to_new_table(pyp, dish, G_0_or_parent_pws, d_array, θ_array, index_of_table_in_root)
+        add_customer_to_new_table(pyp, dish, G_0_or_parent_p_ws, d_array, θ_array, index_of_table_in_root)
         if (update_beta_count)
             increment_stop_count(pyp)
         end
@@ -270,7 +280,7 @@ function add_customer(pyp::PYP{T}, dish::T, G_0_or_parent_pws::Union{Float64, Of
             sum += max(0.0, tablegroup[k] - d_u)
         end
         t_u::Float64 = pyp.ntables
-        sum += (θ_u + d_u * t_u) * parent_pw
+        sum += (θ_u + d_u * t_u) * parent_p_w
 
         normalizer::Float64 = 1.0 / sum
         bernoulli::Float64 = rand(Float64)
@@ -280,7 +290,7 @@ function add_customer(pyp::PYP{T}, dish::T, G_0_or_parent_pws::Union{Float64, Of
         for k in 1:length(tablegroup)
             stack += max(0.0, tablegroup[k] - d_u) * normalizer
             if bernoulli <= stack
-                add_customer_to_table(pyp, dish, k, G_0_or_parent_pws, d_array, θ_array, index_of_table_in_root)
+                add_customer_to_table(pyp, dish, k, G_0_or_parent_p_ws, d_array, θ_array, index_of_table_in_root)
                 if update_beta_count
                     increment_stop_count(pyp)
                 end
@@ -294,7 +304,7 @@ function add_customer(pyp::PYP{T}, dish::T, G_0_or_parent_pws::Union{Float64, Of
 
         # If we went through the whole loop but still haven't returned, we know that we should add it to a new table.
 
-        add_customer_to_new_table(pyp, dish, G_0_or_parent_pws, d_array, θ_array, index_of_table_in_root)
+        add_customer_to_new_table(pyp, dish, G_0_or_parent_p_ws, d_array, θ_array, index_of_table_in_root)
 
         if update_beta_count
             increment_stop_count(pyp)
@@ -311,54 +321,68 @@ function add_customer(pyp::PYP{T}, dish::T, G_0_or_parent_pws::Union{Float64, Of
 end
 
 function remove_customer(pyp::PYP{T}, dish::T, update_beta_count::Bool, index_of_table_in_root::IntContainer)::Bool where T
+    if dish == 1
+        # println("In remove_customer, dish is $dish, index_of_table_in_root is $index_of_table_in_root, pyp.tablegroups has keys $(keys(pyp.tablegroups))")
+        println("In remove_customer, dish is $dish, index_of_table_in_root is $index_of_table_in_root), pyp.depth is $(pyp.depth), pyp.tablegroups is $(pyp.tablegroups), pyp.parent is nothing? $(pyp.parent == nothing)")
+    end
     tablegroup = get(pyp.tablegroups, dish, nothing)
     @assert tablegroup != nothing
-    println(tablegroup)
     count = sum(tablegroup)
 
-    normalizer::Float64 = 1.0 / count
-    bernoulli::Float64 = rand(Float64)
-    stack = 0.0
-    for k in 1:length(tablegroup)
-        stack += tablegroup[k] * normalizer
-        if bernoulli <= stack
-            # Does it really need to keep track of the exact index of the table in root?
-            remove_customer_from_table(pyp, dish, k, index_of_table_in_root)
-            if update_beta_count
-                decrement_stop_count(pyp)
-            end
-            if pyp.depth == 0
-                index_of_table_in_root = k
-            end
-            return true
-        end
-    end
-    # If we went through the whole tablegroup without picking one, we have to remove it from the last one anyways.
-    # Basically a repeat of the above procedure. Any way to simplify this code?
-    # Can definitely just use a sampling method, right?
-    # TODO: Use the built-in sampling method on tablegroup[k] instead of this shit.
-    remove_customer_from_table(pyp, dish, length(tablegroup), index_of_table_in_root)
+    indices = 1:length(tablegroup)
+    # print("indices is $indices, tablegroup is $tablegroup")
+    index_to_remove = length(indices) == 1 ? 1 : sample(indices, Weights(tablegroup))
+    remove_customer_from_table(pyp, dish, index_to_remove, index_of_table_in_root)
     if update_beta_count
         decrement_stop_count(pyp)
     end
     if pyp.depth == 0
-        index_of_table_in_root = length(tablegroup)
+        index_of_table_in_root.int = index_to_remove
     end
     return true
+    # TODO: Use the built-in sampling method on tablegroup[k] instead of this shit.
+    # normalizer::Float64 = 1.0 / count
+    # bernoulli::Float64 = rand(Float64)
+    # stack = 0.0
+    # for k in 1:length(tablegroup)
+    #     stack += tablegroup[k] * normalizer
+    #     if bernoulli <= stack
+    #         # Does it really need to keep track of the exact index of the table in root?
+    #         remove_customer_from_table(pyp, dish, k, index_of_table_in_root)
+    #         if update_beta_count
+    #             decrement_stop_count(pyp)
+    #         end
+    #         if pyp.depth == 0
+    #             index_of_table_in_root.int = k
+    #         end
+    #         return true
+    #     end
+    # end
+    # If we went through the whole tablegroup without picking one, we have to remove it from the last one anyways.
+    # Basically a repeat of the above procedure. Any way to simplify this code?
+    # Can definitely just use a sampling method, right?
+    # remove_customer_from_table(pyp, dish, length(tablegroup), index_of_table_in_root)
+    # if update_beta_count
+    #     decrement_stop_count(pyp)
+    # end
+    # if pyp.depth == 0
+    #     index_of_table_in_root = length(tablegroup)
+    # end
+    # return true
 end
 
 function compute_p_w(pyp::PYP{T}, dish::T, G_0::Float64, d_array::OffsetVector{Float64}, θ_array::OffsetVector{Float64}) where T
-    println("In compute_p_w, dish is $dish")
+    # println("In compute_p_w, dish is $dish")
     init_hyperparameters_at_depth_if_needed(pyp.depth, d_array, θ_array)
     d_u = d_array[pyp.depth]
     θ_u = θ_array[pyp.depth]
     t_u = pyp.ntables
     c_u = pyp.ncustomers
-    println("d_u is $d_u, θ_u is $θ_u, t_u is $t_u, c_u is $c_u")
+    # println("d_u is $d_u, θ_u is $θ_u, t_u is $t_u, c_u is $c_u")
     tablegroup = get(pyp.tablegroups, dish, nothing)
     if tablegroup == nothing
-        println(pyp.tablegroups)
-        println("In compute_p_w, tablegroup == nothing triggered")
+        # println(pyp.tablegroups)
+        # println("In compute_p_w, tablegroup == nothing triggered")
         coeff::Float64 = (θ_u + d_u * t_u) / (θ_u + c_u)
         # If we already have parent_p_w then of course we shouldn't need to go through this again.
         if pyp.parent != nothing
@@ -367,26 +391,26 @@ function compute_p_w(pyp::PYP{T}, dish::T, G_0::Float64, d_array::OffsetVector{F
             return G_0 * coeff
         end
     else
-        println("In compute_p_w, tablegroup != nothing, dish is $(dish)")
+        # println("In compute_p_w, tablegroup != nothing, dish is $(dish)")
         parent_p_w = G_0
         if (pyp.parent != nothing)
             parent_p_w = compute_p_w(pyp.parent, dish, G_0, d_array, θ_array)
         end
         c_uw = sum(tablegroup)
         t_uw = length(tablegroup)
-        println("c_uw is $c_uw, c_uw is $t_uw")
+        # println("c_uw is $c_uw, c_uw is $t_uw")
         first_term::Float64 = max(0.0, c_uw - d_u * t_uw) / (θ_u + c_u)
         second_coeff::Float64 = (θ_u + d_u * t_u) / (θ_u + c_u)
-        println("first_term is $first_term, second_coeff is $second_coeff")
+        # println("first_term is $first_term, second_coeff is $second_coeff")
         return first_term + second_coeff * parent_p_w
     end
 end
 
-# Note that I added a final Bool argument to indicate whether the thing is already parent_pw or is G_0, so that I don't end up duplicating the  method.
+# Note that I added a final Bool argument to indicate whether the thing is already parent_p_w or is G_0, so that I don't end up duplicating the  method.
 """
 Compute the possibility of the word/char `dish` being generated from this pyp (i.e. having this pyp as its context)
 
-When is_parent_pw == True, the third argument is the parent_p_w. Otherwise it's simply the G_0.
+When is_parent_p_w == True, the third argument is the parent_p_w. Otherwise it's simply the G_0.
 """
 function compute_p_w_with_parent_p_w(pyp::PYP{T}, dish::T, parent_p_w::Float64, d_array::OffsetVector{Float64}, θ_array::OffsetVector{Float64}) where T
     # println("In compute_p_w_with_parent_p_w, dish is $dish")
@@ -402,13 +426,13 @@ function compute_p_w_with_parent_p_w(pyp::PYP{T}, dish::T, parent_p_w::Float64, 
         coeff::Float64 = (θ_u + d_u * t_u) / (θ_u + c_u)
         return parent_p_w * coeff
     else
-        println("In compute_p_w_with_parent_p_w, tablegroup != nothing, dish is $(dish)")
+        # println("In compute_p_w_with_parent_p_w, tablegroup != nothing, dish is $(dish)")
         c_uw = sum(tablegroup)
         t_uw = length(tablegroup)
-        println("c_uw is $c_uw, c_uw is $t_uw")
+        # println("c_uw is $c_uw, c_uw is $t_uw")
         first_term::Float64 = max(0.0, c_uw - d_u * t_uw) / (θ_u + c_u)
         second_coeff::Float64 = (θ_u + d_u * t_u) / (θ_u + c_u)
-        println("first_term is $first_term, second_coeff is $second_coeff")
+        # println("first_term is $first_term, second_coeff is $second_coeff")
         return first_term + second_coeff * parent_p_w
     end
 end
