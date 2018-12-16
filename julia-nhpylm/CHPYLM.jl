@@ -227,7 +227,7 @@ function find_node_by_tracing_back_context(chpylm::CHPYLM, characters::OffsetVec
     parent_p_w_cache[0] = parent_p_w
     for depth in 1:depth_of_n
         # What is the possibility of char_n being generated from cur_node (i.e. having cur_node as its context).
-        p_w = compute_p_w(cur_node, char_n, parent_p_w, chpylm.d_array, chpylm.θ_array, true)
+        p_w = compute_p_w_with_parent_p_w(cur_node, char_n, parent_p_w, chpylm.d_array, chpylm.θ_array)
         parent_p_w_cache[depth] = p_w
 
         # The context `depth`-order before the target char
@@ -263,12 +263,13 @@ function compute_p_w(chpylm::CHPYLM, characters::OffsetVector{Char})
 end
 
 # It seems to have been mentioned that this is a relatively inefficient way to do so. Maybe we can do better?
+# This one is definitely fucked without including the "actual" length of that characters array. What the actual hell is this design anyways. Eh.
 function compute_log_p_w(chpylm::CHPYLM, characters::OffsetVector{Char})
     char = characters[0]
     log_p_w = 0.0
     # I still haven't fully wrapped my head around the inclusions and exclusions of BOS, EOS, BOW, EOW, etc. Let's see how this works out though.
     if char != BOW
-        log_p_w += log(compute_p_w(chpylm.root, char, chpylm.G_0, chpylm.d_array, chpylm.θ_array, false))
+        log_p_w += log(compute_p_w(chpylm.root, char, chpylm.G_0, chpylm.d_array, chpylm.θ_array))
     end
 
     for n in 1:length(characters) - 1
@@ -305,7 +306,7 @@ function compute_p_w_given_h(chpylm::CHPYLM, target_char::Char, characters::Offs
             p += parent_p_w * p_stop
             parent_pass_probability *= (chpylm.beta_pass) / (chpylm.beta_pass + chpylm.beta_stop)
         else
-            p_w = compute_p_w(cur_node, target_char, parent_p_w, chpylm.d_array, chpylm.θ_array, true)
+            p_w = compute_p_w_with_parent_p_w(cur_node, target_char, parent_p_w, chpylm.d_array, chpylm.θ_array)
             p_stop = stop_probability(cur_node, chpylm.beta_stop, chpylm.beta_pass, false) * parent_pass_probability
             p += p_w * p_stop
             parent_pass_probability *= pass_probability(cur_node, chpylm.beta_stop, chpylm.beta_pass, false)
@@ -361,7 +362,7 @@ function sample_depth_at_index_n(chpylm::CHPYLM, characters::OffsetVector{Char},
                 break
             end
         else
-            p_w = compute_p_w(cur_node, char_n, parent_p_w, chpylm.d_array, chpylm.θ_array, true)
+            p_w = compute_p_w_with_parent_p_w(cur_node, char_n, parent_p_w, chpylm.d_array, chpylm.θ_array)
             p_stop = stop_probability(cur_node, chpylm.beta_stop, chpylm.beta_pass, false)
             p = p_w * p_stop * parent_pass_probability
             parent_p_w = p_w

@@ -125,6 +125,10 @@ That is to say, we first fix both the third gram and the second gram, and margin
 function calculate_α_t_k_j(sampler::Sampler, sentence::Sentence, t::Int, k::Int, j::Int, prod_scaling::Float64)
     word_k_id = get_substring_word_id_at_t_k(sampler, sentence, t, k)
     sentence_as_chars = sentence.characters
+    @assert(t <= sampler.max_sentence_length + 1)
+    @assert(k <= sampler.max_word_length)
+    @assert(j <= sampler.max_word_length)
+    @assert(t - k >= 0)
     # I'm really unsatisfied with the constant manual generation of BOS and EOS. I mean why not generate it already when first reading in the corpus? This can probably save tons of problems.
     # However, I can now also see why this might be necessary: i.e. so that BOS and EOS, which are essentially special characters, might not be accidentally considered a part of a word when we try to determine word boundaries, which would result in nonsensical results... Um let's see. Let me first port the code anyways.
 

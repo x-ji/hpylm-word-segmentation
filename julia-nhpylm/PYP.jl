@@ -205,13 +205,14 @@ function remove_customer_from_table(pyp::PYP{T}, dish::T, table_index::Int, tabl
     # The tablegroup should always be found.
     tablegroup = pyp.tablegroups[dish]
 
-    @assert(table_index < length(tablegroup))
+    # `tablegroup` is currently a Vector, so we use <=
+    @assert(table_index <= length(tablegroup))
     tablegroup[table_index] -= 1
     pyp.ncustomers -= 1
     @assert(tablegroup[table_index] >= 0)
     if (tablegroup[table_index] == 0)
         if (pyp.parent != nothing)
-            success = remove_customer(dish, false, table_index_in_root)
+            success = remove_customer(pyp.parent, dish, false, table_index_in_root)
             @assert(success == true)
         end
 
@@ -311,9 +312,11 @@ end
 
 function remove_customer(pyp::PYP{T}, dish::T, update_beta_count::Bool, index_of_table_in_root::IntContainer)::Bool where T
     tablegroup = get(pyp.tablegroups, dish, nothing)
-    sum = sum(tablegroup)
+    @assert tablegroup != nothing
+    println(tablegroup)
+    count = sum(tablegroup)
 
-    normalizer::Float64 = 1.0 / sum
+    normalizer::Float64 = 1.0 / count
     bernoulli::Float64 = rand(Float64)
     stack = 0.0
     for k in 1:length(tablegroup)
@@ -344,45 +347,69 @@ function remove_customer(pyp::PYP{T}, dish::T, update_beta_count::Bool, index_of
     return true
 end
 
+function compute_p_w(pyp::PYP{T}, dish::T, G_0::Float64, d_array::OffsetVector{Float64}, θ_array::OffsetVector{Float64}) where T
+    println("In compute_p_w, dish is $dish")
+    init_hyperparameters_at_depth_if_needed(pyp.depth, d_array, θ_array)
+    d_u = d_array[pyp.depth]
+    θ_u = θ_array[pyp.depth]
+    t_u = pyp.ntables
+    c_u = pyp.ncustomers
+    println("d_u is $d_u, θ_u is $θ_u, t_u is $t_u, c_u is $c_u")
+    tablegroup = get(pyp.tablegroups, dish, nothing)
+    if tablegroup == nothing
+        println(pyp.tablegroups)
+        println("In compute_p_w, tablegroup == nothing triggered")
+        coeff::Float64 = (θ_u + d_u * t_u) / (θ_u + c_u)
+        # If we already have parent_p_w then of course we shouldn't need to go through this again.
+        if pyp.parent != nothing
+            return compute_p_w(pyp.parent, dish, G_0, d_array, θ_array) * coeff
+        else
+            return G_0 * coeff
+        end
+    else
+        println("In compute_p_w, tablegroup != nothing, dish is $(dish)")
+        parent_p_w = G_0
+        if (pyp.parent != nothing)
+            parent_p_w = compute_p_w(pyp.parent, dish, G_0, d_array, θ_array)
+        end
+        c_uw = sum(tablegroup)
+        t_uw = length(tablegroup)
+        println("c_uw is $c_uw, c_uw is $t_uw")
+        first_term::Float64 = max(0.0, c_uw - d_u * t_uw) / (θ_u + c_u)
+        second_coeff::Float64 = (θ_u + d_u * t_u) / (θ_u + c_u)
+        println("first_term is $first_term, second_coeff is $second_coeff")
+        return first_term + second_coeff * parent_p_w
+    end
+end
+
 # Note that I added a final Bool argument to indicate whether the thing is already parent_pw or is G_0, so that I don't end up duplicating the  method.
 """
 Compute the possibility of the word/char `dish` being generated from this pyp (i.e. having this pyp as its context)
 
 When is_parent_pw == True, the third argument is the parent_p_w. Otherwise it's simply the G_0.
 """
-function compute_p_w(pyp::PYP{T}, dish::T, G_0_or_parent_pw::Float64, d_array::OffsetVector{Float64}, θ_array::OffsetVector{Float64}, is_parent_pw::Bool=false) where T
+function compute_p_w_with_parent_p_w(pyp::PYP{T}, dish::T, parent_p_w::Float64, d_array::OffsetVector{Float64}, θ_array::OffsetVector{Float64}) where T
+    # println("In compute_p_w_with_parent_p_w, dish is $dish")
     init_hyperparameters_at_depth_if_needed(pyp.depth, d_array, θ_array)
     d_u = d_array[pyp.depth]
     θ_u = θ_array[pyp.depth]
     t_u = pyp.ntables
     c_u = pyp.ncustomers
+    # println("d_u is $d_u, θ_u is $θ_u, t_u is $t_u, c_u is $c_u")
     tablegroup = get(pyp.tablegroups, dish, nothing)
     if tablegroup == nothing
-        # println(pyp.tablegroups)
-        # println("In compute_p_w, tablegroup == nothing triggered, dish is $(dish)")
+        # println("In compute_p_w_with_parent_p_w, tablegroup == nothing triggered")
         coeff::Float64 = (θ_u + d_u * t_u) / (θ_u + c_u)
-        if pyp.parent != nothing
-            return compute_p_w(pyp.parent, dish, G_0_or_parent_pw, d_array, θ_array) * coeff
-        else
-            return G_0_or_parent_pw * coeff
-        end
+        return parent_p_w * coeff
     else
-        println("In compute_p_w, tablegroup != nothing, dish is $(dish)")
-        parent_pw = 
-        if is_parent_pw
-            G_0_or_parent_pw
-        else
-            if pyp.parent != nothing
-                compute_p_w(pyp.parent, dish, G_0_or_parent_pw, d_array, θ_array)
-            else
-                G_0_or_parent_pw
-            end
-        end
+        println("In compute_p_w_with_parent_p_w, tablegroup != nothing, dish is $(dish)")
         c_uw = sum(tablegroup)
         t_uw = length(tablegroup)
+        println("c_uw is $c_uw, c_uw is $t_uw")
         first_term::Float64 = max(0.0, c_uw - d_u * t_uw) / (θ_u + c_u)
         second_coeff::Float64 = (θ_u + d_u * t_u) / (θ_u + c_u)
-        return first_term + second_coeff * parent_pw
+        println("first_term is $first_term, second_coeff is $second_coeff")
+        return first_term + second_coeff * parent_p_w
     end
 end
 
