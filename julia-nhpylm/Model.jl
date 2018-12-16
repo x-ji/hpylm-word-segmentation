@@ -492,6 +492,7 @@ function train(corpus_path, output_path, split_proportion = 0.9, epochs = 100000
     for epoch in 1:epochs
         start_time = time()
         blocked_gibbs_sampling(trainer)
+        println("Before sampling hyperparameters")
         sample_hyperparameters(trainer)
         sample_lambda(trainer)
 

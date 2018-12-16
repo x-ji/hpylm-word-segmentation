@@ -73,8 +73,14 @@ mutable struct CHPYLM{T} <: HPYLM{T}
         # chpylm.parent_p_w_cache = zeros(Float64, max_depth + 1)
         chpylm.parent_p_w_cache = OffsetVector{Float64}(undef, 0:max_depth)
         # chpylm.sampling_table = zeros(Float64, max_depth + 1)
-        chpylm.sampling_table = OffsetVector{Float64}(undef, 0:max_depth)
+        # chpylm.sampling_table = OffsetVector{Float64}(undef, 0:max_depth)
+        # Should initialize it to nothing, it seems, otherwise will be accessing undef reference?
+        # chpylm.path_nodes = fill(nothing, 0:max_depth)
+        # This should finally work???
         chpylm.path_nodes = OffsetVector{Union{Nothing,PYP{Char}}}(undef, 0:max_depth)
+        for index in 0:max_depth
+            chpylm.path_nodes[index] = nothing
+        end
 
         chpylm.d_array = OffsetVector{Float64}(undef, 0:-1)
         chpylm.θ_array = OffsetVector{Float64}(undef, 0:-1)
@@ -246,11 +252,14 @@ function find_node_by_tracing_back_context(chpylm::CHPYLM, characters::OffsetVec
         return nothing
     end
     cur_node = chpylm.root
-    for depth in 1:depth_of_n
-        if path_nodes_cache[depth] != nothing
-            cur_node = path_nodes_cache[depth]
+    for depth in 0:depth_of_n - 1
+        # + 1 because we're always looking at the path node, i.e. the node one level higher up.
+        # path_node = get(path_nodes_cache, depth + 1, nothing)
+        # if path_node != nothing
+        if path_nodes_cache[depth + 1] != nothing
+            cur_node = path_nodes_cache[depth + 1]
         else
-            context_char = characters[n - depth]
+            context_char = characters[n - depth - 1]
             child = find_child_pyp(cur_node, context_char, true)
             cur_node = child
         end
@@ -335,9 +344,12 @@ end
 
 function sample_depth_at_index_n(chpylm::CHPYLM, characters::OffsetVector{Char}, n::Int, parent_p_w_cache::OffsetVector{Float64}, path_nodes::OffsetVector{Union{Nothing,PYP{Char}}})
     # The first character should always be the BOW
-    if (n == 1)
+    if (n == 0)
         return 0
     end
+
+    # Make sure that sampling_table has the right length
+    chpylm.sampling_table = OffsetVector{Float64}(undef, 0:n)
     char_n = characters[n]
     sum = 0.0
     parent_p_w = chpylm.G_0
@@ -382,7 +394,7 @@ function sample_depth_at_index_n(chpylm::CHPYLM, characters::OffsetVector{Char},
         end
     end
     # The following samples the depth according to their respective probabilities.
-    depths = 0:sampling_table_size - 1
+    depths = 0:n
     return sample(depths, Weights(parent(chpylm.sampling_table)))
 
     # normalizer = 1.0 / sum

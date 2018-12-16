@@ -561,9 +561,9 @@ function get_num_customers(pyp::PYP{T})::Int where T
     # What the hell didn't expect it to be this complicated. Fuck that let me just write an imperative loop anyways.
     temp = pyp.ncustomers
     for child in values(pyp.children)
-        if !isempty(child)
+        # if !isempty(child)
             temp += child.ncustomers
-        end
+        # end
     end
     return temp
 end

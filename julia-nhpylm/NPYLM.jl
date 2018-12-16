@@ -203,10 +203,9 @@ function add_customer_at_index_n(npylm::NPYLM, sentence::Sentence, n::Int)::Bool
         @assert(index_of_table_added_to_in_root.int != -1)
         # Get the depths recorded for each table in the tablegroup of token_n.
         # It may not exist yet so we'll have to check and create it if that's the case.
-        if !haskey(npylm.recorded_depth_arrays_for_tablegroups_of_token, token_n)
-            npylm.recorded_depth_arrays_for_tablegroups_of_token[token_n] = []
+        depth_arrays_for_the_tablegroup = get!(npylm.recorded_depth_arrays_for_tablegroups_of_token, token_n) do
+            []
         end
-        depth_arrays_for_the_tablegroup = npylm.recorded_depth_arrays_for_tablegroups_of_token[token_n]
         # This is a new table that didn't exist before *in the tablegroup for this token*.
         @assert length(depth_arrays_for_the_tablegroup) <= index_of_table_added_to_in_root.int
         # Variable to hold the depths of each character that was added to the CHPYLM as a part of the creation of this new table.
@@ -231,6 +230,7 @@ function add_word_to_chpylm(npylm::NPYLM, sentence_as_chars::OffsetVector{Char},
     word_length_with_symbols = word_end_index - word_begin_index + 1 + 2
     for n in 0:word_length_with_symbols - 1
         depth_n = sample_depth_at_index_n(npylm.chpylm, npylm.most_recent_word, n, npylm.chpylm.parent_p_w_cache, npylm.chpylm.path_nodes)
+        # println("depth_n sampled is $depth_n")
         add_customer_at_index_n(npylm.chpylm, npylm.most_recent_word, n, depth_n, npylm.chpylm.parent_p_w_cache, npylm.chpylm.path_nodes)
         push!(recorded_depths, depth_n)
     end
