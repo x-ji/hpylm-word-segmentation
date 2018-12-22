@@ -527,7 +527,7 @@ function viterbi_argmax_backward_sample_k_and_j_to_eos(sampler::Sampler, sentenc
         # In this case the first gram is BOS. The third gram is EOS.
         if t == k
             word_j_id = BOS
-            word_k_id = get_substring_word_id_at_t_k(sentence, t, k)
+            word_k_id = get_substring_word_id_at_t_k(sampler, sentence, t, k)
             word_t_id = EOS
             # We removed all code regarding cases where t < length of the original sentence. I think this is because we always know that this will be the case where t == length(sentence) and that the third gram will always be the EOS, i.e. this method will only be called in such cases.
             # So apparently we can simplify the code a bit and maybe put it together with another method eh?
