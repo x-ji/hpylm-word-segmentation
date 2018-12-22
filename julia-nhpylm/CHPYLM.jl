@@ -138,12 +138,12 @@ This function removes the customer
 # Though why does the depth need to be passed in separately a kind of baffles me.
 function remove_customer_at_index_n(chpylm::CHPYLM, characters::OffsetVector{Char}, n::Int, depth::Int)::Bool
     @assert(0 <= depth && depth <= n)
-    node::PYP{Char} = find_node_by_tracing_back_context(characters, n, depth, false, false)
+    node::PYP{Char} = find_node_by_tracing_back_context(chpylm, characters, n, depth, false, false)
     # Seems to be just a check
     if depth > 0
         @assert(node.context == characters[n - depth])
     end
-    @assert(node.depth = depth)
+    @assert(node.depth == depth)
     char_n::Char = characters[n]
     root_table_index::IntContainer = IntContainer(0)
     remove_customer(node, char_n, true, root_table_index)

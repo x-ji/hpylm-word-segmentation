@@ -19,16 +19,19 @@ mutable struct NPYLM
 
     Remember that we feed in a word like a "sentence", i.e. run `add_customer` char-by-char, into the CHPYLM.
 
-    We need to record the depth of each char when it was first added.
+    We need to record the depth of each char when it was first added, so that we can remove them at the same depths later, when we remove the word from the CHPYLM.
 
     Remember that each dish can be served at multiple tables, i.e. there is a certain probability that a customer sits at a new table.
     Therefore, the outermost Vector in Vector{Vector{Int}} keeps tracks of the different tables that this token is served at!
+    This is useful so that when we later remove
     Compare it with the field `tablegroups::Dict{T, Vector{Int}}` in PYP.jl
 
     For the *innermost* Vector{Int}, the index of the entry corresponds to the char index, the value of the entry corresponds to the depth of that particular char entry.
     This is to say, for *a particular table* that the token is served at, the breakdown of char depths is recorded in that vector.
+    Normal `Vector` is used so that the first char of the word is accessed via index 1. Probably not a good idea? I guess it still works as long as the whole system is consistent. Let's see.
+    Yeah I think it might be a better idea to keep these things always constant anyways. Let's see.
     """
-    recorded_depth_arrays_for_tablegroups_of_token::Dict{UInt, Vector{Vector{Int}}}
+    recorded_depth_arrays_for_tablegroups_of_token::Dict{UInt, Vector{OffsetVector{Int}}}
 
     "The cache of WHPYLM G_0. This will be invalidated once the seating arrangements in the CHPYLM change."
     whpylm_G_0_cache::Dict{UInt, Float64}
@@ -68,7 +71,7 @@ mutable struct NPYLM
         npylm.whpylm = WHPYLM(3)
         npylm.chpylm = CHPYLM(G_0, max_sentence_length, chpylm_beta_stop, chpylm_beta_pass)
 
-        npylm.recorded_depth_arrays_for_tablegroups_of_token = Dict{Int, Vector{Vector{Int}}}()
+        npylm.recorded_depth_arrays_for_tablegroups_of_token = Dict{Int, Vector{OffsetVector{Int}}}()
         npylm.whpylm_G_0_cache = Dict{UInt, Float64}()
         npylm.chpylm_G_0_cache = Dict{Int, Float64}()
 
@@ -209,7 +212,9 @@ function add_customer_at_index_n(npylm::NPYLM, sentence::Sentence, n::Int)::Bool
         # This is a new table that didn't exist before *in the tablegroup for this token*.
         @assert length(depth_arrays_for_the_tablegroup) <= index_of_table_added_to_in_root.int
         # Variable to hold the depths of each character that was added to the CHPYLM as a part of the creation of this new table.
-        recorded_depth_array = Int[]
+        # recorded_depth_array = Int[]
+        # `word_end_index - word_begin_index + 2` is `length(word) - 1 + 2`, i.e. word_length_with_symbols
+        recorded_depth_array = OffsetVector{Int}(undef, 0:word_end_index - word_begin_index + 2)
         add_word_to_chpylm(npylm, sentence.characters, word_begin_index, word_end_index, recorded_depth_array)
         @assert(length(recorded_depth_array) == word_end_index - word_begin_index + 3)
         # Therefore we push the result of depths for *this new table* into the array.
@@ -219,9 +224,9 @@ function add_customer_at_index_n(npylm::NPYLM, sentence::Sentence, n::Int)::Bool
 end
 
 # Yeah OK so token_ids is just a temporary variable holding all the characters to be added into the chpylm? What a weird design... Why can't we do better let's see how we might refactor this code later.
-function add_word_to_chpylm(npylm::NPYLM, sentence_as_chars::OffsetVector{Char}, word_begin_index::Int, word_end_index::Int, recorded_depths::Vector{Int})
+function add_word_to_chpylm(npylm::NPYLM, sentence_as_chars::OffsetVector{Char}, word_begin_index::Int, word_end_index::Int, recorded_depths::OffsetVector{Int})
     # println("In add_word_to_chpylm")
-    @assert length(recorded_depths) == 0
+    # @assert length(recorded_depths) == 0
     @assert word_end_index >= word_begin_index
     # This is probably to avoid EOS?
     @assert word_end_index < npylm.max_sentence_length
@@ -232,7 +237,8 @@ function add_word_to_chpylm(npylm::NPYLM, sentence_as_chars::OffsetVector{Char},
         depth_n = sample_depth_at_index_n(npylm.chpylm, npylm.most_recent_word, n, npylm.chpylm.parent_p_w_cache, npylm.chpylm.path_nodes)
         # println("depth_n sampled is $depth_n")
         add_customer_at_index_n(npylm.chpylm, npylm.most_recent_word, n, depth_n, npylm.chpylm.parent_p_w_cache, npylm.chpylm.path_nodes)
-        push!(recorded_depths, depth_n)
+        # push!(recorded_depths, depth_n)
+        recorded_depths[n] = depth_n
     end
 end
 
@@ -260,12 +266,11 @@ function remove_customer_at_index_n(npylm::NPYLM, sentence::Sentence, n::Int)
         end
         @assert index_of_table_removed_from.int != -1
         depths = npylm.recorded_depth_arrays_for_tablegroups_of_token[token_n]
-        @assert index_of_table_removed_from < length(depths)
         recorded_depths = depths[index_of_table_removed_from.int]
         @assert length(recorded_depths) > 0
         remove_word_from_chpylm(npylm, sentence.characters, word_begin_index, word_end_index, recorded_depths)
         # This entry is now removed.
-        delete!(depths, index_of_table_removed_from.int)
+        deleteat!(depths, index_of_table_removed_from.int)
     end
     if need_to_remove_from_parent(pyp)
         remove_from_parent(pyp)

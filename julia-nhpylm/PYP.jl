@@ -505,7 +505,7 @@ function remove_from_parent(pyp::PYP{T}) where T
 end
 
 function delete_child_node(pyp::PYP{T}, dish::T) where T
-    child = find_child_pyp(dish)
+    child = find_child_pyp(pyp, dish)
     if child != nothing
         delete!(pyp.children, dish)
     end
