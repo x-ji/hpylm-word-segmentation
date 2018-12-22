@@ -435,7 +435,9 @@ function compute_p_k_given_chpylm(npylm::NPYLM, k::Int)
 end
 
 function sample_hyperparameters(npylm::NPYLM)
+    println("Now we're in sample_hyperparameters of npylm. Before calling sample_hyperparameters in whpylm")
     sample_hyperparameters(npylm.whpylm)
+    println("Now we're in sample_hyperparameters of npylm. Before calling sample_hyperparameters in chpylm")
     sample_hyperparameters(npylm.chpylm)
 end
 

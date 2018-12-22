@@ -125,10 +125,13 @@ function sample_hyperparameters(hpylm::HPYLM)
     sum_one_minus_z_uwkj_array::OffsetVector{Float64} = zeros(Float64, 0:max_depth)
 
     # First sample the values of the root.
+    println("Before sampling the values of the root.")
     sum_log_x_u_array[0] = sample_log_x_u(hpylm.root, hpylm.θ_array[0])
     sum_y_ui_array[0] = sample_summed_y_ui(hpylm.root, hpylm.d_array[0], hpylm.θ_array[0], false)
     sum_one_minus_y_ui_array[0] = sample_summed_y_ui(hpylm.root, hpylm.d_array[0], hpylm.θ_array[0], true)
+    # TODO: The problem seems to lie within this method.
     sum_one_minus_z_uwkj_array[0] = sample_summed_one_minus_z_uwkj(hpylm.root, hpylm.d_array[0])
+    println("Sampled the values of the root.")
 
     # I don't think you should change the depth variable of the struct itself?
     hpylm.depth = 0

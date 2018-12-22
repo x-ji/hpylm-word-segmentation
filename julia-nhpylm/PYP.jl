@@ -642,17 +642,22 @@ The sum is \sum_{j=1}^{c_**u**wk - 1} (1 - z_{**u**wkj}) in expression (40) of t
 """
 # TODO: Might just refactor this function out. The current way it's written is convenient, but can be hard to read.
 function sample_summed_one_minus_z_uwkj(pyp::PYP{T}, d_u::Float64)::Float64 where T
-    sum::Float64 = 0
-    for tablegroup in pyp.tablegroups
+    sum = 0
+    # println("There are $(length(pyp.tablegroups)) tablegroups in total.")
+    # Note that `tablegroups` is a Dict. What we really want to iterate is its values!
+    for tablegroup in values(pyp.tablegroups)
         # Each element in a `tablegroup` vector stores the customer count of a particular table
         for customercount in tablegroup
+            # println("The current table has customercount $customercount")
             # There's also a precondition of c_uwk >= 2
             if customercount >= 2
                 # Expression (38)
                 for j in 1:customercount - 1
                     @assert(j - d_u > 0)
                     prob = (j - 1) / (j - d_u)
+                    # println("The current j is $j, the d_u is $d_u, the prob is $prob")
                     dist = Bernoulli(prob)
+                    # Always stuck on this line???
                     sum += 1 - rand(dist)
                 end
             end
