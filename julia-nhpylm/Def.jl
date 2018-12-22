@@ -3,10 +3,12 @@
 # Use alpha and omega then.
 const BOS_CHAR = 'Α'
 const EOS_CHAR = 'Ω'
+
 # Since they are technically words, we should also store their hashed representations.
 # Might well hash the string versions of them to ensure that their hash values don't conflict with those of the actual words.
 const BOS = hash(string(BOS_CHAR))
 const EOS = hash(string(EOS_CHAR))
+
 # Just realized that these are probably not valid chars. Will need to change to some sort of char type
 # This should be fine? AFAIK the text in the corpora are all full-width. Let's see.
 # Lower-case alpha and omega
@@ -33,6 +35,7 @@ const CHPYLM_ϵ = 1e-12
 const NUM_WORD_TYPES = 1
 
 # In C++ code you can pass in integers by reference. Here I guess you can only create such a struct to hold an integer.
+# Should remove this later and adopt a return-value-oriented way.
 mutable struct IntContainer
     int::Int
 end

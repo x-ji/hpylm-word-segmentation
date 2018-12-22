@@ -31,11 +31,6 @@ struct Corpus
     sentence_list::Vector{UTF32String}
     segmented_word_list::Vector{Vector{UTF32String}}
     function Corpus()
-        # corpus = new()
-        # corpus.sentence_list = Vector{UTF32String}()
-        # corpus.segmented_word_list = Vector{Vector{UTF32String}}()
-        # return corpus
-
         # Use `new` to access the constructor
         return new(Vector{UTF32String}(), Vector{Vector{UTF32String}}())
     end
@@ -61,6 +56,9 @@ end
 # TODO: Some functions related to the trainer which should perhaps be clarified later.
 
 #= Begin Dataset =#
+"""
+This struct holds all the structs related to a session/task, including the vocabulary, the corpus and the sentences produced from the corpus.
+"""
 mutable struct Dataset
     vocabulary::Vocabulary
     corpus::Corpus
@@ -145,10 +143,6 @@ function get_num_dev_sentences(dataset::Dataset)
     return length(dataset.dev_sentences)
 end
 
-function get_num_segmented_words(dataset::Dataset)
-    return dataset.num_segmented_words
-end
-
 function add_sentence(dataset::Dataset, sentence_string::UTF32String, sentences::Vector{Sentence})
     @assert(length(sentence_string) > 0)
     for char in sentence_string
@@ -156,10 +150,4 @@ function add_sentence(dataset::Dataset, sentence_string::UTF32String, sentences:
     end
     push!(sentences, Sentence(sentence_string))
 end
-
-# Maybe we can just get rid of these two getters which are there for no reason
-# get_max_sentence_length and get_average_sentence_length
-
-
-
 #= End Dataset =#

@@ -20,11 +20,11 @@ mutable struct CHPYLM{T} <: HPYLM{T}
     "Array of concentration parameters indexed by depth+1. Note that in a HPYLM all PYPs of the same depth share the same parameters."
     θ_array::OffsetVector{Float64}
 
-    #=
+    #==
     These variables are related to the sampling process as described in the Teh technical report, expressions (40) and (41)
 
     Note that they do *not* directly correspond to the alpha, beta parameters of a Beta distribution, nor the shape and scale parameters of a Gamma distribution.
-    =#
+    ==#
     "For the sampling of discount d"
     a_array::OffsetVector{Float64}
     "For the sampling of discount d"
@@ -52,32 +52,29 @@ mutable struct CHPYLM{T} <: HPYLM{T}
     max_depth::Int
     # I don't think we really need a sampling table though, seeing that we can probably just run a native sampling function directly. Let's see.
     sampling_table::OffsetVector{Float64}
-    # Used for high-speed computation
+    "Cache parent_p_w along the way so that computation efficiency can be improved."
     parent_p_w_cache::OffsetVector{Float64}
     "This is also just a temporary variable to hold the path nodes during a lookup process."
     path_nodes::OffsetVector{Union{Nothing,PYP{Char}}}
+    #= End fields specific to CHPYLM =#
 
     #= Constructor =#
     function CHPYLM(G_0::Float64, max_depth::Int, beta_stop::Float64, beta_pass::Float64)
         chpylm = new{Char}()
         @assert(G_0 > 0)
-        # The point is just that the root node doesn't have any context, naturally, so this one should be a character that's never occurring?
         chpylm.root = PYP(BOW)
-        # I think theoretically the depth of a tree does begin from 0?
         chpylm.root.depth = 0
         chpylm.beta_stop = beta_stop
         chpylm.beta_pass = beta_pass
         chpylm.depth = 0
         chpylm.G_0 = G_0
         chpylm.max_depth = max_depth
-        # chpylm.parent_p_w_cache = zeros(Float64, max_depth + 1)
-        chpylm.parent_p_w_cache = OffsetVector{Float64}(undef, 0:max_depth)
+        chpylm.parent_p_w_cache = zeros(Float64, 0:max_depth)
         # chpylm.sampling_table = zeros(Float64, max_depth + 1)
         # chpylm.sampling_table = OffsetVector{Float64}(undef, 0:max_depth)
-        # Should initialize it to nothing, it seems, otherwise will be accessing undef reference?
-        # chpylm.path_nodes = fill(nothing, 0:max_depth)
-        # This should finally work???
+
         chpylm.path_nodes = OffsetVector{Union{Nothing,PYP{Char}}}(undef, 0:max_depth)
+        # Should initialize it to nothing, it seems, otherwise the program will be accessing undef reference.
         for index in 0:max_depth
             chpylm.path_nodes[index] = nothing
         end
@@ -267,12 +264,17 @@ function find_node_by_tracing_back_context(chpylm::CHPYLM, characters::OffsetVec
     return cur_node
 end
 
+"""
+Compute the probability of a word (represented as an OffsetVector{Char}) in this CHPYLM.
+"""
 function compute_p_w(chpylm::CHPYLM, characters::OffsetVector{Char})
     return exp(compute_log_p_w(chpylm, characters))
 end
 
 # It seems to have been mentioned that this is a relatively inefficient way to do so. Maybe we can do better?
-# This one is definitely fucked without including the "actual" length of that characters array. What the actual hell is this design anyways. Eh.
+"""
+Compute the *log* probability of a word (represented as an OffsetVector{Char}) in this CHPYLM.
+"""
 function compute_log_p_w(chpylm::CHPYLM, characters::OffsetVector{Char})
     char = characters[0]
     log_p_w = 0.0
@@ -291,7 +293,7 @@ function compute_log_p_w(chpylm::CHPYLM, characters::OffsetVector{Char})
     return log_p_w
 end
 
-"Compute the probability of generating the character `characters[end + 1]` with `characters[begin:end]` as the context."
+"Compute the probability of generating the character `characters[end + 1]` with `characters[begin:end]` as the context, with this CHPYLM."
 # TODO: Improve the efficiency of these calls.
 function compute_p_w_given_h(chpylm::CHPYLM, characters::OffsetVector{Char}, context_begin::Int, context_end::Int)
     target_char = characters[context_end + 1]
@@ -342,6 +344,9 @@ function compute_p_w_given_h(chpylm::CHPYLM, target_char::Char, characters::Offs
     return p
 end
 
+"""
+Sample the depth of the character at index n of the given characters (word).
+"""
 function sample_depth_at_index_n(chpylm::CHPYLM, characters::OffsetVector{Char}, n::Int, parent_p_w_cache::OffsetVector{Float64}, path_nodes::OffsetVector{Union{Nothing,PYP{Char}}})
     # The first character should always be the BOW
     if (n == 0)
@@ -396,16 +401,4 @@ function sample_depth_at_index_n(chpylm::CHPYLM, characters::OffsetVector{Char},
     # The following samples the depth according to their respective probabilities.
     depths = 0:n
     return sample(depths, Weights(parent(chpylm.sampling_table)))
-
-    # normalizer = 1.0 / sum
-    # bernoulli = rand(Float64)
-    # stack = 0.0
-    # for i in 0:sampling_table_size - 1
-    #     stack += chpylm.sampling_table[i] * normalizer
-    #     if bernoulli < stack
-    #         return i
-    #     end
-    # end
-    # I think this should be sampling_table_size - 1, not the content.
-    # return chpylm.sampling_table[sampling_table_size - 1]
 end
