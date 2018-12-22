@@ -1,11 +1,17 @@
 # Beginning of sentence
-const BOS = 0
-const EOS = 1
+# Since 0 and 1 are not Char/String in Julia, might be useful to add some unique representations as well.
+# Use alpha and omega then.
+const BOS_CHAR = 'Α'
+const EOS_CHAR = 'Ω'
+# Since they are technically words, we should also store their hashed representations.
+# Might well hash the string versions of them to ensure that their hash values don't conflict with those of the actual words.
+const BOS = hash(string(BOS_CHAR))
+const EOS = hash(string(EOS_CHAR))
 # Just realized that these are probably not valid chars. Will need to change to some sort of char type
 # This should be fine? AFAIK the text in the corpora are all full-width. Let's see.
-# Or well just screw it. Why don't we use the two epsilons or something anyways
-const BOW = 'ϵ'
-const EOW = 'Ε'
+# Lower-case alpha and omega
+const BOW = 'α'
+const EOW = 'ω'
 
 const HPYLM_INITIAL_d = 0.5
 const HPYLM_INITIAL_θ = 2.0

@@ -234,7 +234,8 @@ function update_p_k_given_chpylm(trainer::Trainer, num_samples::Int = 20000, ear
     # It's 1 longer than the original max_word_length, probably we have 0 in order to incorporate the possibility of getting length 0 word?
     # This array keeps track of total numbers of words of length k.
     # max_word_length + 1 because also a special case of k > max_word_length needs to be tracked?
-    num_words_of_length_k = OffsetVector{Int}(0, 0:max_word_length)
+    # Note that we need to provide a type argument to zeros in this case.
+    num_words_of_length_k::OffsetVector{Int} = zeros(Int, 0:max_word_length)
     for i in 0:max_word_length
         p_k_chpylm[i] = 0.0
     end
@@ -328,7 +329,7 @@ function blocked_gibbs_sampling(trainer::Trainer)
 
                 # Wait, why is this thing triggered in the first round already. Even this doesn't seem to make sense.
                 for n in 2:sentence.num_segments - 1
-                    println("In blocked_gibbs_sampling, n is $n, sentence is $sentence, sentence.num_segments is $(sentence.num_segments), sentence.segment_lengths is $(sentence.segment_lengths) ")
+                    # println("In blocked_gibbs_sampling, n is $n, sentence is $sentence, sentence.num_segments is $(sentence.num_segments), sentence.segment_lengths is $(sentence.segment_lengths) ")
                     remove_customer_at_index_n(trainer.model.npylm, sentence, n)
                 end
 
@@ -424,7 +425,7 @@ function compute_log_likelihood_dev(trainer::Trainer)
     return compute_log_likelihood(trainer, trainer.dataset.dev_sentences)
 end
 
-function print_segmentations(trainer::Trainer, num_to_print::Int, sentences::OffsetVector{Sentence}, rand_indices::OffsetVector{Int})
+function print_segmentations(trainer::Trainer, num_to_print::Int, sentences::Vector{Sentence}, rand_indices::Vector{Int})
     num_to_print = min(length(sentences), num_to_print)
     for n in 1:num_to_print
         sentence_index = rand_indices[n]
@@ -437,12 +438,12 @@ function print_segmentations(trainer::Trainer, num_to_print::Int, sentences::Off
 end
 
 function print_segmentations_train(trainer::Trainer, num_to_print::Int)
-    return print_segmentations(trainer, num_to_print, trainer.dataset.train_sentences)
+    return print_segmentations(trainer, num_to_print, trainer.dataset.train_sentences, trainer.rand_indices_train)
 end
 
 function print_segmentations_dev(trainer::Trainer, num_to_print::Int)
     shuffle!(trainer.rand_indices_dev)
-    return print_segmentations(trainer, num_to_print, trainer.dataset.dev_sentences)
+    return print_segmentations(trainer, num_to_print, trainer.dataset.dev_sentences, trainer.dataset.rand_indices_dev)
 end
 
 function build_corpus(path)
@@ -502,7 +503,7 @@ function train(corpus_path, output_path, split_proportion = 0.9, epochs = 100000
 
         elapsed_time = time() - start_time
         println("Iteration $(epoch), Elapsed time in this iteration: $(elapsed_time)")
-        if epoch %10 == 0
+        if epoch %2 == 0
             print_segmentations_train(trainer, 10)
             println("Perplexity_dev: $(compute_perplexity_dev(trainer))")
         end

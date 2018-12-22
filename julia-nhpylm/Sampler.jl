@@ -506,8 +506,8 @@ function viterbi_argmax_backward_sample_k_and_j_to_eos(sampler::Sampler, sentenc
     argmax_j.int = 0
     for k in 1:min(t, sampler.max_word_length)
         for j in 1:min(t - k, sampler.max_word_length)
-            word_j_id = get_substring_word_id_at_t_k(sentence, t - k, j)
-            word_k_id = get_substring_word_id_at_t_k(sentence, t, k)
+            word_j_id = get_substring_word_id_at_t_k(sampler, sentence, t - k, j)
+            word_k_id = get_substring_word_id_at_t_k(sampler, sentence, t, k)
             # When we begin the backward sampling on a sentence, note that the final token is always EOS. We have probabilities p(EOS | c^N_{N-k} c^{N-k}_{N-k-j}) * α[N][k][j])
             sampler.word_ids[0] = word_j_id
             sampler.word_ids[1] = word_k_id

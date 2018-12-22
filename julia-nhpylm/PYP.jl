@@ -321,10 +321,6 @@ function add_customer(pyp::PYP{T}, dish::T, G_0_or_parent_p_ws::Union{Float64, O
 end
 
 function remove_customer(pyp::PYP{T}, dish::T, update_beta_count::Bool, index_of_table_in_root::IntContainer)::Bool where T
-    if dish == 1
-        # println("In remove_customer, dish is $dish, index_of_table_in_root is $index_of_table_in_root, pyp.tablegroups has keys $(keys(pyp.tablegroups))")
-        println("In remove_customer, dish is $dish, index_of_table_in_root is $index_of_table_in_root), pyp.depth is $(pyp.depth), pyp.tablegroups is $(pyp.tablegroups), pyp.parent is nothing? $(pyp.parent == nothing)")
-    end
     tablegroup = get(pyp.tablegroups, dish, nothing)
     @assert tablegroup != nothing
     count = sum(tablegroup)

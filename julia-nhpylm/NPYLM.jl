@@ -200,7 +200,7 @@ function add_customer_at_index_n(npylm::NPYLM, sentence::Sentence, n::Int)::Bool
         if token_n == EOS
             # Will need some sort of special treatment for EOS
             
-            add_customer(npylm.chpylm.root, 'Ε', npylm.chpylm.G_0, npylm.chpylm.d_array, npylm.chpylm.θ_array, true, index_of_table_added_to_in_root)
+            add_customer(npylm.chpylm.root, EOS_CHAR, npylm.chpylm.G_0, npylm.chpylm.d_array, npylm.chpylm.θ_array, true, index_of_table_added_to_in_root)
             return true
         end
         @assert(index_of_table_added_to_in_root.int != -1)
@@ -252,7 +252,7 @@ function remove_customer_at_index_n(npylm::NPYLM, sentence::Sentence, n::Int)
     word_begin_index = sentence.segment_begin_positions[n]
     word_end_index = word_begin_index + sentence.segment_lengths[n] - 1
 
-    println("In remove_customer_at_index_n, before remove_customer. token_n: $token_n, word_begin_index: $word_begin_index, word_end_index: $word_end_index")
+    # println("In remove_customer_at_index_n, before remove_customer. token_n: $token_n, word_begin_index: $word_begin_index, word_end_index: $word_end_index")
     remove_customer(pyp, token_n, true, index_of_table_removed_from)
 
     num_tables_after_removal::Int = npylm.whpylm.root.ntables
@@ -260,8 +260,9 @@ function remove_customer_at_index_n(npylm::NPYLM, sentence::Sentence, n::Int)
         # The CHPYLM is changed, so we need to clear the cache.
         npylm.whpylm_G_0_cache = Dict()
         if token_n == EOS
-            # EOS is not decomposable. It only gets added to the root node.
-            remove_customer(npylm.chpylm.root, token_n, true, index_of_table_removed_from)
+            # EOS is not decomposable. It only gets added to the root node of the CHPYLM.
+            # The char representation for EOS is what, "1"?
+            remove_customer(npylm.chpylm.root, EOS_CHAR, true, index_of_table_removed_from)
             return true
         end
         @assert index_of_table_removed_from.int != -1
@@ -440,9 +441,7 @@ function compute_p_k_given_chpylm(npylm::NPYLM, k::Int)
 end
 
 function sample_hyperparameters(npylm::NPYLM)
-    println("Now we're in sample_hyperparameters of npylm. Before calling sample_hyperparameters in whpylm")
     sample_hyperparameters(npylm.whpylm)
-    println("Now we're in sample_hyperparameters of npylm. Before calling sample_hyperparameters in chpylm")
     sample_hyperparameters(npylm.chpylm)
 end
 
