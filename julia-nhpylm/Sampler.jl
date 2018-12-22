@@ -606,7 +606,7 @@ function viterbi_backward_sampling(sampler::Sampler, sentence::Sentence)
     @assert(t == 0)
     @assert(sum_length == length(sentence))
     @assert length(segment_lengths) > 0
-    return reverse(segment_lengths)
+    return OffsetArray(reverse(segment_lengths), 0:length(segment_lengths) - 1)
 end
 
 "This function uses viterbi algorithm to sample the segmentation of a sentence, instead of the approach in the `blocked_gibbs_segment` function above. They should both be valid approaches."

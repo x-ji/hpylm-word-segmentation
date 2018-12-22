@@ -376,7 +376,7 @@ end
 
 # TODO: Summarize the difference between the usgae of the Viterbi algorithm and the original blocked sampler.
 "Compute the perplexity based on optimal segmentation produced by the Viterbi algorithm"
-function compute_perplexity(trainer::Trainer, sentences::OffsetVector{Sentence})
+function compute_perplexity(trainer::Trainer, sentences::Vector{Sentence})
     num_sentences = length(sentences)
     if num_sentences == 0
         return 0.0
@@ -434,6 +434,7 @@ function print_segmentations(trainer::Trainer, num_to_print::Int, sentences::Vec
         segment_lengths = viterbi_decode(trainer.model.sampler, sentence)
         split_sentence(sentence, segment_lengths)
         show(sentence)
+        print("\n")
     end
 end
 
@@ -503,7 +504,7 @@ function train(corpus_path, output_path, split_proportion = 0.9, epochs = 100000
 
         elapsed_time = time() - start_time
         println("Iteration $(epoch), Elapsed time in this iteration: $(elapsed_time)")
-        if epoch %2 == 0
+        if epoch % 10 == 0
             print_segmentations_train(trainer, 10)
             println("Perplexity_dev: $(compute_perplexity_dev(trainer))")
         end
