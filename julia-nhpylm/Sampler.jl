@@ -564,7 +564,7 @@ function viterbi_backward_sampling(sampler::Sampler, sentence::Sentence)
 
     # There's only one word in total for the sentence.
     if j == 0 && k == t
-        return
+        return segment_lengths
     end
 
     # @ assert(k > 0 && j > 0)
