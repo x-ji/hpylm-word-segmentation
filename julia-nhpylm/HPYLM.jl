@@ -10,21 +10,15 @@ In the C++ code it's actually the base class for both CHPYLM and WHPYLM.
 Here I can either go with composition just as what I did with CRP or do the duplication work. Unfortunately fields in abstract types are still not supported yet. 
 See: https://github.com/JuliaLang/julia/issues/4935
 
-Therefore two copies of the fields exist in WHPYLM and CHPYLM structs, respectivelj
+Therefore two copies of the fields exist in WHPYLM and CHPYLM structs, respectively
 """
 # I can still write out the code first. Refactoring is not that hard.
 abstract type HPYLM{T} end
 
-# TODO: This function seems to be unnecessary in Julia. Let's see.
-# function delete_node(hpylm::HPYLM, pyp::PYP)
-#     for (context, child) in pyp.children
-#         delete_node(hpylm, child)
-#     end
-#     delete!(hpylm, pyp)
-# end
-
+"Get the total number of nodes in this HPYLM."
 function get_num_nodes(hpylm::HPYLM)::Int where T
-    # The root node itself is not included in this recursive algorithm which counts the number of children of a node.
+    # The root node itself is not included in this recursive algorithm which counts the number of children of a node. Therefore we need to add 1 in the end.
+    # @ assert
     return get_num_nodes(hpylm.root) + 1
 end
 
@@ -44,16 +38,12 @@ function get_stop_counts(hpylm::HPYLM)::Int where T
     get_stop_counts(hpylm.root)
 end
 
-# Really?
-function set_G_0(hpylm::HPYLM, G_0::Float64)
-    hpylm.G_0 = G_0
-end
-
 # TODO: Again, maybe we can do without this function.
+"Sometimes the hyperparameter array can be shorter than the actual depth of the HPYLM (especially for CHPYLM whose depth is dynamic. In this case initialize the hyperparameters at the deeper depth."
 function init_hyperparameters_at_depth_if_needed(hpylm::HPYLM, depth::Int)
     # println("In init_hyperparameters_at_depth_if_needed. depth: $depth. Type of HPYLM: $(typeof(HPYLM))")
-    # println("Length of d_array: $(length(hpylm.d_array))")
     if length(hpylm.d_array) <= depth
+        println("Length of d_array: $(length(hpylm.d_array)), depth: $depth")
         while(length(hpylm.d_array) <= depth)
             push!(parent(hpylm.d_array), HPYLM_INITIAL_d)
         end
@@ -86,8 +76,9 @@ function init_hyperparameters_at_depth_if_needed(hpylm::HPYLM, depth::Int)
 end
 
 # The `bottom` here was a reference in the C++ code.
-# This one sums up all values of a auxiliary variable on the same depth into one variable.
+"Sum up all values of a auxiliary variable on the same depth into one variable."
 function sum_auxiliary_variables_recursively(hpylm::HPYLM, node::PYP{T}, sum_log_x_u_array::OffsetVector{Float64}, sum_y_ui_array::OffsetVector{Float64}, sum_one_minus_y_ui_array::OffsetVector{Float64}, sum_one_minus_z_uwkj_array::OffsetVector{Float64}, bottom::Int)::Int where T
+    # println("Number of node.children: $(length(node.children))")
     for (context, child) in node.children
         depth = child.depth
         if depth > bottom
@@ -109,6 +100,7 @@ function sum_auxiliary_variables_recursively(hpylm::HPYLM, node::PYP{T}, sum_log
     return bottom
 end
 
+"Sample all hyperparameters of this HPYLM"
 function sample_hyperparameters(hpylm::HPYLM)
     # The length also includes the slot for depth 0, thus the max_depth is the length - 1
     max_depth::Int = length(hpylm.d_array) - 1

@@ -161,11 +161,6 @@ function allocate_capacity(npylm::NPYLM, max_sentence_length::Int)
     npylm.most_recent_word = OffsetVector{Char}(undef, 0:max_sentence_length + 1)
 end
 
-# TODO: Probably can do without this one
-function set_chpylm_G_0(npylm::NPYLM, G_0::Float64)
-    set_G_0(npylm.chpylm, G_0)
-end
-
 function set_λ_prior(npylm::NPYLM, a::Float64, b::Float64)
     npylm.λ_a = a
     npylm.λ_b = b
@@ -181,10 +176,10 @@ function sample_λ_with_initial_params(npylm::NPYLM)
 end
 
 function add_customer_at_index_n(npylm::NPYLM, sentence::Sentence, n::Int)::Bool
-    @assert(n >= 2)
+    # @ assert(n >= 2)
     token_n::UInt = get_nth_word_id(sentence, n)
     pyp::PYP{UInt} = find_node_by_tracing_back_context_from_index_n(npylm, sentence, n, npylm.whpylm_parent_p_w_cache, true, false)
-    @assert pyp != nothing
+    # @ assert pyp != nothing
     num_tables_before_addition::Int = npylm.whpylm.root.ntables
     index_of_table_added_to_in_root::IntContainer = IntContainer(-1)
     word_begin_index = sentence.segment_begin_positions[n]
@@ -203,20 +198,20 @@ function add_customer_at_index_n(npylm::NPYLM, sentence::Sentence, n::Int)::Bool
             add_customer(npylm.chpylm.root, EOS_CHAR, npylm.chpylm.G_0, npylm.chpylm.d_array, npylm.chpylm.θ_array, true, index_of_table_added_to_in_root)
             return true
         end
-        @assert(index_of_table_added_to_in_root.int != -1)
+        # @ assert(index_of_table_added_to_in_root.int != -1)
         # Get the depths recorded for each table in the tablegroup of token_n.
         # It may not exist yet so we'll have to check and create it if that's the case.
         depth_arrays_for_the_tablegroup = get!(npylm.recorded_depth_arrays_for_tablegroups_of_token, token_n) do
             []
         end
         # This is a new table that didn't exist before *in the tablegroup for this token*.
-        @assert length(depth_arrays_for_the_tablegroup) <= index_of_table_added_to_in_root.int
+        # @ assert length(depth_arrays_for_the_tablegroup) <= index_of_table_added_to_in_root.int
         # Variable to hold the depths of each character that was added to the CHPYLM as a part of the creation of this new table.
         # recorded_depth_array = Int[]
         # `word_end_index - word_begin_index + 2` is `length(word) - 1 + 2`, i.e. word_length_with_symbols
         recorded_depth_array = OffsetVector{Int}(undef, 0:word_end_index - word_begin_index + 2)
         add_word_to_chpylm(npylm, sentence.characters, word_begin_index, word_end_index, recorded_depth_array)
-        @assert(length(recorded_depth_array) == word_end_index - word_begin_index + 3)
+        # @ assert(length(recorded_depth_array) == word_end_index - word_begin_index + 3)
         # Therefore we push the result of depths for *this new table* into the array.
         push!(depth_arrays_for_the_tablegroup, recorded_depth_array)
     end
@@ -226,10 +221,10 @@ end
 # Yeah OK so token_ids is just a temporary variable holding all the characters to be added into the chpylm? What a weird design... Why can't we do better let's see how we might refactor this code later.
 function add_word_to_chpylm(npylm::NPYLM, sentence_as_chars::OffsetVector{Char}, word_begin_index::Int, word_end_index::Int, recorded_depths::OffsetVector{Int})
     # println("In add_word_to_chpylm")
-    # @assert length(recorded_depths) == 0
-    @assert word_end_index >= word_begin_index
+    # # @ assert length(recorded_depths) == 0
+    # @ assert word_end_index >= word_begin_index
     # This is probably to avoid EOS?
-    @assert word_end_index < npylm.max_sentence_length
+    # @ assert word_end_index < npylm.max_sentence_length
     npylm.most_recent_word = produce_word_with_bow_and_eow(sentence_as_chars, word_begin_index, word_end_index)
     # + 2 because of bow and eow
     word_length_with_symbols = word_end_index - word_begin_index + 1 + 2
@@ -243,10 +238,10 @@ function add_word_to_chpylm(npylm::NPYLM, sentence_as_chars::OffsetVector{Char},
 end
 
 function remove_customer_at_index_n(npylm::NPYLM, sentence::Sentence, n::Int)
-    @assert n >= 2
+    # @ assert n >= 2
     token_n = get_nth_word_id(sentence, n)
     pyp = find_node_by_tracing_back_context_from_index_n(npylm, sentence.word_ids, n, false, false)
-    @assert pyp != nothing
+    # @ assert pyp != nothing
     num_tables_before_removal::Int = npylm.whpylm.root.ntables
     index_of_table_removed_from = IntContainer(-1)
     word_begin_index = sentence.segment_begin_positions[n]
@@ -265,10 +260,10 @@ function remove_customer_at_index_n(npylm::NPYLM, sentence::Sentence, n::Int)
             remove_customer(npylm.chpylm.root, EOS_CHAR, true, index_of_table_removed_from)
             return true
         end
-        @assert index_of_table_removed_from.int != -1
+        # @ assert index_of_table_removed_from.int != -1
         depths = npylm.recorded_depth_arrays_for_tablegroups_of_token[token_n]
         recorded_depths = depths[index_of_table_removed_from.int]
-        @assert length(recorded_depths) > 0
+        # @ assert length(recorded_depths) > 0
         remove_word_from_chpylm(npylm, sentence.characters, word_begin_index, word_end_index, recorded_depths)
         # This entry is now removed.
         deleteat!(depths, index_of_table_removed_from.int)
@@ -280,13 +275,13 @@ function remove_customer_at_index_n(npylm::NPYLM, sentence::Sentence, n::Int)
 end
 
 function remove_word_from_chpylm(npylm::NPYLM, sentence_as_chars::OffsetVector{Char}, word_begin_index::Int, word_end_index::Int, recorded_depths::OffsetVector{Int})
-    @assert length(recorded_depths) > 0
-    @assert word_end_index >= word_begin_index
-    @assert word_end_index < npylm.max_sentence_length
+    # @ assert length(recorded_depths) > 0
+    # @ assert word_end_index >= word_begin_index
+    # @ assert word_end_index < npylm.max_sentence_length
     npylm.most_recent_word = produce_word_with_bow_and_eow(sentence_as_chars, word_begin_index, word_end_index)
     # + 2 because of bow and eow
     word_length_with_symbols = word_end_index - word_begin_index + 1 + 2
-    @assert length(recorded_depths) == word_length_with_symbols
+    # @ assert length(recorded_depths) == word_length_with_symbols
     for n in 0:word_length_with_symbols - 1
         remove_customer_at_index_n(npylm.chpylm, npylm.most_recent_word, n, recorded_depths[n])
     end
@@ -294,8 +289,8 @@ end
 
 function find_node_by_tracing_back_context_from_index_n(npylm::NPYLM, word_ids::OffsetVector{UInt}, n::Int, generate_if_not_found::Bool, return_middle_node::Bool)
     # TODO: These all need to change when the bigram model is supported.
-    @assert n >= 2
-    @assert n < length(word_ids)
+    # @ assert n >= 2
+    # @ assert n < length(word_ids)
     cur_node = npylm.whpylm.root
     # TODO: Why only 2?
     for depth in 1:2
@@ -313,16 +308,16 @@ function find_node_by_tracing_back_context_from_index_n(npylm::NPYLM, word_ids::
         end
         cur_node = child
     end
-    @assert cur_node.depth == 2
+    # @ assert cur_node.depth == 2
     return cur_node
 end
 
 # Used by add_customer
 function find_node_by_tracing_back_context_from_index_n(npylm::NPYLM, sentence::Sentence, n::Int, parent_p_w_cache::OffsetVector{Float64}, generate_if_not_found::Bool, return_middle_node::Bool)
-    @assert n >= 2
+    # @ assert n >= 2
     # println("Sentence is $(sentence), n is $(n), sentence.num_segments is $(sentence.num_segments)")
-    @assert n < sentence.num_segments
-    @assert sentence.segment_lengths[n] > 0
+    # @ assert n < sentence.num_segments
+    # @ assert sentence.segment_lengths[n] > 0
     word_begin_index = sentence.segment_begin_positions[n]
     word_end_index = word_begin_index + sentence.segment_lengths[n] - 1
     return find_node_by_tracing_back_context_from_index_n(npylm, sentence.characters, sentence.word_ids, n, word_begin_index, word_end_index, parent_p_w_cache, generate_if_not_found, return_middle_node)
@@ -330,10 +325,10 @@ end
 
 # We should be filling the parent_p_w_cache while trying to find the node already. So if not there's some problem going on.
 function find_node_by_tracing_back_context_from_index_n(npylm::NPYLM, sentence_as_chars::OffsetVector{Char}, word_ids::OffsetVector{UInt}, n::Int, word_begin_index::Int, word_end_index::Int, parent_p_w_cache::OffsetVector{Float64}, generate_if_not_found::Bool, return_middle_node::Bool)
-    @assert n >= 2
-    @assert n < length(word_ids)
-    @assert word_begin_index >= 0
-    @assert word_end_index >= word_begin_index
+    # @ assert n >= 2
+    # @ assert n < length(word_ids)
+    # @ assert word_begin_index >= 0
+    # @ assert word_end_index >= word_begin_index
     cur_node = npylm.whpylm.root
     word_n_id = word_ids[n]
     parent_p_w = compute_G_0_of_word_at_index_n(npylm, sentence_as_chars, word_begin_index, word_end_index, word_n_id)
@@ -353,11 +348,11 @@ function find_node_by_tracing_back_context_from_index_n(npylm::NPYLM, sentence_a
             return cur_node
         end
         # So the other possibility will never be triggered?
-        @assert child != nothing
+        # @ assert child != nothing
         parent_p_w = p_w
         cur_node = child
     end
-    @assert cur_node.depth == 2
+    # @ assert cur_node.depth == 2
     return cur_node
 end
 
@@ -368,9 +363,9 @@ function compute_G_0_of_word_at_index_n(npylm::NPYLM, sentence_as_chars::OffsetV
         return npylm.chpylm.G_0
     end
 
-    @assert word_end_index < npylm.max_sentence_length
-    @assert word_begin_index >= 0
-    @assert word_end_index >= word_begin_index
+    # @ assert word_end_index < npylm.max_sentence_length
+    # @ assert word_begin_index >= 0
+    # @ assert word_end_index >= word_begin_index
     word_length = word_end_index - word_begin_index + 1
     # We have a cache to prevent excessive re-calculation
     G_0 = get(npylm.whpylm_G_0_cache, word_n_id, nothing)
@@ -398,7 +393,7 @@ function compute_G_0_of_word_at_index_n(npylm::NPYLM, sentence_as_chars::OffsetV
             λ = npylm.λ_for_types[t]
             # Deduce the word length with the Poisson distribution
             poisson_sample = sample_poisson_k_λ(word_length, λ)
-            @assert poisson_sample > 0
+            # @ assert poisson_sample > 0
             # This is expression (15) of the paper, where we calculate p(c1...ck)
             # expression (5): p(c1...ck) returned from the CHPYLM is exactly the "G_0" of the WHPYLM, thus the naming.
             # G_0 is the more appropriate variable naming as this is just the way it's written in the expressions.
@@ -465,9 +460,9 @@ end
 
 # This is the real "compute_p_w"... The above ones don't have much to do with p_w I reckon. They are about whole sentences. Eh.
 function compute_p_w_of_nth_word(npylm::NPYLM, sentence::Sentence, n::Int)
-    @assert n >= 2
-    @assert n < sentence.num_segments
-    @assert sentence.segment_lengths[n] > 0
+    # @ assert n >= 2
+    # @ assert n < sentence.num_segments
+    # @ assert sentence.segment_lengths[n] > 0
     word_begin_index = sentence.segment_begin_positions[n]
     # I mean, why don't you just record the end index directly anyways. The current implementation is such a torture.
     word_end_index = word_begin_index + sentence.segment_lengths[n] - 1
@@ -481,7 +476,7 @@ function compute_p_w_of_nth_word(npylm::NPYLM, sentence_as_chars::OffsetVector{C
     # So apparently the parent_p_w_cache should be set while we're trying to find the node?
     # generate_if_not_found = false, return_middle_node = true
     node = find_node_by_tracing_back_context_from_index_n(npylm, sentence_as_chars, word_ids, n, word_begin_position, word_end_position, npylm.whpylm_parent_p_w_cache, false, true)
-    @assert node != nothing
+    # @ assert node != nothing
     # println("Node is $node")
     parent_p_w = npylm.whpylm_parent_p_w_cache[node.depth]
     # println("The parent_p_w is $parent_p_w")

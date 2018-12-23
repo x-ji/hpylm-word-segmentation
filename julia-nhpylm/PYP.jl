@@ -190,7 +190,7 @@ function add_customer_to_new_table(pyp::PYP{T}, dish::T, G_0_or_parent_p_ws::Uni
         #     println("Should also add the dish to pyp.parent")
         # end
         success = add_customer(pyp.parent, dish, G_0_or_parent_p_ws, d_array, θ_array, false, table_index_in_root)
-        @assert(success == true)
+        # @ assert(success == true)
     end
     return true;
 end
@@ -213,15 +213,15 @@ function remove_customer_from_table(pyp::PYP{T}, dish::T, table_index::Int, tabl
     tablegroup = pyp.tablegroups[dish]
 
     # `tablegroup` is currently a Vector, so we use <=
-    @assert(table_index <= length(tablegroup))
+    # @ assert(table_index <= length(tablegroup))
     tablegroup[table_index] -= 1
     pyp.ncustomers -= 1
-    @assert(tablegroup[table_index] >= 0)
+    # @ assert(tablegroup[table_index] >= 0)
     if (tablegroup[table_index] == 0)
         if (pyp.parent != nothing)
             # println("Now the customer count at this table is 0. We're trying to remove the same customer from the parent as well. table_index is $table_index, pyp.parent is $(pyp.parent), table_index_in_root is $table_index_in_root")
             success = remove_customer(pyp.parent, dish, false, table_index_in_root)
-            @assert(success == true)
+            # @ assert(success == true)
         end
 
         deleteat!(tablegroup, table_index)
@@ -322,7 +322,7 @@ end
 
 function remove_customer(pyp::PYP{T}, dish::T, update_beta_count::Bool, index_of_table_in_root::IntContainer)::Bool where T
     tablegroup = get(pyp.tablegroups, dish, nothing)
-    @assert tablegroup != nothing
+    # @ assert tablegroup != nothing
     count = sum(tablegroup)
 
     indices = 1:length(tablegroup)
@@ -471,7 +471,7 @@ end
 
 function decrement_stop_count(pyp::PYP{T}) where T
     pyp.stop_count -= 1
-    @assert(pyp.stop_count >= 0)
+    # @ assert(pyp.stop_count >= 0)
     if pyp.parent != nothing
         decrement_pass_count(pyp.parent)
     end
@@ -486,7 +486,7 @@ end
 
 function decrement_pass_count(pyp::PYP{T}) where T
     pyp.pass_count -= 1
-    @assert(pyp.pass_count >= 0)
+    # @ assert(pyp.pass_count >= 0)
     if pyp.parent != nothing
         decrement_pass_count(pyp.parent)
     end
@@ -537,7 +537,7 @@ function get_num_tables(pyp::PYP{T})::Int where T
     # TODO: Do without the unnecessary summation
     count = sum(length, pyp.tablegroups)
     # Do we really need this assertion then. Apparently we can just directly use that variable instead of this one?
-    @assert(count == pyp.ntables)
+    # @ assert(count == pyp.ntables)
     count += sum(get_num_tables, pyp.children)
     return count
 end
@@ -548,7 +548,7 @@ function get_num_customers(pyp::PYP{T})::Int where T
     # count::Int = sum(Iterators.flatten(values(pyp.tablegroups)))
     # count::Int = sum([sum(tablegroup) for tablegroup in values(pyp.tablegroups) if length(tablegroup) > 0])
     # Whatever this should always hold let's just substitute it.
-    # @assert(count== pyp.ncustomers)
+    # # @ assert(count== pyp.ncustomers)
     # count += sum(get_num_customers, pyp.children)
     # return count
     # return pyp.ncustomers + sum(get_num_customers, values(pyp.children))
@@ -617,7 +617,7 @@ function sample_summed_y_ui(pyp::PYP{T}, d_u::Float64, θ_u::Float64, is_one_min
         for i in 1:pyp.ntables - 1
             # Only this index value i is used in the sampling, apparently.
             denom = θ_u + d_u * i
-            @assert(denom > 0)
+            # @ assert(denom > 0)
             prob = θ_u / denom
             dist = Bernoulli(prob)
             y_ui = rand(dist)
@@ -649,7 +649,7 @@ function sample_summed_one_minus_z_uwkj(pyp::PYP{T}, d_u::Float64)::Float64 wher
             if customercount >= 2
                 # Expression (38)
                 for j in 1:customercount - 1
-                    @assert(j - d_u > 0)
+                    # @ assert(j - d_u > 0)
                     prob = (j - 1) / (j - d_u)
                     # println("The current j is $j, the d_u is $d_u, the prob is $prob")
                     dist = Bernoulli(prob)

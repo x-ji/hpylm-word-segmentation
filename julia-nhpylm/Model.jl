@@ -14,9 +14,8 @@ include("NPYLM.jl")
 include("Sampler.jl")
 
 """
-This is the struct that will server as a container for everything. it will be serialized after training.
+This is the struct that will serve as a container for everything. it will be serialized after training.
 """
-
 struct Model
     npylm::NPYLM
     sampler::Sampler
@@ -264,7 +263,7 @@ function update_p_k_given_chpylm(trainer::Trainer, num_samples::Int = 20000, ear
             continue
         end
 
-        @assert cur_word_length <= max_word_length
+        # @ assert cur_word_length <= max_word_length
         num_words_of_length_k[cur_word_length] += 1
 
         # If all possible lengths have enough data generated, we can terminate the sampling early.
@@ -286,7 +285,7 @@ function update_p_k_given_chpylm(trainer::Trainer, num_samples::Int = 20000, ear
         # Put in a Laplace smoothing over the final figures. Though seems that the divisor doesn't need this treatment anyways.
         # p_k_chpylm[k] = (num_words_of_length_k[k] + 1) / (num_words_sampled + max_word_length + 1)
         p_k_chpylm[k] = (num_words_of_length_k[k] + 1) / (num_words_sampled + max_word_length)
-        @assert p_k_chpylm[k] > 0
+        # @ assert p_k_chpylm[k] > 0
     end
 end
 
@@ -371,7 +370,7 @@ function blocked_gibbs_sampling(trainer::Trainer)
             trainer.added_to_chpylm_train[sentence_index] = true
         end
     end
-    @assert trainer.model.npylm.whpylm.root.ntables <= get_num_customers(trainer.model.npylm.chpylm)
+    # @ assert trainer.model.npylm.whpylm.root.ntables <= get_num_customers(trainer.model.npylm.chpylm)
 end
 
 # TODO: Summarize the difference between the usgae of the Viterbi algorithm and the original blocked sampler.
@@ -494,7 +493,7 @@ function train(corpus_path, output_path, split_proportion = 0.9, epochs = 100000
     for epoch in 1:epochs
         start_time = time()
         blocked_gibbs_sampling(trainer)
-        sample_hyperparameters(trainer)
+        # sample_hyperparameters(trainer)
         sample_lambda(trainer)
 
         # The accuracy is better after several iterations have been already done.
@@ -507,6 +506,7 @@ function train(corpus_path, output_path, split_proportion = 0.9, epochs = 100000
         if epoch % 10 == 0
             print_segmentations_train(trainer, 10)
             println("Perplexity_dev: $(compute_perplexity_dev(trainer))")
+            sample_hyperparameters(trainer)
         end
     end
 

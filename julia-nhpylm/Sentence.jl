@@ -90,12 +90,12 @@ function get_num_segments_without_special_tokens(s::Sentence)
 end
 
 function get_nth_segment_length(s::Sentence, n::Int)
-    @assert(n <= s.num_segments)
+    # @ assert(n <= s.num_segments)
     return s.segment_lengths[n]
 end
 
 function get_nth_word_id(s::Sentence, n::Int)
-    @assert(n <= s.num_segments)
+    # @ assert(n <= s.num_segments)
     return s.word_ids[n]
 end
 
@@ -118,14 +118,14 @@ end
 
 function get_nth_word_string(s::Sentence, n::Int)
     # The last segment is <EOS>
-    @assert(n < s.num_segments)
+    # @ assert(n < s.num_segments)
     # TODO: This is all hard-coded. We'll need to change them if we're to support bigrams.
     # Can't we make the code a bit more generic? Don't think it would be that hard eh.
     # There are two BOS in the beginning if we use 3-gram.
     if n < 2
         return "<BOS>"
     else
-        @assert n < s.num_segments - 1
+        # @ assert n < s.num_segments - 1
         start_position = s.segment_begin_positions[n]
         # OK I see. Somehow the "end_position" didn't - 1. What's this black magic?
         end_position = start_position + s.segment_lengths[n] - 1
@@ -149,7 +149,7 @@ function split_sentence(sentence::Sentence, segment_lengths::OffsetVector{Int}, 
     sum_length = 0
     index = 0
     while index < num_segments_without_special_tokens
-        @assert segment_lengths[index] > 0
+        # @ assert segment_lengths[index] > 0
         sum_length += segment_lengths[index]
 
         cur_length = segment_lengths[index]
@@ -162,7 +162,7 @@ function split_sentence(sentence::Sentence, segment_lengths::OffsetVector{Int}, 
         index += 1
     end
     # println("sum_length is $sum_length, length of sentence_string is $(length(sentence.sentence_string)), sentence is $(sentence.sentence_string)")
-    @assert sum_length == length(sentence.sentence_string)
+    # @ assert sum_length == length(sentence.sentence_string)
     # Also need to take care of EOS now that the actual string ended.
     sentence.segment_lengths[index + 2] = 1
     sentence.word_ids[index + 2] = EOS

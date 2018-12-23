@@ -125,10 +125,10 @@ That is to say, we first fix both the third gram and the second gram, and margin
 function calculate_α_t_k_j(sampler::Sampler, sentence::Sentence, t::Int, k::Int, j::Int, prod_scaling::Float64)
     word_k_id = get_substring_word_id_at_t_k(sampler, sentence, t, k)
     sentence_as_chars = sentence.characters
-    @assert(t <= sampler.max_sentence_length + 1)
-    @assert(k <= sampler.max_word_length)
-    @assert(j <= sampler.max_word_length)
-    @assert(t - k >= 0)
+    # @ assert(t <= sampler.max_sentence_length + 1)
+    # @ assert(k <= sampler.max_word_length)
+    # @ assert(j <= sampler.max_word_length)
+    # @ assert(t - k >= 0)
     # I'm really unsatisfied with the constant manual generation of BOS and EOS. I mean why not generate it already when first reading in the corpus? This can probably save tons of problems.
     # However, I can now also see why this might be necessary: i.e. so that BOS and EOS, which are essentially special characters, might not be accidentally considered a part of a word when we try to determine word boundaries, which would result in nonsensical results... Um let's see. Let me first port the code anyways.
 
@@ -140,7 +140,7 @@ function calculate_α_t_k_j(sampler::Sampler, sentence::Sentence, t::Int, k::Int
         # Compute the probability of this word with length k
         # Why do we - 1 in the end though?
         p_w_h = compute_p_w_of_nth_word(sampler.npylm, sentence_as_chars, sampler.word_ids, 2, t - k, t - 1)
-        @assert p_w_h > 0.0
+        # @ assert p_w_h > 0.0
         # I think the scaling is to make sure that this thing doesn't underflow.
         # Store the values in the cache
         sampler.α_tensor[t,k,0] = p_w_h * prod_scaling
@@ -154,8 +154,8 @@ function calculate_α_t_k_j(sampler::Sampler, sentence::Sentence, t::Int, k::Int
         sampler.word_ids[2] = word_k_id
         # Probably of the word with length k, which is the last (3rd) word.
         p_w_h = compute_p_w_of_nth_word(sampler.npylm, sentence_as_chars, sampler.word_ids, 2, t - k, t - 1)
-        @assert p_w_h > 0.0
-        @assert sampler.α_tensor[t-k,j,0] > 0.0
+        # @ assert p_w_h > 0.0
+        # @ assert sampler.α_tensor[t-k,j,0] > 0.0
         # In this case, the expression becomes the following.
         sampler.α_tensor[t,k,j] = p_w_h * sampler.α_tensor[t - k,j,0] * prod_scaling
         # The last index here is i. i == 0.
@@ -177,15 +177,15 @@ function calculate_α_t_k_j(sampler::Sampler, sentence::Sentence, t::Int, k::Int
 
             # This way of writing the code is still a bit messy. Let's see if we can do better then.
             p_w_h = compute_p_w_of_nth_word(sampler.npylm, sentence_as_chars, sampler.word_ids, 2, t - k, t - 1)
-            @assert p_w_h > 0.0
-            @assert i <= sampler.max_word_length
-            @assert sampler.α_tensor[t-k,j,i] > 0.0
+            # @ assert p_w_h > 0.0
+            # @ assert i <= sampler.max_word_length
+            # @ assert sampler.α_tensor[t-k,j,i] > 0.0
             # Store the word possibility in the cache tensor.
             sampler.p_w_h_cache[t,k,j,i] = p_w_h
             temp = p_w_h * sampler.α_tensor[t - k,j,i]
             sum += temp
         end
-        @assert sum > 0.0
+        # @ assert sum > 0.0
         sampler.α_tensor[t,k,j] = sum * prod_scaling
     end
 end
@@ -215,7 +215,7 @@ function forward_filtering(sampler::Sampler, sentence::Sentence, with_scaling::B
                     sum_α += sampler.α_tensor[t,k,j]
                 end
             end
-            @assert sum_α > 0.0
+            # @ assert sum_α > 0.0
             sampler.scaling_coefficients[t] = 1.0 / sum_α
             for k in 1:min(t, sampler.max_word_length)
                 for j in (t == k ? 0 : 1):min(t - k, sampler.max_word_length)
@@ -242,8 +242,8 @@ function backward_sampling(sampler::Sampler, sentence::Sentence)
         return OffsetArray(reverse(segment_lengths), 0:length(segment_lengths) - 1)
     end
 
-    @assert(k.int > 0 && j.int > 0)
-    @assert(j.int <= sampler.max_word_length)
+    # @ assert(k.int > 0 && j.int > 0)
+    # @ assert(j.int <= sampler.max_word_length)
 
     push!(segment_lengths, j.int)
     t -= (k.int + j.int)
@@ -262,17 +262,17 @@ function backward_sampling(sampler::Sampler, sentence::Sentence)
         t -= k.int
         if j.int == 0
             # println("t is $(t)")
-            @assert(t == 0)
+            # @ assert(t == 0)
         else
-            @assert(j.int <= sampler.max_word_length)
+            # @ assert(j.int <= sampler.max_word_length)
             push!(segment_lengths, j.int)
             t -= j.int
         end
         sum_length += (k.int + j.int)
         next_word_length = j.int
     end
-    @assert(t == 0)
-    @assert(sum_length == length(sentence))
+    # @ assert(t == 0)
+    # @ assert(sum_length == length(sentence))
     # result = OffsetArray(reverse(segment_lengths), 0:length(segment_lengths) - 1)
     # println("In backward_sampling, sentence is $sentence, segment_lengths is $segment_lengths, result is $result")
     return OffsetArray(reverse(segment_lengths), 0:length(segment_lengths) - 1)
@@ -295,8 +295,8 @@ function backward_sample_k_and_j(sampler::Sampler, sentence::Sentence, t::Int, t
             # When we begin the backward sampling on a sentence, note that the final token is always EOS. We have probabilities p(EOS | c^N_{N-k} c^{N-k}_{N-k-j}) * α[N][k][j])
             word_t_id = EOS
             if t < length(sentence)
-                @assert(t + third_gram_length <= length(sentence))
-                @assert(third_gram_length > 0)
+                # @ assert(t + third_gram_length <= length(sentence))
+                # @ assert(third_gram_length > 0)
                 # Otherwise the final token is not EOS already but an actual word. Still the principles for sampling don't change.
                 word_t_id = get_substring_word_id_at_t_k(sampler, sentence, t + third_gram_length, third_gram_length)
             end
@@ -311,10 +311,10 @@ function backward_sample_k_and_j(sampler::Sampler, sentence::Sentence, t::Int, t
                 # We should have already cached this value.
                 p_w_h = sampler.p_w_h_cache[t + third_gram_length, third_gram_length, k, j]
             end
-            @assert(sampler.α_tensor[t,k,j] > 0)
+            # @ assert(sampler.α_tensor[t,k,j] > 0)
             # p(3rd_gram | c^N_{N-k} c^{N-k}_{N-k-j}) * α[N][k][j])
             p = p_w_h * sampler.α_tensor[t,k,j]
-            @assert(p > 0)
+            # @ assert(p > 0)
             sampler.backward_sampling_table[table_index] = p
             sum_p += p
             # println("p_w_h is $(p_w_h), sampler.α_tensor[t,k,j] is $(sampler.α_tensor[t,k,j]), p is $(p), sum_p is $(sum_p)")
@@ -328,8 +328,8 @@ function backward_sample_k_and_j(sampler::Sampler, sentence::Sentence, t::Int, t
             word_k_id = get_substring_word_id_at_t_k(sampler, sentence, t, k)
             word_t_id = EOS
             if t < length(sentence)
-                @assert(t + third_gram_length <= length(sentence))
-                @assert(third_gram_length > 0)
+                # @ assert(t + third_gram_length <= length(sentence))
+                # @ assert(third_gram_length > 0)
                 word_t_id = get_substring_word_id_at_t_k(sampler, sentence, t + third_gram_length, third_gram_length)
             end
             sampler.word_ids[0] = word_j_id
@@ -343,18 +343,18 @@ function backward_sample_k_and_j(sampler::Sampler, sentence::Sentence, t::Int, t
                 # We should have already cached this value.
                 p_w_h = sampler.p_w_h_cache[t + third_gram_length, third_gram_length, k, j]
             end
-            @assert(sampler.α_tensor[t,k,j] > 0)
+            # @ assert(sampler.α_tensor[t,k,j] > 0)
             # p(3rd_gram | c^N_{N-k} c^{N-k}_{N-k-j}) * α[N][k][j])
             p = p_w_h * sampler.α_tensor[t,k,j]
-            @assert(p > 0)
+            # @ assert(p > 0)
             sampler.backward_sampling_table[table_index] = p
             sum_p += p
             table_index += 1
         end
     end
 
-	@assert(table_index > 0);
-	@assert(table_index <= sampler.max_word_length * sampler.max_word_length);
+	# @ assert(table_index > 0);
+	# @ assert(table_index <= sampler.max_word_length * sampler.max_word_length);
 
     # Eventually, the table should have (min(t, sampler.max_word_length) * min(t - k, sampler.max_word_length)) + 1 entries
     # This is such a pain. We should definitely be able to simplify the code much more than this. Eh.
@@ -365,8 +365,8 @@ function backward_sample_k_and_j(sampler::Sampler, sentence::Sentence, t::Int, t
     stack = 0.0
     for k in 1:min(t, sampler.max_word_length)
         for j in 1:min(t - k, sampler.max_word_length)
-            @assert(index < table_index)
-            @assert(sampler.backward_sampling_table[index] > 0.0)
+            # @ assert(index < table_index)
+            # @ assert(sampler.backward_sampling_table[index] > 0.0)
             stack += sampler.backward_sampling_table[index] * normalizer
             # println("randnum is $(randnum), stack is $(stack)")
             if randnum < stack
@@ -380,8 +380,8 @@ function backward_sample_k_and_j(sampler::Sampler, sentence::Sentence, t::Int, t
         # The special case where the first gram is BOS. The last entry of the table.
         if t == k
             # println("t == k triggered!")
-            @assert(index < table_index)
-            @assert(sampler.backward_sampling_table[index] > 0.0)
+            # @ assert(index < table_index)
+            # @ assert(sampler.backward_sampling_table[index] > 0.0)
             stack += sampler.backward_sampling_table[index] * normalizer
             if randnum < stack
                 sampled_k.int = k
@@ -413,9 +413,9 @@ end
 function viterbi_argmax_calculate_α_t_k_j(sampler::Sampler, sentence::Sentence, t::Int, k::Int, j::Int)
     word_k_id = get_substring_word_id_at_t_k(sampler, sentence, t, k)
     sentence_as_chars = sentence.characters
-	@assert(t <= sampler.max_sentence_length + 1);
-	@assert(k <= sampler.max_word_length);
-	@assert(j <= sampler.max_word_length);
+	# @ assert(t <= sampler.max_sentence_length + 1);
+	# @ assert(k <= sampler.max_word_length);
+	# @ assert(j <= sampler.max_word_length);
     # Special case 1: j == 0 means there's no actual *second* gram, i.e. the first two tokens are both BOS!
     if j == 0
         sampler.word_ids[0] = BOS
@@ -425,7 +425,7 @@ function viterbi_argmax_calculate_α_t_k_j(sampler::Sampler, sentence::Sentence,
         # Why do we - 1 in the end though? We probably shouldn't do so here since the indexing system is different. Eh.
         # TODO: Just use 0-based index anyways if things don't work out.
         p_w_h = compute_p_w_of_nth_word(sampler.npylm, sentence_as_chars, sampler.word_ids, 2, t - k, t - 1)
-        @assert(p_w_h > 0.0)
+        # @ assert(p_w_h > 0.0)
         # I think the scaling is to make sure that this thing doesn't underflow.
         # Store the values in the cache
         sampler.α_tensor[t,k,0] = log(p_w_h)
@@ -439,8 +439,8 @@ function viterbi_argmax_calculate_α_t_k_j(sampler::Sampler, sentence::Sentence,
         sampler.word_ids[2] = word_k_id
         # Probability of the word with length k, which is the last (3rd) word.
         p_w_h = compute_p_w_of_nth_word(sampler.npylm, sentence_as_chars, sampler.word_ids, 2, t - k, t - 1)
-        @assert(p_w_h > 0.0)
-        @assert(sampler.α_tensor[t-k,j,0] != 0.0)
+        # @ assert(p_w_h > 0.0)
+        # @ assert(sampler.α_tensor[t-k,j,0] != 0.0)
         # In this case, the expression becomes the following.
         sampler.α_tensor[t,k,j] = log(p_w_h) + sampler.α_tensor[t - k,j,0]
         sampler.viterbi_backward_indices[t,k,j] = 0
@@ -460,12 +460,12 @@ function viterbi_argmax_calculate_α_t_k_j(sampler::Sampler, sentence::Sentence,
             sampler.word_ids[2] = word_k_id
 
             p_w_h = compute_p_w_of_nth_word(sampler.npylm, sentence_as_chars, sampler.word_ids, 2, t - k, t - 1)
-            @assert(p_w_h > 0.0)
-            @assert(i <= sampler.max_word_length)
+            # @ assert(p_w_h > 0.0)
+            # @ assert(i <= sampler.max_word_length)
             # Because it's a log value then.
-            @assert(sampler.α_tensor[t-k,j,i] <= 0)
+            # @ assert(sampler.α_tensor[t-k,j,i] <= 0)
             temp = log(p_w_h) + sampler.α_tensor[t - k,j,i]
-            @assert(temp <= 0)
+            # @ assert(temp <= 0)
 
             # We're trying to determine the i value (first gram) that maximizes the possibility
             if (argmax == 0 || temp > max_log_p)
@@ -473,7 +473,7 @@ function viterbi_argmax_calculate_α_t_k_j(sampler::Sampler, sentence::Sentence,
                 max_log_p = temp
             end
         end
-        @assert(argmax > 0)
+        # @ assert(argmax > 0)
         sampler.α_tensor[t,k,j] = max_log_p
         # We use the viterbi_backward_indices matrix to store the i value that maximizes the possibility of the trigram.
         sampler.viterbi_backward_indices[t,k,j] = argmax
@@ -497,7 +497,7 @@ end
 
 "This method is called when we know the third gram is EOS, so we're only sampling the first gram and second gram."
 function viterbi_argmax_backward_sample_k_and_j_to_eos(sampler::Sampler, sentence::Sentence, t::Int, third_gram_length::Int, argmax_k::IntContainer, argmax_j::IntContainer)
-    @assert(t == length(sentence))
+    # @ assert(t == length(sentence))
     table_index = 0
     sentence_as_chars = sentence.characters
     sentence_length = length(sentence)
@@ -514,9 +514,9 @@ function viterbi_argmax_backward_sample_k_and_j_to_eos(sampler::Sampler, sentenc
             sampler.word_ids[2] = EOS
             # It's still the EOS. We just wrote it in a simpler way.
             p_w_h = compute_p_w_of_nth_word(sampler.npylm, sentence_as_chars, sampler.word_ids, 2, t, t)
-            @assert sampler.α_tensor[t,k,j] <= 0
+            # @ assert sampler.α_tensor[t,k,j] <= 0
             temp = log(p_w_h) + sampler.α_tensor[t,k,j]
-            @assert temp <= 0
+            # @ assert temp <= 0
             if (argmax_k.int == 0 || temp > max_log_p)
                 max_log_p = temp
                 argmax_k.int = k
@@ -535,10 +535,10 @@ function viterbi_argmax_backward_sample_k_and_j_to_eos(sampler::Sampler, sentenc
             sampler.word_ids[1] = word_k_id
             sampler.word_ids[2] = word_t_id
             p_w_h = compute_p_w_of_nth_word(sampler.npylm, sentence_as_chars, sampler.word_ids, 2, t, t)
-            @assert sampler.α_tensor[t,k,0] <= 0
+            # @ assert sampler.α_tensor[t,k,0] <= 0
             # p(3rd_gram | c^N_{N-k} c^{N-k}_{N-k-j}) * α[N][k][j])
             temp = log(p_w_h) + sampler.α_tensor[t,k,0]
-            @assert temp <= 0
+            # @ assert temp <= 0
             if argmax_k.int == 0 || temp > max_log_p
                 max_log_p = temp
                 argmax_k.int = k
@@ -557,7 +557,7 @@ function viterbi_backward_sampling(sampler::Sampler, sentence::Sentence)
     viterbi_argmax_backward_sample_k_and_j_to_eos(sampler, sentence, t, 1, kc, jc)
     k = kc.int
     j = jc.int
-    @assert(k <= sampler.max_word_length)
+    # @ assert(k <= sampler.max_word_length)
     # I'm not sure yet why the segments array should contain their lengths instead of the word ids themselves. I guess it's just a way to increase efficiency and all that.
     push!(segment_lengths, k)
     sum_length += k
@@ -567,13 +567,13 @@ function viterbi_backward_sampling(sampler::Sampler, sentence::Sentence)
         return
     end
 
-    @assert(k > 0 && j > 0)
-    @assert(j <= sampler.max_word_length)
+    # @ assert(k > 0 && j > 0)
+    # @ assert(j <= sampler.max_word_length)
     push!(segment_lengths, j)
     # We knew that i is the index that maximizes the possibility of the trigram
     i = sampler.viterbi_backward_indices[t,k,j]
-    @assert i >= 0
-    @assert i <= sampler.max_word_length
+    # @ assert i >= 0
+    # @ assert i <= sampler.max_word_length
     sum_length += j + i
 
     # Move the "sentence end" forward
@@ -583,7 +583,7 @@ function viterbi_backward_sampling(sampler::Sampler, sentence::Sentence)
 
     # The sentence is already fully segmented.
     if i == 0
-        @assert sum_length == length(sentence)
+        # @ assert sum_length == length(sentence)
         return
     end
 
@@ -593,8 +593,8 @@ function viterbi_backward_sampling(sampler::Sampler, sentence::Sentence)
     # Repeatedly push forward the end, taking advantage of the already recorded viterbi indices.
     while (t > 0)
         i = sampler.viterbi_backward_indices[t,k,j]
-        @assert i >= 0
-        @assert i <= sampler.max_word_length
+        # @ assert i >= 0
+        # @ assert i <= sampler.max_word_length
         if (i != 0)
             push!(segment_lengths, i)
         end
@@ -603,9 +603,9 @@ function viterbi_backward_sampling(sampler::Sampler, sentence::Sentence)
         j = i
         sum_length += i
     end
-    @assert(t == 0)
-    @assert(sum_length == length(sentence))
-    @assert length(segment_lengths) > 0
+    # @ assert(t == 0)
+    # @ assert(sum_length == length(sentence))
+    # @ assert length(segment_lengths) > 0
     return OffsetArray(reverse(segment_lengths), 0:length(segment_lengths) - 1)
 end
 
@@ -634,10 +634,10 @@ function compute_log_forward_probability(sampler::Sampler, sentence::Sentence, w
         α_eos = 0.0
         # As described in the paper, we need to sum all possible previous permutations together in this case.
         for j in 1:min(t - k, sampler.max_word_length)
-            @assert(sampler.α_tensor[t,k,j] > 0.0)
+            # @ assert(sampler.α_tensor[t,k,j] > 0.0)
             α_eos += sampler.α_tensor[t,k,j]
         end
-        @assert(α_eos > 0.0)
+        # @ assert(α_eos > 0.0)
         return log(α_eos)
     else
         # If we use scaling, we stored the scaling coefficients as the inverse of the actual probabilities.
@@ -673,7 +673,7 @@ function enumerate_forward_variables(sampler::Sampler, sentence::Sentence, with_
             sampler.word_ids[1] = get_substring_word_id_at_t_k(sampler, sentence, t - k, j)
             sampler.word_ids[2] = EOS
             p_w_h = compute_p_w_of_nth_word(sampler.npylm, sentence_as_chars, sampler.word_ids, 2, t, t)
-            @assert(p_w_h > 0.0)
+            # @ assert(p_w_h > 0.0)
             prob_sum += p_w_h * sampler.α_tensor[t-k,j,i]
         end
         sampler.α_tensor[t,k,j] = prob_sum

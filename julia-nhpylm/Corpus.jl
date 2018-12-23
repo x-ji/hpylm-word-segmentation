@@ -36,10 +36,16 @@ struct Corpus
     end
 end
 
+"""
+Add an individual sentence to the corpus
+"""
 function add_sentence(corpus::Corpus, sentence_string::UTF32String)
     push!(corpus.sentence_list, sentence_string)
 end
 
+"""
+Read the corpus from an input stream
+"""
 function read_corpus(corpus::Corpus, istream::IOStream)
     # Should I strip all spaces?
     append!(corpus.sentence_list, [line for line in readlines(istream) if !isempty(line)])
@@ -62,7 +68,9 @@ This struct holds all the structs related to a session/task, including the vocab
 mutable struct Dataset
     vocabulary::Vocabulary
     corpus::Corpus
+    "Max allowed sentence length in this dataset"
     max_sentence_length::Int
+    "Average sentence length in this dataset"
     avg_sentence_length::Float64
     num_segmented_words::Int
     train_sentences::Vector{Sentence}
@@ -143,8 +151,9 @@ function get_num_dev_sentences(dataset::Dataset)
     return length(dataset.dev_sentences)
 end
 
+"Add a sentence to the train or dev sentence vector of the dataset"
 function add_sentence(dataset::Dataset, sentence_string::UTF32String, sentences::Vector{Sentence})
-    @assert(length(sentence_string) > 0)
+    # @ assert(length(sentence_string) > 0)
     for char in sentence_string
         add_character(dataset.vocabulary, char)
     end

@@ -61,7 +61,7 @@ mutable struct CHPYLM{T} <: HPYLM{T}
     #= Constructor =#
     function CHPYLM(G_0::Float64, max_depth::Int, beta_stop::Float64, beta_pass::Float64)
         chpylm = new{Char}()
-        @assert(G_0 > 0)
+        # @ assert(G_0 > 0)
         chpylm.root = PYP(BOW)
         chpylm.root.depth = 0
         chpylm.beta_stop = beta_stop
@@ -112,13 +112,16 @@ This is a version to be called from the NPYLM.
 If the parent_p_w_cache is already set, then update the path_nodes as well.
 """
 function add_customer_at_index_n(chpylm::CHPYLM, characters::OffsetVector{Char}, n::Int, depth::Int, parent_p_w_cache::OffsetVector{Float64}, path_nodes::OffsetVector{Union{Nothing,PYP{Char}}})::Bool
-    @assert(0 <= depth && depth <= n)
+    # @ assert(0 <= depth && depth <= n)
     node::PYP{Char} = find_node_by_tracing_back_context(chpylm, characters, n, depth, path_nodes)
     # Seems to be just a check
     if depth > 0
-        @assert(node.context == characters[n - depth])
+        if (node.context != characters[n - depth])
+            println("node.context is $(node.context), characters[n - depth] is $(characters[n - depth]), characters is $characters, n is $n, depth is $depth")
+        end
+        # # @ assert(node.context == characters[n - depth])
     end
-    @assert(node.depth == depth)
+    # @ assert(node.depth == depth)
     char_n::Char = characters[n]
     root_table_index::IntContainer = IntContainer(0)
     return add_customer(node, char_n, parent_p_w_cache, chpylm.d_array, chpylm.θ_array, true, root_table_index)
@@ -134,13 +137,13 @@ This function removes the customer
 """
 # Though why does the depth need to be passed in separately a kind of baffles me.
 function remove_customer_at_index_n(chpylm::CHPYLM, characters::OffsetVector{Char}, n::Int, depth::Int)::Bool
-    @assert(0 <= depth && depth <= n)
+    # @ assert(0 <= depth && depth <= n)
     node::PYP{Char} = find_node_by_tracing_back_context(chpylm, characters, n, depth, false, false)
     # Seems to be just a check
     if depth > 0
-        @assert(node.context == characters[n - depth])
+        # @ assert(node.context == characters[n - depth])
     end
-    @assert(node.depth == depth)
+    # @ assert(node.depth == depth)
     char_n::Char = characters[n]
     root_table_index::IntContainer = IntContainer(0)
     remove_customer(node, char_n, true, root_table_index)
@@ -193,9 +196,9 @@ function find_node_by_tracing_back_context(chpylm::CHPYLM, characters::OffsetVec
 
     # The search has ended for the whole depth.
     # In this situation the cur_node should have the same depth as the given depth.
-    @assert(cur_node.depth == depth_of_n)
+    # @ assert(cur_node.depth == depth_of_n)
     if depth_of_n > 0
-        @assert(cur_node.context == characters[n - depth_of_n])
+        # @ assert(cur_node.context == characters[n - depth_of_n])
     end
     return cur_node
 end
@@ -340,7 +343,7 @@ function compute_p_w_given_h(chpylm::CHPYLM, target_char::Char, characters::Offs
         end
         depth += 1
     end
-    @assert p > 0.0
+    # @ assert p > 0.0
     return p
 end
 
