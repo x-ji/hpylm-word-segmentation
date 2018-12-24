@@ -18,7 +18,6 @@ abstract type HPYLM{T} end
 "Get the total number of nodes in this HPYLM."
 function get_num_nodes(hpylm::HPYLM)::Int where T
     # The root node itself is not included in this recursive algorithm which counts the number of children of a node. Therefore we need to add 1 in the end.
-    # @ assert
     return get_num_nodes(hpylm.root) + 1
 end
 

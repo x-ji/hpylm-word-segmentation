@@ -153,7 +153,7 @@ end
 
 "Add a sentence to the train or dev sentence vector of the dataset"
 function add_sentence(dataset::Dataset, sentence_string::UTF32String, sentences::Vector{Sentence})
-    # @ assert(length(sentence_string) > 0)
+    @assert(length(sentence_string) > 0)
     for char in sentence_string
         add_character(dataset.vocabulary, char)
     end

@@ -4,6 +4,8 @@ module NHPYLM
 using Serialization
 
 include("Def.jl")
+include("CType.jl")
+include("WType.jl")
 include("Sentence.jl")
 include("Corpus.jl")
 include("PYP.jl")
@@ -14,7 +16,7 @@ include("NPYLM.jl")
 include("Sampler.jl")
 
 """
-This is the struct that will serve as a container for everything. it will be serialized after training.
+This is the struct that will serve as a container for the whole NHPYLM. it will be serialized after training.
 """
 struct Model
     npylm::NPYLM
@@ -23,11 +25,6 @@ struct Model
         max_sentence_length = dataset.max_sentence_length
         # The G_0 probability for the character HPYLM, which depends on the number of different characters in the whole corpus.
         chpylm_G_0 = 1.0 / get_num_characters(dataset.vocabulary)
-        # model.npylm = NPYLM(max_word_length, max_sentence_length, chpylm_G_0, 4.0, 1.0, CHPYLM_β_STOP, CHPYLM_β_PASS)
-
-        # model = new()
-        # model.sampler = Sampler(model.npylm, max_word_length, max_sentence_length)
-        # return model
 
         # Need to do this because `Model` is immutable
         npylm = NPYLM(max_word_length, max_sentence_length, chpylm_G_0, 4.0, 1.0, CHPYLM_β_STOP, CHPYLM_β_PASS)
@@ -78,20 +75,19 @@ end
 function segment_sentence(model::Model, sentence_string::UTF32String)::OffsetVector{UTF32String}
     extend_capacity(model.sampler, model.npylm.max_word_length, length(sentence_string))
     extend_capacity(model.npylm, length(sentence_string))
-    segment_lengths = Int[]
-    segmented_sentence = UTF32String[]
+    segmented_sentence = OffsetVector{UTF32String}(undef, 0:-1)
     sentence = Sentence(sentence_string)
-    # I don't really get the difference between the viterbi_ methods and the normal methods. Is it the case that the viterbi_ methods just do the segmentation directly without trying to further train the model? A bit weird indeed. Let's see further.
-    viterbi_decode(model.sampler, sentence, segment_lengths)
-    # This method is so insane. Why not print out the sentences immediately anyways.
+    segment_lengths = viterbi_decode(model.sampler, sentence)
+
+    # I don't even think there's the need to run this method anyways, since all we need is the vector of words eventually.
     # split_sentence(sentence, segment_lengths)
 
     # Skip the first two BOS in the sentence.
     # start_index = 3
 
-    # No I mean, seriously, what the hell is the problem of directly trying to access the actual strings from the original sentence_string???
     start_index = 1
-    for (index, length) in enumerate(segment_lengths)
+    # for (index, length) in enumerate(segment_lengths)
+    for length in segment_lengths
         word = sentence_string[start_index, start_index + length - 1]
         push!(segmented_sentence, word)
         start_index += length
@@ -100,6 +96,7 @@ function segment_sentence(model::Model, sentence_string::UTF32String)::OffsetVec
     return segmented_sentence
 end
 
+"Compute the log forward probability of any sentence given the whole NHPYLM model"
 function compute_log_forward_probability(model::Model, sentence_string::UTF32String, with_scaling::Bool)
     extend_capacity(model.sampler, model.npylm.max_word_length, length(sentence_string))
     extend_capacity(model.npylm, length(sentence_string))
@@ -108,17 +105,20 @@ function compute_log_forward_probability(model::Model, sentence_string::UTF32Str
 end
 
 # Actually I'm not sure if we really need such a complicated Trainer class. Let's first go on though.
+"This struct contains everything needed for the training process"
 mutable struct Trainer
     rand_indices_train::Vector{Int}
     rand_indices_dev::Vector{Int}
     dataset::Dataset
     vocabulary::Vocabulary
     model::Model
+    "These tables are used when we generate words randomly from the CHPYLM, in the `sample_next_char_from_chpylm_given_context` function."
     chpylm_sampling_probability_table::Vector{Float64}
     chpylm_sampling_id_table::Vector{Char}
     always_accept_new_segmentation::Bool
-    # What does this mean
+    "Indicates whether the sentence at this index has already been added to the CHPYLM. If yes, in iterations > 2 we'd need to remove the sentence from the CHPYLM and add it again."
     added_to_chpylm_train::Vector{Bool}
+    "If we don't always accept new segmentations, some segmentations might be rejected."
     num_segmentation_rejections::Int
     num_segmentation_acceptances::Int
     function Trainer(dataset::Dataset, model::Model, always_accept_new_segmentation::Bool=true)
@@ -126,7 +126,7 @@ mutable struct Trainer
         trainer.dataset = dataset
         trainer.model = model
         trainer.vocabulary = dataset.vocabulary
-        # Need extra space for EOS?
+        # Need extra space for EOS
         trainer.chpylm_sampling_probability_table = Vector{Float64}(undef, get_num_characters(trainer.vocabulary) + 1)
         trainer.chpylm_sampling_id_table = Vector{Char}(undef, get_num_characters(trainer.vocabulary) + 1)
         trainer.added_to_chpylm_train = fill(false, (length(dataset.train_sentences)))
@@ -150,7 +150,11 @@ function sample_hyperparameters(trainer::Trainer)
 end
 
 """
-Sample lambda values for different types of characters
+Sample lambda values for different types of characters.
+    
+For example, puncutation marks, alphabets, Chinese ideographs are all different types of characters.
+
+Each type would get its own average word length correction with a different lambda value.
 """
 function sample_lambda(trainer::Trainer)
     a_array = zeros(Float64, NUM_WORD_TYPES)
@@ -160,6 +164,7 @@ function sample_lambda(trainer::Trainer)
         a_array[t] = trainer.model.npylm.λ_a
         b_array[t] = trainer.model.npylm.λ_b
     end
+    # Get all sentences in the training set.
     for sentence in trainer.dataset.train_sentences
         # Go through each word in the sentence, excluding the BOS and EOS tokens.
         for index in 2:sentence.num_segments - 2
@@ -170,13 +175,14 @@ function sample_lambda(trainer::Trainer)
                 continue
             end
 
+            # If the word hasn't been added to the set of known words yet, add it.
             if !in(word_id, word_ids)
-                # Why would a word be non-present in WHPYLM even though it's already segmented though? Doesn't seem to make much sense.
-                # Anyways guess I should just put a zero there if that's the case.
+                # Get the tablegroups that correspond to this word in the root of the WHPYLM. Essentially we're just trying to count how frequent this word appeared.
+                # IMO this word should always be present in the root of the WHPYLM. If not then it's a bug. Anyways the [] there is just a failsafe measure.
                 tablegroups = get(trainer.model.npylm.whpylm.root.tablegroups, word_id, [])
                 num_tablegroups = length(tablegroups)
                 # TODO: Need to properly detect the word type.
-                t = 1
+                t = detect_word_type(word)
                 a_array[t] += num_tablegroups * word_length
                 b_array[t] += num_tablegroups
                 push!(word_ids, word_id)
@@ -192,7 +198,7 @@ end
 """
 This function tries to generate a word randomly from the CHPYLM. Used by the function `update_p_k_given_chpylm`.
 
-`skip_eow` means that EOW shouldn't be generated as the next char, when there is only BOW in the current word so far.
+`skip_eow` means that EOW shouldn't be generated as the next char. This applies when there is only BOW in the current word so far.
 """
 function sample_next_char_from_chpylm_given_context(trainer::Trainer, context_chars::OffsetVector{Char}, context_length::Int, sample_t::Int, skip_eow::Bool)
     prob_sum = 0.0
@@ -263,7 +269,7 @@ function update_p_k_given_chpylm(trainer::Trainer, num_samples::Int = 20000, ear
             continue
         end
 
-        # @ assert cur_word_length <= max_word_length
+        @assert cur_word_length <= max_word_length
         num_words_of_length_k[cur_word_length] += 1
 
         # If all possible lengths have enough data generated, we can terminate the sampling early.
@@ -285,7 +291,7 @@ function update_p_k_given_chpylm(trainer::Trainer, num_samples::Int = 20000, ear
         # Put in a Laplace smoothing over the final figures. Though seems that the divisor doesn't need this treatment anyways.
         # p_k_chpylm[k] = (num_words_of_length_k[k] + 1) / (num_words_sampled + max_word_length + 1)
         p_k_chpylm[k] = (num_words_of_length_k[k] + 1) / (num_words_sampled + max_word_length)
-        # @ assert p_k_chpylm[k] > 0
+        @assert p_k_chpylm[k] > 0
     end
 end
 
@@ -370,7 +376,7 @@ function blocked_gibbs_sampling(trainer::Trainer)
             trainer.added_to_chpylm_train[sentence_index] = true
         end
     end
-    # @ assert trainer.model.npylm.whpylm.root.ntables <= get_num_customers(trainer.model.npylm.chpylm)
+    @assert trainer.model.npylm.whpylm.root.ntables <= get_num_customers(trainer.model.npylm.chpylm)
 end
 
 # TODO: Summarize the difference between the usgae of the Viterbi algorithm and the original blocked sampler.
