@@ -69,7 +69,7 @@ mutable struct NPYLM
         npylm.chpylm_G_0_cache = Dict{Int, Float64}()
 
         # TODO: Expand upon word types and use different poisson distributions for different types.
-        npylm.λ_for_types = zeros(Float64, 0:NUM_WORD_TYPES)
+        npylm.λ_for_types = zeros(Float64, 0:WORDTYPE_NUM_TYPES)
         # Currently we use a trigram model.
         # TODO: bigram model
         npylm.whpylm_parent_p_w_cache = fill(0.0, 0:2)
@@ -161,7 +161,7 @@ function set_λ_prior(npylm::NPYLM, a::Float64, b::Float64)
 end
 
 function sample_λ_with_initial_params(npylm::NPYLM)
-    for i in 1:NUM_WORD_TYPES
+    for i in 1:WORDTYPE_NUM_TYPES
         # scale = 1/rate
         dist = Gamma(npylm.λ_a, 1/npylm.λ_b)
         npylm.λ_for_types[i] = rand(dist)

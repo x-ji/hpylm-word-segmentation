@@ -31,9 +31,6 @@ const CHPYLM_β_STOP = 0.57
 const CHPYLM_β_PASS = 0.85
 const CHPYLM_ϵ = 1e-12
 
-# TODO: Expand upon this later, if necessary
-const NUM_WORD_TYPES = 1
-
 # In C++ code you can pass in integers by reference. Here I guess you can only create such a struct to hold an integer.
 # Should remove this later and adopt a return-value-oriented way.
 mutable struct IntContainer

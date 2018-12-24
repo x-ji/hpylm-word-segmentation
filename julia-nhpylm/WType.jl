@@ -215,7 +215,7 @@ function detect_word_type(sentence::OffsetVector{Char}, begin_index::Int, end_in
         if(num_katakana + num_kanji == word_length)
             return WORDTYPE_KANJI_KATAKANA
         end
-        if(num_katakana)
+        if(num_katakana > 0)
             if(num_katakana + num_kanji + num_dash == word_length)
                 return WORDTYPE_KANJI_KATAKANA
             end

@@ -157,10 +157,10 @@ For example, puncutation marks, alphabets, Chinese ideographs are all different 
 Each type would get its own average word length correction with a different lambda value.
 """
 function sample_lambda(trainer::Trainer)
-    a_array = zeros(Float64, NUM_WORD_TYPES)
-    b_array = zeros(Float64, NUM_WORD_TYPES)
+    a_array = zeros(Float64, WORDTYPE_NUM_TYPES)
+    b_array = zeros(Float64, WORDTYPE_NUM_TYPES)
     word_ids::Set{UInt} = Set()
-    for t in 1:NUM_WORD_TYPES
+    for t in 1:WORDTYPE_NUM_TYPES
         a_array[t] = trainer.model.npylm.λ_a
         b_array[t] = trainer.model.npylm.λ_b
     end
@@ -188,7 +188,7 @@ function sample_lambda(trainer::Trainer)
                 push!(word_ids, word_id)
             end
         end
-        for t in 1:NUM_WORD_TYPES
+        for t in 1:WORDTYPE_NUM_TYPES
             dist = Gamma(a_array[t], 1 / b_array[t])
             trainer.model.npylm.λ_for_types[t] = rand(dist)
         end
