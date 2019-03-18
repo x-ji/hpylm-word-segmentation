@@ -1,0 +1,11 @@
+[package]
+name = "rust_nhpylm"
+version = "0.1.0"
+authors = ["Xiang Ji <hi@xiangji.me>"]
+
+[lib]
+name = "rust_nhpylm"
+path = "src/lib.rs"
+doc = true
+
+[dependencies]
