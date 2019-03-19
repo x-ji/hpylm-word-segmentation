@@ -1,10 +1,12 @@
 mod sentence;
 pub use sentence::Sentence;
 
+mod def;
+
 mod ctype;
 mod wtype;
 
-mod def;
+mod corpus;
 
 mod hpylm;
 mod whpylm;
