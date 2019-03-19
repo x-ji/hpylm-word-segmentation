@@ -9,3 +9,5 @@ path = "src/lib.rs"
 doc = true
 
 [dependencies]
+rand = "0.6.5"
+either = "1.5.1"
