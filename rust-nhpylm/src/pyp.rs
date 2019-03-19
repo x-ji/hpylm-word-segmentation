@@ -6,29 +6,27 @@ use self::either::*;
 use self::rand::distributions::{Bernoulli, Beta, Distribution, WeightedIndex};
 use self::rand::prelude::*;
 use self::rand::Rng;
+use def::*;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
-const HPYLM_INITIAL_D: f64 = 0.5;
-const HPYLM_INITIAL_THETA: f64 = 2.0;
-
-fn init_hyperparameters_at_depth_if_needed(
+pub fn init_hyperparameters_at_depth_if_needed(
   depth: usize,
   d_array: &mut Vec<f64>,
   theta_array: &mut Vec<f64>,
 ) {
   if depth >= d_array.len() {
-    while (d_array.len() <= depth) {
+    while d_array.len() <= depth {
       d_array.push(HPYLM_INITIAL_D);
     }
-    while (theta_array.len() <= depth) {
+    while theta_array.len() <= depth {
       theta_array.push(HPYLM_INITIAL_THETA);
     }
   }
 }
 
 pub struct PYP<T> {
-  children: HashMap<T, PYP<T>>,
+  pub children: HashMap<T, PYP<T>>,
   // https://stackoverflow.com/questions/36167160/how-do-i-express-mutually-recursive-data-structures-in-safe-rust
   parent: Option<*mut PYP<T>>,
   tablegroups: HashMap<T, Vec<usize>>,
@@ -36,8 +34,8 @@ pub struct PYP<T> {
   ncustomers: usize,
   stop_count: usize,
   pass_count: usize,
-  depth: usize,
-  context: T,
+  pub depth: usize,
+  pub context: T,
 }
 
 impl<T> PYP<T>
@@ -46,7 +44,7 @@ where
   T: std::hash::Hash,
   T: Copy,
 {
-  fn new(context: T) -> Self {
+  pub fn new(context: T) -> Self {
     Self {
       children: HashMap::new(),
       parent: None,
@@ -55,12 +53,12 @@ where
       ncustomers: 0,
       stop_count: 0,
       pass_count: 0,
-      depth: std::usize::MAX,
+      depth: 0,
       context: context,
     }
   }
 
-  fn need_to_remove_from_parent(&self) -> bool {
+  pub fn need_to_remove_from_parent(&self) -> bool {
     if self.parent == None {
       return false;
     } else if self.children.is_empty() && self.tablegroups.is_empty() {
@@ -70,7 +68,7 @@ where
     }
   }
 
-  fn get_num_tables_serving_dish(&self, dish: T) -> usize {
+  pub fn get_num_tables_serving_dish(&self, dish: T) -> usize {
     let tablegroup = self.tablegroups.get(&dish);
     match tablegroup {
       None => 0,
@@ -78,7 +76,7 @@ where
     }
   }
 
-  fn find_child_pyp(&mut self, dish: T, generate_if_not_found: bool) -> Option<&PYP<T>> {
+  pub fn find_child_pyp(&mut self, dish: T, generate_if_not_found: bool) -> Option<&PYP<T>> {
     if self.children.contains_key(&dish) {
       return self.children.get(&dish);
     }
@@ -96,7 +94,7 @@ where
     return self.children.get(&dish);
   }
 
-  fn add_customer_to_table(
+  pub fn add_customer_to_table(
     &mut self,
     dish: T,
     table_index: usize,
@@ -122,7 +120,7 @@ where
     }
   }
 
-  fn add_customer_to_new_table(
+  pub fn add_customer_to_new_table(
     &mut self,
     dish: T,
     g0_or_parent_p_ws: Either<f64, &Vec<f64>>,
@@ -147,7 +145,7 @@ where
     }
   }
 
-  fn _add_customer_to_new_table(&mut self, dish: T) {
+  pub fn _add_customer_to_new_table(&mut self, dish: T) {
     match self.tablegroups.entry(dish) {
       Entry::Vacant(e) => {
         e.insert(vec![1]);
@@ -161,7 +159,7 @@ where
     self.ncustomers += 1;
   }
 
-  fn remove_customer_from_table(
+  pub fn remove_customer_from_table(
     &mut self,
     dish: T,
     table_index: usize,
@@ -196,7 +194,7 @@ where
     return true;
   }
 
-  fn add_customer(
+  pub fn add_customer(
     &mut self,
     dish: T,
     g0_or_parent_p_ws: Either<f64, &Vec<f64>>,
@@ -286,7 +284,7 @@ where
     }
   }
 
-  fn remove_customer(
+  pub fn remove_customer(
     &mut self,
     dish: T,
     update_beta_count: bool,
@@ -329,7 +327,7 @@ where
     // self.remove_customer_from_table(dish, tablegroup.len() - 1, index_of_table_in_root);
   }
 
-  fn compute_p_w(
+  pub fn compute_p_w(
     &mut self,
     dish: T,
     g_0: f64,
@@ -364,7 +362,7 @@ where
     }
   }
 
-  fn compute_p_w_with_parent_p_w(
+  pub fn compute_p_w_with_parent_p_w(
     &mut self,
     dish: T,
     parent_p_w: f64,
@@ -394,7 +392,7 @@ where
 
   /* The following methods are specifically related to the character variant of PYP */
 
-  fn stop_probability(&self, beta_stop: f64, beta_pass: f64, recursive: bool) -> f64 {
+  pub fn stop_probability(&self, beta_stop: f64, beta_pass: f64, recursive: bool) -> f64 {
     let prob = (self.stop_count as f64 + beta_stop)
       / (self.stop_count as f64 + self.pass_count as f64 + beta_stop + beta_pass);
     if !recursive {
@@ -409,7 +407,7 @@ where
     }
   }
 
-  fn pass_probability(&self, beta_stop: f64, beta_pass: f64, recursive: bool) -> f64 {
+  pub fn pass_probability(&self, beta_stop: f64, beta_pass: f64, recursive: bool) -> f64 {
     let prob = (self.stop_count as f64 + beta_pass)
       / (self.stop_count as f64 + self.pass_count as f64 + beta_stop + beta_pass);
     if !recursive {
@@ -424,7 +422,7 @@ where
     }
   }
 
-  fn increment_stop_count(&mut self) {
+  pub fn increment_stop_count(&mut self) {
     self.stop_count += 1;
     match self.parent {
       None => {}
@@ -432,7 +430,7 @@ where
     }
   }
 
-  fn decrement_stop_count(&mut self) {
+  pub fn decrement_stop_count(&mut self) {
     self.stop_count -= 1;
     match self.parent {
       None => {}
@@ -440,7 +438,7 @@ where
     }
   }
 
-  fn increment_pass_count(&mut self) {
+  pub fn increment_pass_count(&mut self) {
     self.pass_count += 1;
     match self.parent {
       None => {}
@@ -448,7 +446,7 @@ where
     }
   }
 
-  fn decrement_pass_count(&mut self) {
+  pub fn decrement_pass_count(&mut self) {
     self.pass_count -= 1;
     match self.parent {
       None => {}
@@ -456,7 +454,7 @@ where
     }
   }
 
-  fn remove_from_parent(&self) -> bool {
+  pub fn remove_from_parent(&self) -> bool {
     match self.parent {
       None => false,
       Some(p) => unsafe {
@@ -466,7 +464,7 @@ where
     }
   }
 
-  fn delete_child_node(&mut self, dish: T) {
+  pub fn delete_child_node(&mut self, dish: T) {
     // let child = { self.find_child_pyp(dish, false) };
     // Yeah this is great. Think through the perspectives then. Why you need the variables in the first place, etc.
     // The thing about Rust then is that you won't need manual memory management. In C++ you'd need to write a line `delete child`, which here is not necessary. Thus the system like this.
@@ -478,7 +476,7 @@ where
     }
   }
 
-  fn get_max_depth(&self, base: usize) -> usize {
+  pub fn get_max_depth(&self, base: usize) -> usize {
     let mut max_depth = base;
     for child in self.children.values() {
       let depth = child.get_max_depth(base + 1);
@@ -489,7 +487,7 @@ where
     max_depth
   }
 
-  fn get_num_nodes(&self) -> usize {
+  pub fn get_num_nodes(&self) -> usize {
     let mut count = self.children.len();
     for child in self.children.values() {
       count += child.get_num_nodes();
@@ -497,7 +495,7 @@ where
     count
   }
 
-  fn get_num_tables(&self) -> usize {
+  pub fn get_num_tables(&self) -> usize {
     let mut count = self.ntables;
     // for tablegroup in self.tablegroups.values() {
     //   count += tablegroup.len();
@@ -508,7 +506,7 @@ where
     count
   }
 
-  fn get_num_customers(&self) -> usize {
+  pub fn get_num_customers(&self) -> usize {
     let mut count = self.ncustomers;
     for child in self.children.values() {
       count += child.get_num_customers();
@@ -516,7 +514,7 @@ where
     count
   }
 
-  fn get_pass_counts(&self) -> usize {
+  pub fn get_pass_counts(&self) -> usize {
     let mut count = self.pass_count;
     for child in self.children.values() {
       count += child.get_pass_counts();
@@ -524,7 +522,7 @@ where
     count
   }
 
-  fn get_stop_counts(&self) -> usize {
+  pub fn get_stop_counts(&self) -> usize {
     let mut count = self.stop_count;
     for child in self.children.values() {
       count += child.get_stop_counts();
@@ -533,7 +531,7 @@ where
   }
 
   // Don't think this is actually used.
-  // fn get_all_pyps_at_depth(&self, depth: usize, acc: &mut Vec<&PYP<T>>) {
+  // pub fn get_all_pyps_at_depth(&self, depth: usize, acc: &mut Vec<&PYP<T>>) {
   //   if self.depth == depth {
   //     acc.push(self);
   //   }
@@ -545,7 +543,7 @@ where
 
   The following methods sample them. */
 
-  fn sample_log_x_u(&self, theta_u: f64) -> f64 {
+  pub fn sample_log_x_u(&self, theta_u: f64) -> f64 {
     if self.ncustomers >= 2 {
       let dist = Beta::new(theta_u + 1.0, self.ncustomers as f64 - 1.0);
       // Prevent underflow.
@@ -556,7 +554,7 @@ where
     }
   }
 
-  fn sample_summed_y_ui(&self, d_u: f64, theta_u: f64, is_one_minus: bool) -> f64 {
+  pub fn sample_summed_y_ui(&self, d_u: f64, theta_u: f64, is_one_minus: bool) -> f64 {
     if self.ntables >= 2 {
       let mut sum = 0;
       for i in 1..self.ntables - 1 {
@@ -578,7 +576,7 @@ where
     }
   }
 
-  fn sample_summed_one_minus_z_uwkj(&self, d_u: f64) -> f64 {
+  pub fn sample_summed_one_minus_z_uwkj(&self, d_u: f64) -> f64 {
     let mut sum = 0;
     for tablegroup in self.tablegroups.values() {
       for customercount in tablegroup {
