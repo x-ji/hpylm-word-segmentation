@@ -19,7 +19,7 @@ end
 """
 Each node is essentially a Pitman-Yor process in the hierarchical Pitman-Yor language model
 
-We use a type parameter because it can be either for characters (Char) or for words (UTF32String/Int?)
+We use a type parameter because it can be either for characters (Char) or for words (UTF32String/UInt)
 
 The root PYP (depth 0) contains zero context. The deeper the depth, the longer the context.
 """
@@ -27,7 +27,7 @@ mutable struct PYP{T}
     """
     Directly keep track of the children PYPs.
 
-    The key in the Dict is the *additional* context to be *prepended to* the context up to now represented by this PYP.
+    The key in the Dict is the *additional* context to be *prepended to* the whole context represented by this PYP.
 
     For example, when the current node represents the 1-gram context "will", the keys might be "he" or "she", etc., leading to nodes representing the 2-gram contexts "he will", "she will" etc.
     """
@@ -45,11 +45,11 @@ mutable struct PYP{T}
     """
     tablegroups::Dict{T,Vector{Int}}
 
-    """
-    This is just a convenient variable to keep track of the total number of table groups, i.e. unique dishes, present in this `CRP` so far.
+    # """
+    # This is just a convenient variable to keep track of the total number of table groups, i.e. unique dishes, present in this `CRP` so far.
 
-    I'm actually not very sure now whether it is for table **groups** or **tables**. Let me go on and see how the cold unfolds then.
-    """
+    # I'm actually not very sure now whether it is for table **groups** or **tables**. Let me go on and see how the code unfolds then.
+    # """
     # ntablegroups::Int
 
     """
@@ -57,16 +57,18 @@ mutable struct PYP{T}
     """
     ntables::Int
 
+    # """
+    # +This is a convenient variable to keep track of the total number of customers for each unique dish. The key of the `Dict` is the dish, while the value of the `Dict` is the total number of customers for this dish.+
+
+    # +This is helpful because as mentioned above, there could be multiple tables serving the same dish, and we need to add those counts together.+
+    # """
+    # ncustomers::Dict{T,Int}
+
     """
-    +This is a convenient variable to keep track of the total number of customers for each unique dish. The key of the `Dict` is the dish, while the value of the `Dict` is the total number of customers for this dish.+
-
-    +This is helpful because as mentioned above, there could be multiple tables serving the same dish, and we need to add those counts together.+
-
     In the case of the C++ implementation, there is only a total number, while to get the individual number for a particular dish one will have to do some computation.
 
-    TODO: I can experiment to see if the other way round is faster. For now let me follow the C++ implementation.
+    TODO: I can experiment to see if the other way round (commented out above) is faster. For now let me follow the C++ implementation.
     """
-    # ncustomers::Dict{T,Int}
     ncustomers::Int
 
     "Useful only for CHPYLM. The number of times that the process has stopped at this Node."
@@ -238,6 +240,13 @@ end
 # Right, so d_array and θ_array are really the arrays that hold *all* hyperparameters for *all levels*
 # And then we're going to get the hyperparameters for this level, i.e. d_u and \theta_u from those arrays.
 # Another approach to do it, for sure.
+"""
+Adds a customer eating a certain dish to a node.
+
+Note that this method is applicable to both the WHPYLM and the CHPYLM, thus the type parameter.
+
+d_array and θ_array contain the d values and θ values for each depth of the relevant HPYLM (Recall that those values are the same for one single depth.)
+"""
 function add_customer(pyp::PYP{T}, dish::T, G_0_or_parent_p_ws::Union{Float64, OffsetVector{Float64}}, d_array::OffsetVector{Float64}, θ_array::OffsetVector{Float64}, update_beta_count::Bool, index_of_table_in_root::IntContainer)::Bool where T
     # if dish == 1
     #     println("In add_customer, dish is $dish, index_of_table_in_root is $index_of_table_in_root), pyp.depth is $(pyp.depth), pyp.tablegroups is $(pyp.tablegroups), pyp.parent is nothing? $(pyp.parent == nothing), pyp.parent.depth is $(pyp.parent.depth)")
@@ -248,7 +257,7 @@ function add_customer(pyp::PYP{T}, dish::T, G_0_or_parent_p_ws::Union{Float64, O
     θ_u = θ_array[pyp.depth]
     # println("What the hell")
     parent_p_w::Float64 =
-    # It seems that we do need to initialize this separately since sometimes this can result in nothing? Though why?
+    # It seems that we do need to compute the parent_p_w separately since sometimes this can turn out to be nothing? I guess it is the scenario where you just add a customer to a level way too deep then.
     if typeof(G_0_or_parent_p_ws) == Float64
         if pyp.parent != nothing
             compute_p_w(pyp.parent, dish, G_0_or_parent_p_ws, d_array, θ_array)
@@ -402,9 +411,9 @@ function compute_p_w(pyp::PYP{T}, dish::T, G_0::Float64, d_array::OffsetVector{F
     end
 end
 
-# Note that I added a final Bool argument to indicate whether the thing is already parent_p_w or is G_0, so that I don't end up duplicating the  method.
+# Note that I added a final Bool argument to indicate whether the thing is already parent_p_w or is G_0, so that I don't end up duplicating the method.
 """
-Compute the possibility of the word/char `dish` being generated from this pyp (i.e. having this pyp as its context)
+Compute the possibility of the word/char `dish` being generated from this pyp (i.e. having this pyp as its context). The equation is the one recorded in the original Teh 2006 paper.
 
 When is_parent_p_w == True, the third argument is the parent_p_w. Otherwise it's simply the G_0.
 """

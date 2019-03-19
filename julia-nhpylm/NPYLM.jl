@@ -168,17 +168,21 @@ function sample_λ_with_initial_params(npylm::NPYLM)
     end
 end
 
+"""
+This function adds the nth segmented word in the sentence to the NPYLM.
+"""
 function add_customer_at_index_n(npylm::NPYLM, sentence::Sentence, n::Int)::Bool
+    # The first two entries are always the BOS symbols.
     @assert(n >= 2)
     token_n::UInt = get_nth_word_id(sentence, n)
     pyp::PYP{UInt} = find_node_by_tracing_back_context_from_index_n(npylm, sentence, n, npylm.whpylm_parent_p_w_cache, true, false)
     @assert pyp != nothing
     num_tables_before_addition::Int = npylm.whpylm.root.ntables
     index_of_table_added_to_in_root::IntContainer = IntContainer(-1)
-    word_begin_index = sentence.segment_begin_positions[n]
-    word_end_index = word_begin_index + sentence.segment_lengths[n] - 1
     add_customer(pyp, token_n, npylm.whpylm_parent_p_w_cache, npylm.whpylm.d_array, npylm.whpylm.θ_array, true, index_of_table_added_to_in_root)
     num_tables_after_addition::Int = npylm.whpylm.root.ntables
+    word_begin_index = sentence.segment_begin_positions[n]
+    word_end_index = word_begin_index + sentence.segment_lengths[n] - 1
     # If the number of tables in the root is increased, we'll need to break down the word into characters and add them to the chpylm as well.
     # Remember that a customer has a certain probability to sit at a new table. However, it might also join an old table, in which case the G_0 doesn't change?
     if (num_tables_before_addition < num_tables_after_addition)
@@ -433,22 +437,28 @@ function sample_hyperparameters(npylm::NPYLM)
     sample_hyperparameters(npylm.chpylm)
 end
 
+"""
+Compute the probability of the sentence by using the product of the probabilities of the words that make up the sentence.
+"""
+function compute_probability_of_sentence(npylm::NPYLM, sentence::Sentence)
+    prod = 1.0
+    for n in 2:sentence.num_segments - 1
+        prod *= compute_p_w_of_nth_word(npylm, sentence, n)
+    end
+    return prod
+end
+
+"""
+Compute the probability of the sentence by using the sum of the log probabilities of the words that make up the sentence.
+
+Using log could be more beneficial in preventing underflow.
+"""
 function compute_log_probability_of_sentence(npylm::NPYLM, sentence::Sentence)
     sum = 0.0
     for n in 2:sentence.num_segments - 1
         sum += log(compute_p_w_of_nth_word(npylm, sentence, n))
     end
     return sum
-end
-
-# Do we really need two versions of this function. Apparently one would suffice?
-function compute_probability_of_sentence(npylm::NPYLM, sentence::Sentence)
-    # Fuck. Apparently got this one wrong for some reason! Damn it.
-    prod = 1.0
-    for n in 2:sentence.num_segments - 1
-        prod *= compute_p_w_of_nth_word(npylm, sentence, n)
-    end
-    return prod
 end
 
 # This is the real "compute_p_w"... The above ones don't have much to do with p_w I reckon. They are about whole sentences. Eh.

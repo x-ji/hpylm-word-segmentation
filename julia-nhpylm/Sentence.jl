@@ -2,7 +2,9 @@ import Base.length
 using LegacyStrings
 using OffsetArrays
 
-#= Begin Sentence =#
+"""
+This struct holds everything that represents a sentence, including the raw string that constitute the sentence, and the potential segmentation of the sentence, if it is segmented, either via a preexisting segmentation or via running the forward-filtering-backward-sampling segmentation algorithm.
+"""
 mutable struct Sentence
     num_segments::Int
     "The length of the segments within this sentence."
@@ -12,22 +14,6 @@ mutable struct Sentence
     supervised::Bool
     """
     The individual characters that make up this sentence
-
-    You may well still need them in Julia, since in Julia the string indices are byte indices, not real character indices. For example:
-
-    ```
-    > a = "我们"
-    > a[1]
-    '我': Unicode U+6211 (category Lo: Letter, other)
-    > a[2]
-    ERROR: UTF32StringIndexError("我们", 2)
-    > a[4]
-    '们': Unicode U+4eec (category Lo: Letter, other)
-
-    Although of course we can directly iterate the string with `for c in a`. Maybe that will make for a more idiomatic solution in Julia. Let me see if I can refactor the code that way later then.
-    ```
-
-    Therefore, we can't do much with the sentence_string by trying to directly index-access it!
     """
     characters::OffsetVector{Char}
     "The corresponding integer representations of the words. This includes both bos (2) and eos (1)
@@ -35,7 +21,23 @@ mutable struct Sentence
     Because `hash` returns UInt, the contents also need to be UInt.
     "
     word_ids::OffsetVector{UInt}
-    "The string that makes up the sentence"
+    """
+    The string that makes up the sentence
+
+    Note how the `UTF32String` type is used here: In Julia, the indices of the default `String` type are byte indices, not real character indices. For example:
+
+    ```julia
+    > a = "我们"
+    > a[1]
+    '我': Unicode U+6211 (category Lo: Letter, other)
+    > a[2]
+    ERROR: UTF32StringIndexError("我们", 2)
+    > a[4]
+    '们': Unicode U+4eec (category Lo: Letter, other)
+    ```
+
+    However, in this program we need to constantly access individual characters in the string directly by their indices. Therefore, UTF32String, which always stores its characters in a fixed-width fashion, similar to the `wstring` type in C++, is used.
+    """
     sentence_string::UTF32String
     function Sentence(sentence_string::UTF32String)
         s = new()

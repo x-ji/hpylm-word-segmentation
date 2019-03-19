@@ -3,7 +3,7 @@
 # include("Sentence.jl")
 # using OffsetArrays
 """
-This structs holds all the necessary fields and functions for sampling sentence segmentations using forward-backward inference.
+This structs holds all the necessary fields for sampling sentence segmentations using forward-backward inference.
 """
 mutable struct Sampler
     npylm::NPYLM
@@ -114,6 +114,45 @@ function get_substring_word_id_at_t_k(sampler::Sampler, sentence::Sentence, t::I
     return word_id
 end
 
+"""
+Performs the forward filtering on the target sentence.
+"""
+function forward_filtering(sampler::Sampler, sentence::Sentence, with_scaling::Bool)
+    sampler.α_tensor[0,0,0] = 1
+    for t in 1:length(sentence)
+        prod_scaling = 1.0
+        # The original paper most likely made a mistake on this. Apparently one should take min(t, L) instead of max(1, t - L) which makes no sense.
+        for k in 1:min(t, sampler.max_word_length)
+            if (with_scaling && k > 1)
+                # TODO: Why + 1 though. Need to understand prod_scaling better.
+                prod_scaling *= sampler.scaling_coefficients[t - k + 1]
+            end
+            # If t - k = 0 then the loop will not be executed at all.
+            for j in (t == k ? 0 : 1):min(t - k, sampler.max_word_length)
+                sampler.α_tensor[t,k,j] = 0
+                calculate_α_t_k_j(sampler, sentence, t, k, j, prod_scaling)
+            end
+        end
+
+        # Perform scaling operations on the alpha tensor, in order to avoid underflowing.
+        if (with_scaling)
+            sum_α = 0.0
+            for k in 1:min(t, sampler.max_word_length)
+                for j in (t == k ? 0 : 1):min(t - k, sampler.max_word_length)
+                    sum_α += sampler.α_tensor[t,k,j]
+                end
+            end
+            @assert sum_α > 0.0
+            sampler.scaling_coefficients[t] = 1.0 / sum_α
+            for k in 1:min(t, sampler.max_word_length)
+                for j in (t == k ? 0 : 1):min(t - k, sampler.max_word_length)
+                    sampler.α_tensor[t,k,j] *= sampler.scaling_coefficients[t]
+                end
+            end
+        end
+    end
+end
+
 # If α[t-k][j][i] is already normalized, there's no need to normalize α[t][k][j]
 raw"""
 The step during forward filtering where α[t][k][j] is calculated
@@ -165,7 +204,6 @@ function calculate_α_t_k_j(sampler::Sampler, sentence::Sentence, t::Int, k::Int
         # Perform the normal marginalization procedure in all other cases
         sum = 0.0
         for i in 1:min(t - k - j, sampler.max_word_length)
-            # Yeah I was most likely mixing indices up. All those indexing just don't make much sense let's go on and see then.
             word_i_id = get_substring_word_id_at_t_k(sampler, sentence, t - k - j, i)
             word_j_id = get_substring_word_id_at_t_k(sampler, sentence, t - k, j)
             # The first gram
@@ -190,54 +228,23 @@ function calculate_α_t_k_j(sampler::Sampler, sentence::Sentence, t::Int, k::Int
     end
 end
 
-function forward_filtering(sampler::Sampler, sentence::Sentence, with_scaling::Bool)
-    sampler.α_tensor[0,0,0] = 1
-    for t in 1:length(sentence)
-        prod_scaling = 1.0
-        # The original paper most likely made a mistake on this. Apparently one should take min(t, L) instead of max(1, t - L) which makes no sense.
-        for k in 1:min(t, sampler.max_word_length)
-            if (with_scaling && k > 1)
-                # TODO: Why + 1 though. Need to understand prod_scaling better.
-                prod_scaling *= sampler.scaling_coefficients[t - k + 1]
-            end
-            # If t - k = 0 then the loop will not be executed at all.
-            for j in (t == k ? 0 : 1):min(t - k, sampler.max_word_length)
-                sampler.α_tensor[t,k,j] = 0
-                calculate_α_t_k_j(sampler, sentence, t, k, j, prod_scaling)
-            end
-        end
-
-        # Perform scaling operations on the alpha tensor, in order to avoid underflowing.
-        if (with_scaling)
-            sum_α = 0.0
-            for k in 1:min(t, sampler.max_word_length)
-                for j in (t == k ? 0 : 1):min(t - k, sampler.max_word_length)
-                    sum_α += sampler.α_tensor[t,k,j]
-                end
-            end
-            @assert sum_α > 0.0
-            sampler.scaling_coefficients[t] = 1.0 / sum_α
-            for k in 1:min(t, sampler.max_word_length)
-                for j in (t == k ? 0 : 1):min(t - k, sampler.max_word_length)
-                    sampler.α_tensor[t,k,j] *= sampler.scaling_coefficients[t]
-                end
-            end
-        end
-    end
-end
-
+"""
+Performs the backward sampling on the target sentence.
+"""
 function backward_sampling(sampler::Sampler, sentence::Sentence)
     t = length(sentence)
     k = IntContainer(0)
     j = IntContainer(0)
     sum_length = 0
     backward_sample_k_and_j(sampler, sentence, t, 1, k, j)
+
     # I'm not sure yet why the segments array should contain their lengths instead of the word ids themselves. I guess it's just a way to increase efficiency and all that.
     segment_lengths = Int[]
+
+    # Record the last word we just sampled.
     push!(segment_lengths, k.int)
 
-    # There's only one word in total for the sentence.
-    # Damn why did I return nothing here. This is dumb.
+    # Deal with the special case: There's only one word in total for the sentence.
     if j.int == 0 && k.int == t
         return OffsetArray(reverse(segment_lengths), 0:length(segment_lengths) - 1)
     end
@@ -245,6 +252,7 @@ function backward_sampling(sampler::Sampler, sentence::Sentence)
     @assert(k.int > 0 && j.int > 0)
     @assert(j.int <= sampler.max_word_length)
 
+    # Record the second-to-last word we just sampled.
     push!(segment_lengths, j.int)
     t -= (k.int + j.int)
     sum_length += k.int + j.int
@@ -279,7 +287,7 @@ function backward_sampling(sampler::Sampler, sentence::Sentence)
 end
 
 """
-Returns k and j in a tuple
+Returns k and j in a tuple, which denote the offsets for word boundaries of the two words we are interested in sampling.
 
 "next_word" really means the target word, the last gram in the 3 gram, e.g. the EOS in p(EOS | c^N_{N-k} c^{N-k}_{N-k-j})
 """
@@ -292,7 +300,7 @@ function backward_sample_k_and_j(sampler::Sampler, sentence::Sentence, t::Int, t
         for j in 1:min(t - k, sampler.max_word_length)
             word_j_id = get_substring_word_id_at_t_k(sampler, sentence, t - k, j)
             word_k_id = get_substring_word_id_at_t_k(sampler, sentence, t, k)
-            # When we begin the backward sampling on a sentence, note that the final token is always EOS. We have probabilities p(EOS | c^N_{N-k} c^{N-k}_{N-k-j}) * α[N][k][j])
+            # When we begin the backward sampling on a sentence, note that the final token is always EOS. We have probabilities p(EOS | c^N_{N - k + 1} c^{N-k}_{N-k-j + 1}) * α[N][k][j])
             word_t_id = EOS
             if t < length(sentence)
                 @assert(t + third_gram_length <= length(sentence))
@@ -305,10 +313,11 @@ function backward_sample_k_and_j(sampler::Sampler, sentence::Sentence, t::Int, t
             sampler.word_ids[2] = word_t_id
             p_w_h = 0.0
             if t == length(sentence)
+                # The only exception to caching is the situation where the last gram is EOS.
                 # p(EOS | c^N_{N-k} c^{N-k}_{N-k-j})
                 p_w_h = compute_p_w_of_nth_word(sampler.npylm, sentence_as_chars, sampler.word_ids, 2, t, t)
             else
-                # We should have already cached this value.
+                # In all other scenarios, we should have already cached this value.
                 p_w_h = sampler.p_w_h_cache[t + third_gram_length, third_gram_length, k, j]
             end
             @assert(sampler.α_tensor[t,k,j] > 0)
@@ -320,8 +329,9 @@ function backward_sample_k_and_j(sampler::Sampler, sentence::Sentence, t::Int, t
             # println("p_w_h is $(p_w_h), sampler.α_tensor[t,k,j] is $(sampler.α_tensor[t,k,j]), p is $(p), sum_p is $(sum_p)")
             table_index += 1
         end
-        # TODO: One can likely refactor this code a bit more. Just setting j = 0 should be enough shouldn't it?
         # In this case the first gram is BOS. The third gram is EOS.
+        # This is a kind of a special case that needs to be taken care of, since if t - k == 0, the inner loop will be `for j in 1:0`, i.e. it will never be executed at all.
+        # TODO: One can likely refactor this code a bit more. Just setting j = 0 should be enough shouldn't it?
         if t == k
             j = 0
             word_j_id = BOS
@@ -367,6 +377,7 @@ function backward_sample_k_and_j(sampler::Sampler, sentence::Sentence, t::Int, t
         for j in 1:min(t - k, sampler.max_word_length)
             @assert(index < table_index)
             @assert(sampler.backward_sampling_table[index] > 0.0)
+            # Each unique index corresponds to a unique [k, j] combination.
             stack += sampler.backward_sampling_table[index] * normalizer
             # println("randnum is $(randnum), stack is $(stack)")
             if randnum < stack
@@ -395,7 +406,6 @@ function backward_sample_k_and_j(sampler::Sampler, sentence::Sentence, t::Int, t
     println("Fell through!")
 end
 
-# TODO: This function name is not totally accurate as "blocked Gibbs" is really the name of the whole procedure, while this function only takes care of the "draw segmentation" part.
 "Does the segment part in the blocked Gibbs algorithm (line 6 of Figure 3 of the paper)"
 function blocked_gibbs_segment(sampler::Sampler, sentence::Sentence, with_scaling::Bool)
     for i in 0:length(sentence)

@@ -369,7 +369,8 @@ function blocked_gibbs_sampling(trainer::Trainer)
                 end
             end
 
-            # Put in the new segmentation results
+            # Put the sentence data into the NPYLM
+            # Note that if the sentence has never been added to CHPYLM before, ? what was I going to write here?
             for n in 2:sentence.num_segments - 1
                 add_customer_at_index_n(trainer.model.npylm, sentence, n)
             end
@@ -499,7 +500,10 @@ function train(corpus_path, output_path, split_proportion = 0.9, epochs = 100000
     for epoch in 1:epochs
         start_time = time()
         blocked_gibbs_sampling(trainer)
-        # sample_hyperparameters(trainer)
+        # Only sample hyperparameters for every 10 epochs since it's still quite expensive.
+        if epoch % 10 == 0
+            sample_hyperparameters(trainer)
+        end
         sample_lambda(trainer)
 
         # The accuracy is better after several iterations have been already done.
@@ -512,7 +516,6 @@ function train(corpus_path, output_path, split_proportion = 0.9, epochs = 100000
         if epoch % 10 == 0
             print_segmentations_train(trainer, 10)
             println("Perplexity_dev: $(compute_perplexity_dev(trainer))")
-            sample_hyperparameters(trainer)
         end
     end
 

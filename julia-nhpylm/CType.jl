@@ -281,7 +281,7 @@ const CTYPE_SUPPLEMENTARY_PRIVATE_USE_AREA_A = 279
 const CTYPE_SUPPLEMENTARY_PRIVATE_USE_AREA_B = 280
 
 """
-Detects the type of a given character
+Detect the type of a given character
 """
 function detect_ctype(char::Char)::Int
     c = codepoint(char)
