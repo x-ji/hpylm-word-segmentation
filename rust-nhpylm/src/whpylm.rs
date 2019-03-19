@@ -104,9 +104,9 @@ impl HPYLM<u64> for WHPYLM {
       let d = self.d_array[depth];
       let theta = self.theta_array[depth];
       sum_log_x_u_array[depth] += node.sample_log_x_u(theta);
-      sum_y_ui_array[0] += node.sample_summed_y_ui(d, theta, false);
-      sum_one_minus_y_ui_array[0] += node.sample_summed_y_ui(d, theta, true);
-      sum_one_minus_z_uwkj_array[0] += node.sample_summed_one_minus_z_uwkj(d);
+      sum_y_ui_array[depth] += node.sample_summed_y_ui(d, theta, false);
+      sum_one_minus_y_ui_array[depth] += node.sample_summed_y_ui(d, theta, true);
+      sum_one_minus_z_uwkj_array[depth] += node.sample_summed_one_minus_z_uwkj(d);
 
       self.sum_auxiliary_variables_recursively(
         child,
@@ -138,7 +138,7 @@ impl HPYLM<u64> for WHPYLM {
 
     self.depth = 0;
     self.sum_auxiliary_variables_recursively(
-      &mut self.root,
+      &self.root,
       &mut sum_log_x_u_array,
       &mut sum_y_ui_array,
       &mut sum_one_minus_y_ui_array,
