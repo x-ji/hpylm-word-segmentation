@@ -25,6 +25,7 @@ pub fn init_hyperparameters_at_depth_if_needed(
   }
 }
 
+#[derive(Clone)]
 pub struct PYP<T> {
   pub children: HashMap<T, PYP<T>>,
   // https://stackoverflow.com/questions/36167160/how-do-i-express-mutually-recursive-data-structures-in-safe-rust
@@ -76,9 +77,9 @@ where
     }
   }
 
-  pub fn find_child_pyp(&mut self, dish: T, generate_if_not_found: bool) -> Option<&PYP<T>> {
+  pub fn find_child_pyp(&mut self, dish: T, generate_if_not_found: bool) -> Option<&mut PYP<T>> {
     if self.children.contains_key(&dish) {
-      return self.children.get(&dish);
+      return self.children.get_mut(&dish);
     }
 
     if !generate_if_not_found {
@@ -91,7 +92,7 @@ where
     self.children.insert(dish, child);
     // Fucking hell this actually worked!
     // return Some(self.children.get(&dish).unwrap());
-    return self.children.get(&dish);
+    return self.children.get_mut(&dish);
   }
 
   pub fn add_customer_to_table(
