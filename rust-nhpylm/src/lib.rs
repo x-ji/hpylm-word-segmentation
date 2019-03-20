@@ -8,6 +8,7 @@ mod wtype;
 
 mod corpus;
 
+mod chpylm;
 mod hpylm;
 mod whpylm;
 
