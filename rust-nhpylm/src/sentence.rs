@@ -4,20 +4,17 @@ use def::*;
 // pub const EOS: u64 = calculate_hash(&EOS_CHAR);
 
 pub struct Sentence {
-    num_segments: usize,
-    segment_lengths: Vec<usize>,
-    segment_begin_positions: Vec<usize>,
-    supervised: bool,
-    characters: Vec<char>,
-    word_ids: Vec<u64>,
-    sentence_string: String,
+    pub num_segments: usize,
+    pub segment_lengths: Vec<usize>,
+    pub segment_begin_positions: Vec<usize>,
+    pub supervised: bool,
+    pub characters: Vec<char>,
+    pub word_ids: Vec<u64>,
+    pub sentence_string: String,
 }
 
 impl Sentence {
     pub fn new(sentence_string: String, supervised: bool) -> Self {
-        let BOS = calculate_hash(&BOS_CHAR);
-        let EOS = calculate_hash(&EOS_CHAR);
-
         let mut word_ids: Vec<u64> = vec![0; sentence_string.len() + 3];
         word_ids[0] = BOS;
         word_ids[1] = BOS;

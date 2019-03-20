@@ -7,9 +7,9 @@ use hpylm::{init_hyperparameters_at_depth_if_needed, sum_auxiliary_variables_rec
 use pyp::*;
 
 pub struct WHPYLM {
-    root: PYP<u64>,
-    depth: usize,
-    g_0: f64,
+    pub root: PYP<u64>,
+    pub depth: usize,
+    pub g_0: f64,
     d_array: Vec<f64>,
     theta_array: Vec<f64>,
     /*
@@ -24,7 +24,7 @@ pub struct WHPYLM {
 }
 
 impl WHPYLM {
-    fn new(order: usize) -> Self {
+    pub fn new(order: usize) -> Self {
         Self {
             root: PYP::new(0),
             depth: 0.max(order - 1),

@@ -11,9 +11,9 @@ use self::rand::prelude::*;
 use self::rand::Rng;
 
 pub struct CHPYLM {
-    root: PYP<char>,
-    depth: usize,
-    g_0: f64,
+    pub root: PYP<char>,
+    pub depth: usize,
+    pub g_0: f64,
     d_array: Vec<f64>,
     theta_array: Vec<f64>,
     /*
@@ -35,7 +35,7 @@ pub struct CHPYLM {
 }
 
 impl CHPYLM {
-    fn new(g_0: f64, max_depth: usize, beta_stop: f64, beta_pass: f64) -> Self {
+    pub fn new(g_0: f64, max_depth: usize, beta_stop: f64, beta_pass: f64) -> Self {
         let root = PYP::new(BOW);
         Self {
             root: root,
@@ -195,9 +195,9 @@ impl CHPYLM {
         return Some(cur_node);
     }
 
-    // fn compute_p_w(&self, characters: Vec<char>) -> f64 {
-    //     return
-    // }
+    pub fn compute_p_w(&self, characters: &Vec<char>) -> f64 {
+        return self.compute_log_p_w(characters).exp();
+    }
 
     fn compute_log_p_w(&mut self, characters: &Vec<char>) -> f64 {
         let char = characters[0];

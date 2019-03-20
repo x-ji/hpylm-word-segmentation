@@ -30,11 +30,11 @@ pub struct PYP<T> {
   pub children: HashMap<T, PYP<T>>,
   // https://stackoverflow.com/questions/36167160/how-do-i-express-mutually-recursive-data-structures-in-safe-rust
   parent: Option<*mut PYP<T>>,
-  tablegroups: HashMap<T, Vec<usize>>,
-  ntables: usize,
-  ncustomers: usize,
-  stop_count: usize,
-  pass_count: usize,
+  pub tablegroups: HashMap<T, Vec<usize>>,
+  pub ntables: usize,
+  pub ncustomers: usize,
+  pub stop_count: usize,
+  pub pass_count: usize,
   pub depth: usize,
   pub context: T,
 }
