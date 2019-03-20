@@ -1,8 +1,4 @@
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
-
-pub const BOS_CHAR: char = 'Α';
-pub const EOS_CHAR: char = 'Ω';
+use def::*;
 
 // pub const BOS: u64 = calculate_hash(&BOS_CHAR);
 // pub const EOS: u64 = calculate_hash(&EOS_CHAR);
@@ -15,12 +11,6 @@ pub struct Sentence {
     characters: Vec<char>,
     word_ids: Vec<u64>,
     sentence_string: String,
-}
-
-fn calculate_hash<T: Hash>(t: &T) -> u64 {
-    let mut s = DefaultHasher::new();
-    t.hash(&mut s);
-    s.finish()
 }
 
 impl Sentence {
@@ -56,23 +46,23 @@ impl Sentence {
         }
     }
 
-    fn length(&self) -> usize {
+    pub fn length(&self) -> usize {
         self.sentence_string.len()
     }
 
-    fn get_num_segments_without_special_tokens(&self) -> usize {
+    pub fn get_num_segments_without_special_tokens(&self) -> usize {
         self.num_segments - 3
     }
 
-    fn get_nth_segment_length(&self, n: usize) -> usize {
+    pub fn get_nth_segment_length(&self, n: usize) -> usize {
         self.segment_lengths[n]
     }
 
-    fn get_nth_word_id(&self, n: usize) -> u64 {
+    pub fn get_nth_word_id(&self, n: usize) -> u64 {
         self.word_ids[n]
     }
 
-    fn get_substr_word_id(&self, start_index: usize, end_index: usize) -> u64 {
+    pub fn get_substr_word_id(&self, start_index: usize, end_index: usize) -> u64 {
         // Why don't you just directly index the characters?
         // calculate_hash(&s.characters[start_index..end_index])
         let substr: String = self
@@ -84,7 +74,7 @@ impl Sentence {
         calculate_hash(&substr)
     }
 
-    fn get_nth_word_string(&self, n: usize) -> String {
+    pub fn get_nth_word_string(&self, n: usize) -> String {
         if n < 2 {
             return String::from("<BOS>");
         } else {
@@ -98,7 +88,7 @@ impl Sentence {
         }
     }
 
-    fn split_sentence_with_num_segments(
+    pub fn split_sentence_with_num_segments(
         &mut self,
         segment_lengths: Vec<usize>,
         num_segments_without_special_tokens: usize,
@@ -135,7 +125,7 @@ impl Sentence {
         self.num_segments = num_segments_without_special_tokens + 3;
     }
 
-    fn split_sentence(&mut self, segment_lengths: Vec<usize>) {
+    pub fn split_sentence(&mut self, segment_lengths: Vec<usize>) {
         let num_segments_without_special_tokens = segment_lengths.len();
         self.split_sentence_with_num_segments(segment_lengths, num_segments_without_special_tokens);
     }
