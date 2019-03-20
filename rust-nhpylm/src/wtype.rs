@@ -1,6 +1,6 @@
 use ctype::*;
 
-const WORDTYPE_NUM_TYPES: usize = 9;
+pub const WORDTYPE_NUM_TYPES: usize = 9;
 
 const WORDTYPE_ALPHABET: usize = 1;
 const WORDTYPE_NUMBER: usize = 2;
@@ -130,10 +130,10 @@ pub fn is_symbol(c: char) -> bool {
 }
 
 pub fn detect_word_type(word: &String) -> usize {
-  return detect_word_type_substr(word.chars().collect(), 0, word.len() - 1);
+  return detect_word_type_substr(&word.chars().collect(), 0, word.len() - 1);
 }
 
-pub fn detect_word_type_substr(chars: Vec<char>, start: usize, end: usize) -> usize {
+pub fn detect_word_type_substr(chars: &Vec<char>, start: usize, end: usize) -> usize {
   let mut num_alphabet = 0;
   let mut num_number = 0;
   let mut num_symbol = 0;
