@@ -1,17 +1,15 @@
-extern crate rand;
-
-use self::rand::distributions::{Beta, Gamma};
-use self::rand::prelude::*;
 use def::*;
 use hpylm::{init_hyperparameters_at_depth_if_needed, sum_auxiliary_variables_recursively, HPYLM};
 use pyp::*;
+use rand::distributions::{Beta, Gamma};
+use rand::prelude::*;
 
 pub struct WHPYLM {
     pub root: PYP<u64>,
     pub depth: usize,
     pub g_0: f64,
-    d_array: Vec<f64>,
-    theta_array: Vec<f64>,
+    pub d_array: Vec<f64>,
+    pub theta_array: Vec<f64>,
     /*
       These variables are related to the sampling process as described in the Teh technical report, expressions (40) and (41)
 

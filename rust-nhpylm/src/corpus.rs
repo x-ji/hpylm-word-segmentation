@@ -1,7 +1,5 @@
-extern crate rand;
-
-use self::rand::seq::SliceRandom;
-use self::rand::{thread_rng, Rng};
+use rand::seq::SliceRandom;
+use rand::{thread_rng, Rng};
 
 use sentence::*;
 use std::collections::HashSet;

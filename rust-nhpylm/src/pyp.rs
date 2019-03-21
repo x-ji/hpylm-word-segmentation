@@ -1,12 +1,9 @@
-extern crate either;
-extern crate rand;
-
 // Seems that I'll have to prepend self:: because this is a library?
-use self::either::*;
-use self::rand::distributions::{Bernoulli, Beta, Distribution, WeightedIndex};
-use self::rand::prelude::*;
-use self::rand::Rng;
 use def::*;
+use either::*;
+use rand::distributions::{Bernoulli, Beta, Distribution, WeightedIndex};
+use rand::prelude::*;
+use rand::Rng;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 

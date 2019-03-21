@@ -1,21 +1,18 @@
-extern crate either;
-extern crate rand;
-
 use def::*;
 use hpylm::HPYLM;
 use pyp::*;
 
-use self::either::*;
-use self::rand::distributions::WeightedIndex;
-use self::rand::prelude::*;
-use self::rand::Rng;
+use either::*;
+use rand::distributions::WeightedIndex;
+use rand::prelude::*;
+use rand::Rng;
 
 pub struct CHPYLM {
     pub root: PYP<char>,
     pub depth: usize,
     pub g_0: f64,
-    d_array: Vec<f64>,
-    theta_array: Vec<f64>,
+    pub d_array: Vec<f64>,
+    pub theta_array: Vec<f64>,
     /*
       These variables are related to the sampling process as described in the Teh technical report, expressions (40) and (41)
 

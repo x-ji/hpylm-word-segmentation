@@ -1,3 +1,7 @@
+extern crate either;
+extern crate rand;
+extern crate statrs;
+
 mod sentence;
 pub use sentence::Sentence;
 
