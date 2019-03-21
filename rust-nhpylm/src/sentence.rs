@@ -90,7 +90,6 @@ impl Sentence {
         segment_lengths: Vec<usize>,
         num_segments_without_special_tokens: usize,
     ) {
-        let EOS = calculate_hash(&EOS_CHAR);
         let mut cur_start = 0;
         let mut sum_length = 0;
         let mut index = 0;
