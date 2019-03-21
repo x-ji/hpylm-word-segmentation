@@ -52,9 +52,9 @@ impl CHPYLM {
         }
     }
 
-    fn add_customer_at_index_n(
+    pub fn add_customer_at_index_n(
         &mut self,
-        characters: Vec<char>,
+        characters: &Vec<char>,
         n: usize,
         depth: usize,
         with_cache: bool,
@@ -82,7 +82,7 @@ impl CHPYLM {
 
     fn remove_customer_at_index_n(
         &mut self,
-        characters: Vec<char>,
+        characters: &Vec<char>,
         n: usize,
         depth: usize,
     ) -> bool {
@@ -104,7 +104,7 @@ impl CHPYLM {
 
     fn find_node_by_tracing_back_context_removal(
         &mut self,
-        characters: Vec<char>,
+        characters: &Vec<char>,
         n: usize,
         depth_of_n: usize,
         generate_if_not_found: bool,
@@ -136,7 +136,7 @@ impl CHPYLM {
 
     fn find_node_by_tracing_back_context_parent_p_w(
         &mut self,
-        characters: Vec<char>,
+        characters: &Vec<char>,
         n: usize,
         depth_of_n: usize,
     ) -> Option<*mut PYP<char>> {
@@ -169,7 +169,7 @@ impl CHPYLM {
 
     fn find_node_by_tracing_back_context_path_nodes_cache(
         &mut self,
-        characters: Vec<char>,
+        characters: &Vec<char>,
         n: usize,
         depth_of_n: usize,
     ) -> Option<*mut PYP<char>> {
@@ -192,7 +192,7 @@ impl CHPYLM {
         return Some(cur_node);
     }
 
-    pub fn compute_p_w(&self, characters: &Vec<char>) -> f64 {
+    pub fn compute_p_w(&mut self, characters: &Vec<char>) -> f64 {
         return self.compute_log_p_w(characters).exp();
     }
 
@@ -282,7 +282,7 @@ impl CHPYLM {
         p
     }
 
-    fn sample_depth_at_index_n(&mut self, characters: &Vec<char>, n: usize) -> usize {
+    pub fn sample_depth_at_index_n(&mut self, characters: &Vec<char>, n: usize) -> usize {
         // The first character is always the BOW, with depth 0.
         if n == 0 {
             return 0;

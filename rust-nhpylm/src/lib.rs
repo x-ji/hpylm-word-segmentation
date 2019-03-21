@@ -14,6 +14,7 @@ mod corpus;
 
 mod chpylm;
 mod hpylm;
+mod npylm;
 mod whpylm;
 
 mod pyp;
