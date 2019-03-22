@@ -121,7 +121,7 @@ impl NPYLM {
             let word_begin_index = sentence.segment_begin_positions[n];
             let word_end_index = word_begin_index + sentence.segment_lengths[n] - 1;
 
-            if (num_tables_before_addition < num_tables_after_addition) {
+            if num_tables_before_addition < num_tables_after_addition {
                 self.whpylm_g_0_cache = HashMap::new();
                 if token_n == EOS {
                     self.chpylm.root.add_customer(
@@ -135,12 +135,6 @@ impl NPYLM {
                     return true;
                 }
 
-                let depth_arrays_for_the_tablegroup = {
-                    self.recorded_depth_arrays_for_tablegroups_of_token
-                        .entry(token_n)
-                        .or_insert(Vec::new())
-                };
-
                 let mut recorded_depth_array = vec![0; word_end_index - word_begin_index + 3];
                 self.add_word_to_chpylm(
                     &sentence.characters,
@@ -148,6 +142,12 @@ impl NPYLM {
                     word_end_index,
                     &mut recorded_depth_array,
                 );
+
+                let depth_arrays_for_the_tablegroup = self
+                    .recorded_depth_arrays_for_tablegroups_of_token
+                    .entry(token_n)
+                    .or_insert(Vec::new());
+
                 depth_arrays_for_the_tablegroup.push(recorded_depth_array);
             }
         }
@@ -265,7 +265,13 @@ impl NPYLM {
                     e.insert(p_w);
                     return p_w;
                 } else {
-                    let p_k_given_chpylm = self.compute_p_k_given_chpylm(word_length);
+                    // let p_k_given_chpylm = self.compute_p_k_given_chpylm(word_length);
+                    // Unfortunately borrow checker doesn't allow me to call the function... Inlining the function directly like this seems to work though.
+                    let p_k_given_chpylm = if word_length > self.max_word_length {
+                        0.0
+                    } else {
+                        self.p_k_chpylm[word_length]
+                    };
                     let t = detect_word_type_substr(
                         sentence_as_chars,
                         word_begin_index,
