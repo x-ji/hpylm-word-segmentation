@@ -12,3 +12,4 @@ doc = true
 rand = "0.6.5"
 either = "1.5.1"
 statrs = "0.10.0"
+ndarray = "0.12.1"

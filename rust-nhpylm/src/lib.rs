@@ -1,4 +1,5 @@
 extern crate either;
+extern crate ndarray;
 extern crate rand;
 extern crate statrs;
 
@@ -12,9 +13,11 @@ mod wtype;
 
 mod corpus;
 
+mod pyp;
+
 mod chpylm;
 mod hpylm;
 mod npylm;
 mod whpylm;
 
-mod pyp;
+mod sampler;

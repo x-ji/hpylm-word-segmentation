@@ -320,10 +320,10 @@ impl NPYLM {
         sum
     }
 
-    fn compute_p_w_of_nth_word(&mut self, sentence: &Sentence, n: usize) -> f64 {
+    pub fn compute_p_w_of_nth_word(&mut self, sentence: &Sentence, n: usize) -> f64 {
         let word_begin_index = sentence.segment_begin_positions[0];
         let word_end_index = word_begin_index + sentence.segment_lengths[n] - 1;
-        return self.compute_p_w_of_nth_word_with_chars(
+        return self.compute_p_w_of_nth_word_as_chars(
             &sentence.characters,
             &sentence.word_ids,
             n,
@@ -332,7 +332,7 @@ impl NPYLM {
         );
     }
 
-    fn compute_p_w_of_nth_word_with_chars(
+    pub fn compute_p_w_of_nth_word_as_chars(
         &mut self,
         sentence_as_chars: &Vec<char>,
         word_ids: &Vec<u64>,
