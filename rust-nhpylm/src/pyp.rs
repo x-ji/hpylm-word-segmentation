@@ -7,7 +7,7 @@ use rand::Rng;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
-pub fn init_hyperparameters_at_depth_if_needed(
+fn init_hyperparameters_at_depth_if_needed(
   depth: usize,
   d_array: &mut Vec<f64>,
   theta_array: &mut Vec<f64>,

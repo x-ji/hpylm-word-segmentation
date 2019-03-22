@@ -1,6 +1,7 @@
 use chpylm::*;
 use def::*;
 use either::*;
+use hpylm::HPYLM;
 use pyp::*;
 use rand::distributions::{Bernoulli, Beta, Distribution, Gamma, WeightedIndex};
 use rand::prelude::*;
@@ -295,6 +296,71 @@ impl NPYLM {
             return 0.0;
         } else {
             return self.p_k_chpylm[k];
+        }
+    }
+
+    fn sample_hyperparameters(&mut self) {
+        self.whpylm.sample_hyperparameters();
+        self.chpylm.sample_hyperparameters();
+    }
+
+    fn compute_probability_of_sentence(&mut self, sentence: &Sentence) -> f64 {
+        let mut prod = 1.0 as f64;
+        for n in 2..sentence.num_segments {
+            prod *= self.compute_p_w_of_nth_word(sentence, n);
+        }
+        prod
+    }
+
+    fn compute_log_probability_of_sentence(&mut self, sentence: &Sentence) -> f64 {
+        let mut sum = 0.0 as f64;
+        for n in 2..sentence.num_segments {
+            sum += self.compute_p_w_of_nth_word(sentence, n).ln();
+        }
+        sum
+    }
+
+    fn compute_p_w_of_nth_word(&mut self, sentence: &Sentence, n: usize) -> f64 {
+        let word_begin_index = sentence.segment_begin_positions[0];
+        let word_end_index = word_begin_index + sentence.segment_lengths[n] - 1;
+        return self.compute_p_w_of_nth_word_with_chars(
+            &sentence.characters,
+            &sentence.word_ids,
+            n,
+            word_begin_index,
+            word_end_index,
+        );
+    }
+
+    fn compute_p_w_of_nth_word_with_chars(
+        &mut self,
+        sentence_as_chars: &Vec<char>,
+        word_ids: &Vec<u64>,
+        n: usize,
+        word_begin_position: usize,
+        word_end_position: usize,
+    ) -> f64 {
+        let word_id = word_ids[n];
+        let node = self
+            .find_node_with_sentence_as_chars(
+                sentence_as_chars,
+                word_ids,
+                n,
+                word_begin_position,
+                word_end_position,
+                false,
+                true,
+            )
+            .unwrap();
+
+        unsafe {
+            let parent_p_w = self.whpylm_parent_p_w_cache[(*node).depth];
+            return (*node).compute_p_w_with_parent_p_w(
+                word_id,
+                parent_p_w,
+                &mut self.whpylm.d_array,
+                &mut self.whpylm.theta_array,
+            );
         }
     }
 }
