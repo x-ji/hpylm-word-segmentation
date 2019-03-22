@@ -25,9 +25,9 @@ pub struct CHPYLM {
     beta_array: Vec<f64>,
 
     /* Fields specific to CHPYLM */
-    beta_stop: f64,
-    beta_pass: f64,
-    max_depth: usize,
+    pub beta_stop: f64,
+    pub beta_pass: f64,
+    pub max_depth: usize,
     parent_p_w_cache: Vec<f64>,
     path_nodes: Vec<Option<*mut PYP<char>>>,
 }
@@ -81,7 +81,7 @@ impl CHPYLM {
         }
     }
 
-    fn remove_customer_at_index_n(
+    pub fn remove_customer_at_index_n(
         &mut self,
         characters: &Vec<char>,
         n: usize,
@@ -215,7 +215,7 @@ impl CHPYLM {
         log_p_w
     }
 
-    fn compute_p_w_given_h(
+    pub fn compute_p_w_given_h(
         &mut self,
         characters: &Vec<char>,
         context_begin: usize,
@@ -230,7 +230,7 @@ impl CHPYLM {
         );
     }
 
-    fn compute_p_w_given_h_with_target(
+    pub fn compute_p_w_given_h_with_target(
         &mut self,
         target_char: char,
         characters: &Vec<char>,

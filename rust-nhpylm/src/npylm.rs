@@ -30,23 +30,23 @@ fn produce_word_with_bow_and_eow(
 }
 
 pub struct NPYLM {
-    whpylm: WHPYLM,
-    chpylm: CHPYLM,
+    pub whpylm: WHPYLM,
+    pub chpylm: CHPYLM,
     recorded_depth_arrays_for_tablegroups_of_token: HashMap<u64, Vec<Vec<usize>>>,
     whpylm_g_0_cache: HashMap<u64, f64>,
     chpylm_g_0_cache: HashMap<usize, f64>,
-    lambda_for_types: Vec<f64>,
-    p_k_chpylm: Vec<f64>,
-    max_word_length: usize,
-    max_sentence_length: usize,
-    lambda_a: f64,
-    lambda_b: f64,
+    pub lambda_for_types: Vec<f64>,
+    pub p_k_chpylm: Vec<f64>,
+    pub max_word_length: usize,
+    pub max_sentence_length: usize,
+    pub lambda_a: f64,
+    pub lambda_b: f64,
     whpylm_parent_p_w_cache: Vec<f64>,
     most_recent_word: Vec<char>,
 }
 
 impl NPYLM {
-    fn new(
+    pub fn new(
         max_word_length: usize,
         max_sentence_length: usize,
         g_0: f64,
@@ -81,14 +81,14 @@ impl NPYLM {
         npylm
     }
 
-    fn sample_lambda_with_initial_params(&mut self) {
+    pub fn sample_lambda_with_initial_params(&mut self) {
         for i in 1..WORDTYPE_NUM_TYPES + 1 {
             let dist = Gamma::new(self.lambda_a, 1.0 / self.lambda_b);
             self.lambda_for_types[i] = dist.sample(&mut thread_rng());
         }
     }
 
-    fn extend_capacity(&mut self, max_sentence_length: usize) {
+    pub fn extend_capacity(&mut self, max_sentence_length: usize) {
         if max_sentence_length <= self.max_sentence_length {
             return;
         } else {
@@ -101,7 +101,7 @@ impl NPYLM {
         self.most_recent_word = vec![' '; max_sentence_length + 2];
     }
 
-    fn add_customer_at_index_n(&mut self, sentence: &Sentence, n: usize) -> bool {
+    pub fn add_customer_at_index_n(&mut self, sentence: &Sentence, n: usize) -> bool {
         let token_n = sentence.get_nth_word_id(n);
         let pyp = self
             .find_node_with_sentence(sentence, n, true, false)
@@ -174,7 +174,115 @@ impl NPYLM {
         }
     }
 
-    fn find_node_with_word_ids() {}
+    pub fn remove_customer_at_index_n(&mut self, sentence: &Sentence, n: usize) -> bool {
+        let token_n = sentence.get_nth_word_id(n);
+        let mut pyp = self
+            .find_node_with_word_ids(&sentence.word_ids, n, false, false)
+            .unwrap();
+        let num_tables_before_removal = self.whpylm.root.ntables;
+        let mut index_of_table_removed_from = 0;
+        let word_begin_index = sentence.segment_begin_positions[n];
+        let word_end_index = word_begin_index + sentence.segment_lengths[n] - 1;
+
+        unsafe {
+            (*pyp).remove_customer(token_n, true, &mut index_of_table_removed_from);
+        }
+
+        let num_tables_after_removal = self.whpylm.root.ntables;
+
+        if num_tables_before_removal > num_tables_after_removal {
+            self.whpylm_g_0_cache = HashMap::new();
+            if token_n == EOS {
+                self.chpylm
+                    .root
+                    .remove_customer(EOS_CHAR, true, &mut index_of_table_removed_from);
+                return true;
+            }
+
+            // Eventually there doesn't seem to be any other way than to clone the Vec.
+            // It's not modified anyways.
+            let recorded_depths = self
+                // This is a HashMap<u64, Vec<Vec<usize>>>
+                .recorded_depth_arrays_for_tablegroups_of_token
+                // Get a Vec<Vec<usize>>
+                .get(&token_n)
+                // Get a Vec<usize>
+                .unwrap()[index_of_table_removed_from]
+                // Clone the Vec<usize>
+                .clone();
+
+            self.remove_word_from_chpylm(
+                &sentence.characters,
+                word_begin_index,
+                word_end_index,
+                &recorded_depths,
+            );
+
+            self.recorded_depth_arrays_for_tablegroups_of_token
+                // Get the Vec<Vec<usize>>
+                .get_mut(&token_n)
+                .unwrap()
+                // Remove the nth Vec<usize> from that Vec<Vec<usize>>
+                .remove(index_of_table_removed_from);
+        }
+
+        unsafe {
+            if (*pyp).need_to_remove_from_parent() {
+                (*pyp).remove_from_parent();
+            }
+        }
+
+        true
+    }
+
+    fn remove_word_from_chpylm(
+        &mut self,
+        sentence_as_chars: &Vec<char>,
+        word_begin_index: usize,
+        word_end_index: usize,
+        recorded_depths: &Vec<usize>,
+    ) {
+        self.most_recent_word =
+            produce_word_with_bow_and_eow(sentence_as_chars, word_begin_index, word_end_index);
+        // + 2 because of bow and eow.
+        let word_length_with_symbols = word_end_index - word_begin_index + 1 + 2;
+        for n in 0..word_length_with_symbols {
+            self.chpylm
+                .remove_customer_at_index_n(&self.most_recent_word, n, recorded_depths[n]);
+        }
+    }
+
+    fn find_node_with_word_ids(
+        &mut self,
+        word_ids: &Vec<u64>,
+        n: usize,
+        generate_if_not_found: bool,
+        return_middle_node: bool,
+    ) -> Option<*mut PYP<u64>> {
+        let mut cur_node = &mut self.whpylm.root as *mut PYP<u64>;
+
+        unsafe {
+            for depth in 1..3 {
+                let mut context = BOS;
+                if n - depth >= 0 {
+                    context = word_ids[n - depth];
+                }
+                let child = (*cur_node).find_child_pyp(context, generate_if_not_found);
+                match child {
+                    None => {
+                        if return_middle_node {
+                            return Some(cur_node);
+                        } else {
+                            return None;
+                        }
+                    }
+                    Some(c) => cur_node = c,
+                }
+            }
+        }
+
+        return Some(cur_node);
+    }
 
     fn find_node_with_sentence(
         &mut self,
@@ -305,7 +413,7 @@ impl NPYLM {
         }
     }
 
-    fn sample_hyperparameters(&mut self) {
+    pub fn sample_hyperparameters(&mut self) {
         self.whpylm.sample_hyperparameters();
         self.chpylm.sample_hyperparameters();
     }

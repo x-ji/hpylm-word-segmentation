@@ -7,7 +7,7 @@ use rand::Rng;
 use sentence::*;
 
 pub struct Sampler {
-    npylm: NPYLM,
+    pub npylm: NPYLM,
     word_ids: Vec<u64>,
     substring_word_id_cache: Array2<u64>,
     alpha_tensor: Array3<f64>,
@@ -21,7 +21,7 @@ pub struct Sampler {
 }
 
 impl Sampler {
-    fn new(npylm: NPYLM, max_word_length: usize, max_sentence_length: usize) -> Self {
+    pub fn new(npylm: NPYLM, max_word_length: usize, max_sentence_length: usize) -> Self {
         let size = max_sentence_length + 1;
         Self {
             npylm: npylm,
@@ -48,7 +48,7 @@ impl Sampler {
         }
     }
 
-    fn extend_capacity(&mut self, max_word_length: usize, max_sentence_length: usize) {
+    pub fn extend_capacity(&mut self, max_word_length: usize, max_sentence_length: usize) {
         if max_word_length <= self.max_word_length
             && max_sentence_length <= self.max_sentence_length
         {
@@ -527,7 +527,7 @@ impl Sampler {
     }
 
     /// This function uses viterbi algorithm to sample the segmentation of a sentence, instead of the approach in the `blocked_gibbs_segment` function above. They should both be valid approaches.
-    fn viterbi_decode(&mut self, sentence: &Sentence) -> Vec<usize> {
+    pub fn viterbi_decode(&mut self, sentence: &Sentence) -> Vec<usize> {
         self.alpha_tensor[[0, 0, 0]] = 0.0;
         self.log_z[0] = 0.0;
         for t in 0..sentence.length() + 1 {
@@ -539,7 +539,11 @@ impl Sampler {
         return self.viterbi_backward_sampling(sentence);
     }
 
-    fn compute_log_forward_probability(&mut self, sentence: &Sentence, with_scaling: bool) -> f64 {
+    pub fn compute_log_forward_probability(
+        &mut self,
+        sentence: &Sentence,
+        with_scaling: bool,
+    ) -> f64 {
         self.enumerate_forward_variables(sentence, with_scaling);
         let t = sentence.length() + 1;
         if !with_scaling {

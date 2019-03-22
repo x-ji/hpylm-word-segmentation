@@ -8,7 +8,7 @@ use std::io::prelude::*;
 use std::io::BufReader;
 
 pub struct Vocabulary {
-    all_characters: HashSet<char>,
+    pub all_characters: HashSet<char>,
 }
 
 impl Vocabulary {
@@ -66,14 +66,14 @@ impl Corpus {
     }
 }
 
-struct Dataset {
-    vocabulary: Vocabulary,
-    corpus: Corpus,
-    max_sentence_length: usize,
-    avg_sentence_length: f64,
-    num_segmented_words: usize,
-    train_sentences: Vec<Sentence>,
-    dev_sentences: Vec<Sentence>,
+pub struct Dataset {
+    pub vocabulary: Vocabulary,
+    pub corpus: Corpus,
+    pub max_sentence_length: usize,
+    pub avg_sentence_length: f64,
+    pub num_segmented_words: usize,
+    pub train_sentences: Vec<Sentence>,
+    pub dev_sentences: Vec<Sentence>,
 }
 
 impl Dataset {
