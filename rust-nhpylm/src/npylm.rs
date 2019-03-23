@@ -426,7 +426,7 @@ impl NPYLM {
         prod
     }
 
-    fn compute_log_probability_of_sentence(&mut self, sentence: &Sentence) -> f64 {
+    pub fn compute_log_probability_of_sentence(&mut self, sentence: &Sentence) -> f64 {
         let mut sum = 0.0 as f64;
         for n in 2..sentence.num_segments {
             sum += self.compute_p_w_of_nth_word(sentence, n).ln();

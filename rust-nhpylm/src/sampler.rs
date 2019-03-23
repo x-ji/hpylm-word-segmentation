@@ -320,7 +320,7 @@ impl Sampler {
         print!("Fell through?");
     }
 
-    fn blocked_gibbs_segment(&mut self, sentence: &Sentence, with_scaling: bool) -> Vec<usize> {
+    pub fn blocked_gibbs_segment(&mut self, sentence: &Sentence, with_scaling: bool) -> Vec<usize> {
         for i in 0..sentence.length() + 1 {
             for j in 0..self.max_word_length + 1 {
                 self.substring_word_id_cache[[i, j]] = 0;

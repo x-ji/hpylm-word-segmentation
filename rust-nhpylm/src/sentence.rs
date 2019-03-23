@@ -1,8 +1,10 @@
 use def::*;
+use std::fmt;
 
 // pub const BOS: u64 = calculate_hash(&BOS_CHAR);
 // pub const EOS: u64 = calculate_hash(&EOS_CHAR);
 
+#[derive(Clone)]
 pub struct Sentence {
     pub num_segments: usize,
     pub segment_lengths: Vec<usize>,
@@ -124,5 +126,22 @@ impl Sentence {
     pub fn split_sentence(&mut self, segment_lengths: Vec<usize>) {
         let num_segments_without_special_tokens = segment_lengths.len();
         self.split_sentence_with_num_segments(segment_lengths, num_segments_without_special_tokens);
+    }
+
+    // pub fn print_sentence(&self, f: &mut fmt::Formatter) {
+    //     for index in 2..self.num_segments - 1 {
+    //         write!(f, "{}", self.get_nth_word_string(index));
+    //     }
+    // }
+}
+
+impl fmt::Display for Sentence {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // let mut r: fmt::Result = std::result::Result::Err;
+        for index in 2..self.num_segments - 1 {
+            write!(f, "{}", self.get_nth_word_string(index));
+        }
+        // ???
+        write!(f, "")
     }
 }
