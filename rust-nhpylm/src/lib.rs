@@ -23,3 +23,4 @@ mod whpylm;
 mod sampler;
 
 mod model;
+mod trainer;
