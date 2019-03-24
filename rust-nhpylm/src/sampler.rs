@@ -107,16 +107,18 @@ impl Sampler {
 
             if with_scaling {
                 let mut sum_alpha = 0.0;
-                for k in 1..t.min(self.max_word_length) {
+                for k in 1..t.min(self.max_word_length) + 1 {
                     for j in if t == k { 0 } else { 1 }..(t - k).min(self.max_word_length) + 1 {
                         sum_alpha += self.alpha_tensor[[t, k, j]];
                     }
                 }
 
+                assert!(sum_alpha > 0.0);
                 self.scaling_coefficients[t] = 1.0 / sum_alpha;
 
-                for k in 1..t.min(self.max_word_length) {
+                for k in 1..t.min(self.max_word_length) + 1 {
                     for j in if t == k { 0 } else { 1 }..(t - k).min(self.max_word_length) + 1 {
+                        assert!(self.alpha_tensor[[t, k, j]] > 0.0);
                         self.alpha_tensor[[t, k, j]] *= self.scaling_coefficients[t];
                     }
                 }
@@ -146,6 +148,7 @@ impl Sampler {
                 t - k,
                 t - 1,
             );
+            assert!(p_w_h > 0.0);
             self.alpha_tensor[[t, k, 0]] = p_w_h * prod_scaling;
             self.p_w_h_cache[[t, k, 0, 0]] = p_w_h;
             return;
@@ -161,6 +164,8 @@ impl Sampler {
                 t - k,
                 t - 1,
             );
+            assert!(p_w_h > 0.0);
+            assert!(self.alpha_tensor[[t - k, j, 0]] > 0.0);
             self.alpha_tensor[[t, k, j]] = p_w_h * self.alpha_tensor[[t - k, j, 0]] * prod_scaling;
             self.p_w_h_cache[[t, k, j, 0]] = p_w_h;
             return;
@@ -202,6 +207,9 @@ impl Sampler {
             return segment_lengths;
         }
 
+        assert!(k > 0 && j > 0);
+        assert!(j <= self.max_word_length);
+
         segment_lengths.push(j);
         t -= k + j;
         sum_length += k + j;
@@ -217,6 +225,7 @@ impl Sampler {
             segment_lengths.push(k);
             t -= k;
             if j == 0 {
+                println!("t is {}", t);
                 assert!(t == 0);
             } else {
                 assert!(j <= self.max_word_length);
@@ -249,6 +258,8 @@ impl Sampler {
                 let mut word_k_id = self.get_substring_word_id_at_t_k(sentence, t, k);
                 let mut word_t_id = EOS;
                 if t < sentence_length {
+                    assert!(third_gram_length > 0);
+                    assert!(t + third_gram_length <= sentence_length);
                     word_t_id = self.get_substring_word_id_at_t_k(
                         sentence,
                         t + third_gram_length,
@@ -269,7 +280,10 @@ impl Sampler {
                 } else {
                     self.p_w_h_cache[[t + third_gram_length, third_gram_length, k, j]]
                 };
+                // println!("t: {}, k: {}, j: {}", t, k, j);
+                assert!(self.alpha_tensor[[t, k, j]] > 0.0);
                 let p = p_w_h * self.alpha_tensor[[t, k, j]];
+                assert!(p > 0.0);
                 self.backward_sampling_table[table_index] = p;
                 sum_p += p;
                 table_index += 1;
@@ -281,6 +295,8 @@ impl Sampler {
                 let mut word_k_id = self.get_substring_word_id_at_t_k(sentence, t, k);
                 let mut word_t_id = EOS;
                 if t < sentence_length {
+                    assert!(third_gram_length > 0);
+                    assert!(t + third_gram_length <= sentence_length);
                     word_t_id = self.get_substring_word_id_at_t_k(
                         sentence,
                         t + third_gram_length,
@@ -301,12 +317,17 @@ impl Sampler {
                 } else {
                     self.p_w_h_cache[[t + third_gram_length, third_gram_length, k, j]]
                 };
+                assert!(self.alpha_tensor[[t, k, j]] > 0.0);
                 let p = p_w_h * self.alpha_tensor[[t, k, j]];
+                assert!(p > 0.0);
                 self.backward_sampling_table[table_index] = p;
                 sum_p += p;
                 table_index += 1;
             }
         }
+
+        assert!(table_index > 0);
+        assert!(table_index <= self.max_word_length * self.max_word_length);
 
         let normalizer = 1.0 / sum_p;
         let randnum: f64 = rand::thread_rng().gen();
@@ -314,6 +335,8 @@ impl Sampler {
         let mut stack = 0.0;
         for k in 1..t.min(self.max_word_length) + 1 {
             for j in 1..(t - k).min(self.max_word_length) + 1 {
+                assert!(index < table_index);
+                assert!(self.backward_sampling_table[index] > 0.0);
                 stack += self.backward_sampling_table[index] * normalizer;
                 if randnum < stack {
                     *sampled_k = k;
@@ -324,6 +347,8 @@ impl Sampler {
             }
 
             if t == k {
+                assert!(index < table_index);
+                assert!(self.backward_sampling_table[index] > 0.0);
                 stack += self.backward_sampling_table[index] * normalizer;
                 if randnum < stack {
                     *sampled_k = k;

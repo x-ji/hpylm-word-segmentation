@@ -21,7 +21,7 @@ fn produce_word_with_bow_and_eow(
     word[0] = BOW;
     let mut i = 0;
     while i < (word_end_index - word_begin_index + 1) {
-        word[i + 1] = sentence_as_chars[word_begin_index + 1];
+        word[i + 1] = sentence_as_chars[word_begin_index + i];
         i += 1;
     }
     word[i + 1] = EOW;
@@ -390,10 +390,12 @@ impl NPYLM {
 
                     // Very rarely the result will exceed 1.
                     if !(0.0 < g_0 && g_0 < 1.0) {
-                        print!("The result exceeds 1!");
-                        // for i in word_begin_index..word_end_index + 1 {
-                        //     print!("{}", sentence_as_chars[i]);
-                        // }
+                        println!("The result exceeds 1!");
+                        for i in word_begin_index..word_end_index + 1 {
+                            print!("{}", sentence_as_chars[i]);
+                        }
+                        print!("\n");
+                        println!("p_w: {}, poisson_sample: {}, p_k_given_chpylm: {}, g_0: {}, word_length: {}", p_w, poisson_sample, p_k_given_chpylm, g_0, word_length);
                     }
 
                     e.insert(g_0);
