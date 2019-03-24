@@ -84,7 +84,7 @@ impl Sampler {
     fn get_substring_word_id_at_t_k(&mut self, sentence: &Sentence, t: usize, k: usize) -> u64 {
         let mut word_id = self.substring_word_id_cache[[t, k]];
         if word_id == 0 {
-            word_id = sentence.get_substr_word_id(t - k, k - 1);
+            word_id = sentence.get_substr_word_id(t - k, t - 1);
             self.substring_word_id_cache[[t, k]] = word_id;
         }
         word_id
@@ -102,6 +102,23 @@ impl Sampler {
                 for j in if t == k { 0 } else { 1 }..(t - k).min(self.max_word_length) + 1 {
                     self.alpha_tensor[[t, k, j]] = 0.0;
                     self.calculate_alpha_t_k_j(sentence, t, k, j, prod_scaling);
+                }
+            }
+
+            if with_scaling {
+                let mut sum_alpha = 0.0;
+                for k in 1..t.min(self.max_word_length) {
+                    for j in if t == k { 0 } else { 1 }..(t - k).min(self.max_word_length) + 1 {
+                        sum_alpha += self.alpha_tensor[[t, k, j]];
+                    }
+                }
+
+                self.scaling_coefficients[t] = 1.0 / sum_alpha;
+
+                for k in 1..t.min(self.max_word_length) {
+                    for j in if t == k { 0 } else { 1 }..(t - k).min(self.max_word_length) + 1 {
+                        self.alpha_tensor[[t, k, j]] *= self.scaling_coefficients[t];
+                    }
                 }
             }
         }
