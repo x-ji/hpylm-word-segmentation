@@ -2,7 +2,6 @@
 use def::*;
 use either::*;
 use rand::distributions::{Bernoulli, Beta, Distribution, WeightedIndex};
-use rand::prelude::*;
 use rand::Rng;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
@@ -111,7 +110,7 @@ where
         table_index_in_root,
       );
     } else {
-      let mut tablegroup = self.tablegroups.get_mut(&dish).unwrap();
+      let tablegroup = self.tablegroups.get_mut(&dish).unwrap();
       tablegroup[table_index] += 1;
       self.ncustomers += 1;
       return true;
@@ -338,11 +337,11 @@ where
     let t_u = self.ntables as f64;
     let c_u = self.ncustomers as f64;
     match self.tablegroups.entry(dish) {
-      Entry::Vacant(e) => {
+      Entry::Vacant(_) => {
         let coeff: f64 = (theta_u + d_u * t_u) / (theta_u + c_u);
         match self.parent {
-          None => g_0 * coeff,
-          Some(p) => unsafe { (*p).compute_p_w(dish, g_0, d_array, theta_array) * coeff },
+          None => return g_0 * coeff,
+          Some(p) => unsafe { return (*p).compute_p_w(dish, g_0, d_array, theta_array) * coeff },
         }
       }
       Entry::Occupied(e) => {
@@ -373,7 +372,7 @@ where
     let t_u = self.ntables as f64;
     let c_u = self.ncustomers as f64;
     match self.tablegroups.entry(dish) {
-      Entry::Vacant(e) => {
+      Entry::Vacant(_) => {
         let coeff: f64 = (theta_u + d_u * t_u) / (theta_u + c_u);
         return parent_p_w * coeff;
       }
@@ -445,6 +444,7 @@ where
   }
 
   pub fn decrement_pass_count(&mut self) {
+    // println!("Pass count {}", self.pass_count);
     self.pass_count -= 1;
     match self.parent {
       None => {}

@@ -42,28 +42,28 @@ pub fn is_katakana(c: char) -> bool {
 
 pub fn is_kanji(c: char) -> bool {
   let t = detect_ctype(c);
-  if (t == CTYPE_CJK_UNIFIED_IDEOGRAPHS) {
+  if t == CTYPE_CJK_UNIFIED_IDEOGRAPHS {
     return true;
   }
-  if (t == CTYPE_CJK_UNIFIED_IDEOGRAPHS_EXTENSION_A) {
+  if t == CTYPE_CJK_UNIFIED_IDEOGRAPHS_EXTENSION_A {
     return true;
   }
-  if (t == CTYPE_CJK_UNIFIED_IDEOGRAPHS_EXTENSION_B) {
+  if t == CTYPE_CJK_UNIFIED_IDEOGRAPHS_EXTENSION_B {
     return true;
   }
-  if (t == CTYPE_CJK_UNIFIED_IDEOGRAPHS_EXTENSION_C) {
+  if t == CTYPE_CJK_UNIFIED_IDEOGRAPHS_EXTENSION_C {
     return true;
   }
-  if (t == CTYPE_CJK_UNIFIED_IDEOGRAPHS_EXTENSION_D) {
+  if t == CTYPE_CJK_UNIFIED_IDEOGRAPHS_EXTENSION_D {
     return true;
   }
-  if (t == CTYPE_CJK_UNIFIED_IDEOGRAPHS_EXTENSION_E) {
+  if t == CTYPE_CJK_UNIFIED_IDEOGRAPHS_EXTENSION_E {
     return true;
   }
-  if (t == CTYPE_CJK_UNIFIED_IDEOGRAPHS_EXTENSION_F) {
+  if t == CTYPE_CJK_UNIFIED_IDEOGRAPHS_EXTENSION_F {
     return true;
   }
-  if (t == CTYPE_CJK_RADICALS_SUPPLEMENT) {
+  if t == CTYPE_CJK_RADICALS_SUPPLEMENT {
     return true;
   }
   return false;
@@ -72,31 +72,31 @@ pub fn is_kanji(c: char) -> bool {
 pub fn is_number(c: char) -> bool {
   let t = detect_ctype(c);
   let character = c as u32;
-  if (t == CTYPE_BASIC_LATIN) {
-    if (0x30 <= character && character <= 0x39) {
+  if t == CTYPE_BASIC_LATIN {
+    if 0x30 <= character && character <= 0x39 {
       return true;
     }
     return false;
   }
-  if (t == CTYPE_NUMBER_FORMS) {
+  if t == CTYPE_NUMBER_FORMS {
     return true;
   }
-  if (t == CTYPE_COMMON_INDIC_NUMBER_FORMS) {
+  if t == CTYPE_COMMON_INDIC_NUMBER_FORMS {
     return true;
   }
-  if (t == CTYPE_AEGEAN_NUMBERS) {
+  if t == CTYPE_AEGEAN_NUMBERS {
     return true;
   }
-  if (t == CTYPE_ANCIENT_GREEK_NUMBERS) {
+  if t == CTYPE_ANCIENT_GREEK_NUMBERS {
     return true;
   }
-  if (t == CTYPE_COPTIC_EPACT_NUMBERS) {
+  if t == CTYPE_COPTIC_EPACT_NUMBERS {
     return true;
   }
-  if (t == CTYPE_SINHALA_ARCHAIC_NUMBERS) {
+  if t == CTYPE_SINHALA_ARCHAIC_NUMBERS {
     return true;
   }
-  if (t == CTYPE_CUNEIFORM_NUMBERS_AND_PUNCTUATION) {
+  if t == CTYPE_CUNEIFORM_NUMBERS_AND_PUNCTUATION {
     return true;
   }
   return false;
@@ -104,26 +104,26 @@ pub fn is_number(c: char) -> bool {
 
 pub fn is_alphabet(c: char) -> bool {
   let character = c as u32;
-  if (0x41 <= character && character <= 0x5a) {
+  if 0x41 <= character && character <= 0x5a {
     return true;
   }
-  if (0x61 <= character && character <= 0x7a) {
+  if 0x61 <= character && character <= 0x7a {
     return true;
   }
   return false;
 }
 
 pub fn is_symbol(c: char) -> bool {
-  if (is_alphabet(c)) {
+  if is_alphabet(c) {
     return false;
   }
-  if (is_number(c)) {
+  if is_number(c) {
     return false;
   }
-  if (is_kanji(c)) {
+  if is_kanji(c) {
     return false;
   }
-  if (is_hiragana(c)) {
+  if is_hiragana(c) {
     return false;
   }
   return true;
@@ -148,60 +148,60 @@ pub fn detect_word_type_substr(chars: &Vec<char>, start: usize, end: usize) -> u
       num_alphabet += 1;
       continue;
     }
-    if (is_number(target)) {
+    if is_number(target) {
       num_number += 1;
       continue;
     }
-    if (is_dash(target)) {
+    if is_dash(target) {
       num_dash += 1;
       continue;
     }
-    if (is_hiragana(target)) {
+    if is_hiragana(target) {
       num_hiragana += 1;
       continue;
     }
-    if (is_katakana(target)) {
+    if is_katakana(target) {
       num_katakana += 1;
       continue;
     }
-    if (is_kanji(target)) {
+    if is_kanji(target) {
       num_kanji += 1;
       continue;
     }
     num_symbol += 1;
   }
-  if (num_alphabet == size) {
+  if num_alphabet == size {
     return WORDTYPE_ALPHABET;
   }
-  if (num_number == size) {
+  if num_number == size {
     return WORDTYPE_NUMBER;
   }
-  if (num_hiragana + num_dash == size) {
+  if num_hiragana + num_dash == size {
     return WORDTYPE_HIRAGANA;
   }
-  if (num_katakana + num_dash == size) {
+  if num_katakana + num_dash == size {
     return WORDTYPE_KATAKANA;
   }
-  if (num_kanji == size) {
+  if num_kanji == size {
     return WORDTYPE_KANJI;
   }
-  if (num_symbol == size) {
+  if num_symbol == size {
     return WORDTYPE_SYMBOL;
   }
-  if (num_kanji > 0) {
-    if (num_hiragana + num_kanji == size) {
+  if num_kanji > 0 {
+    if num_hiragana + num_kanji == size {
       return WORDTYPE_KANJI_HIRAGANA;
     }
-    if (num_hiragana > 0) {
-      if (num_hiragana + num_kanji + num_dash == size) {
+    if num_hiragana > 0 {
+      if num_hiragana + num_kanji + num_dash == size {
         return WORDTYPE_KANJI_HIRAGANA;
       }
     }
-    if (num_katakana + num_kanji == size) {
+    if num_katakana + num_kanji == size {
       return WORDTYPE_KANJI_KATAKANA;
     }
-    if (num_katakana > 0) {
-      if (num_katakana + num_kanji + num_dash == size) {
+    if num_katakana > 0 {
+      if num_katakana + num_kanji + num_dash == size {
         return WORDTYPE_KANJI_KATAKANA;
       }
     }

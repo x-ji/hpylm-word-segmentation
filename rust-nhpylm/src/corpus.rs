@@ -1,12 +1,13 @@
+use rand::prelude::*;
 use rand::seq::SliceRandom;
-use rand::{thread_rng, Rng, SeedableRng, StdRng};
+use rand::SeedableRng;
 
 use sentence::*;
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufReader;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use regex::Regex;
 

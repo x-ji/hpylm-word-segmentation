@@ -19,8 +19,8 @@ impl Model {
             chpylm_g_0,
             4.0,
             1.0,
-            CHPYLM_beta_STOP,
-            CHPYLM_beta_PASS,
+            CHPYLM_BETA_STOP,
+            CHPYLM_BETA_PASS,
         );
         let sampler = Sampler::new(npylm, max_word_length, max_sentence_length);
         Self { sampler: sampler }

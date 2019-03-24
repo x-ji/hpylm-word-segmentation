@@ -21,32 +21,32 @@ pub fn init_hyperparameters_at_depth_if_needed(
 ) {
   if d_array.len() <= depth {
     while d_array.len() <= depth {
-      d_array.push(HPYLM_INITIAL_d);
+      d_array.push(HPYLM_INITIAL_D);
     }
   }
   if theta_array.len() <= depth {
     while theta_array.len() <= depth {
-      theta_array.push(HPYLM_INITIAL_theta);
+      theta_array.push(HPYLM_INITIAL_THETA);
     }
   }
   if a_array.len() <= depth {
     while a_array.len() <= depth {
-      a_array.push(HPYLM_a);
+      a_array.push(HPYLM_A);
     }
   }
   if b_array.len() <= depth {
     while b_array.len() <= depth {
-      b_array.push(HPYLM_b);
+      b_array.push(HPYLM_B);
     }
   }
   if alpha_array.len() <= depth {
     while alpha_array.len() <= depth {
-      alpha_array.push(HPYLM_alpha);
+      alpha_array.push(HPYLM_ALPHA);
     }
   }
   if beta_array.len() <= depth {
     while beta_array.len() <= depth {
-      beta_array.push(HPYLM_beta);
+      beta_array.push(HPYLM_BETA);
     }
   }
 }

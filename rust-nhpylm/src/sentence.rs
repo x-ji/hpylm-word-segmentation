@@ -108,6 +108,8 @@ impl Sentence {
             index += 1;
         }
 
+        assert!(sum_length == self.sentence_string.len());
+
         // EOS
         self.segment_lengths[index + 2] = 1;
         self.word_ids[index + 2] = EOS;

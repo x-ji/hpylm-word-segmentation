@@ -5,11 +5,8 @@ extern crate rust_nhpylm;
 use either::*;
 use std::env::args;
 use std::fs;
-use std::fs::{read_dir, File};
-use std::io::prelude::*;
-use std::io::BufReader;
-use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::path::Path;
+use std::time::SystemTime;
 
 use getopts::Options;
 use std::process;
@@ -50,7 +47,7 @@ fn build_corpus(path: Either<&str, &str>) -> Corpus {
 
 fn main() {
     let args: Vec<String> = args().collect();
-    let program = args[0].clone();
+    // let program = args[0].clone();
 
     let mut opts = Options::new();
     opts.optflag("h", "help", "Print this help menu");
@@ -120,16 +117,16 @@ fn main() {
     let epoches = matches.opt_get_default("e", 100000).unwrap();
     let split = matches.opt_get_default("p", 0.9).unwrap();
     let lambda_a = matches
-        .opt_get_default("lambda-a", INITIAL_LAMBDA_a)
+        .opt_get_default("lambda-a", INITIAL_LAMBDA_A)
         .unwrap();
     let lambda_b = matches
-        .opt_get_default("lambda-b", INITIAL_LAMBDA_b)
+        .opt_get_default("lambda-b", INITIAL_LAMBDA_B)
         .unwrap();
     let beta_stop = matches
-        .opt_get_default("beta-stop", CHPYLM_beta_STOP)
+        .opt_get_default("beta-stop", CHPYLM_BETA_STOP)
         .unwrap();
     let beta_pass = matches
-        .opt_get_default("beta-stop", CHPYLM_beta_PASS)
+        .opt_get_default("beta-stop", CHPYLM_BETA_PASS)
         .unwrap();
     let max_word_length = matches.opt_get_default("max-word-length", 16).unwrap();
 

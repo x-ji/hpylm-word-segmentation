@@ -6,7 +6,6 @@ use rand::distributions::WeightedIndex;
 use rand::prelude::*;
 use rand::seq::SliceRandom;
 use rand::Rng;
-use sentence::*;
 use std::collections::HashSet;
 use wtype::*;
 
@@ -100,12 +99,13 @@ impl Trainer {
         &mut self,
         context_chars: &Vec<char>,
         context_length: usize,
-        sample_t: usize,
+        // This is apparently unused
+        _sample_t: usize,
         skip_eow: bool,
     ) -> char {
-        let mut prob_sum = 0.0;
+        // let mut prob_sum = 0.0;
         let mut table_index = 1;
-        let num_characters = self.dataset.vocabulary.all_characters.len();
+        // let num_characters = self.dataset.vocabulary.all_characters.len();
         for c in &self.dataset.vocabulary.all_characters {
             let p_w = self
                 .model
@@ -114,7 +114,7 @@ impl Trainer {
                 .chpylm
                 .compute_p_w_given_h_with_target(*c, context_chars, 0, context_length - 1);
 
-            prob_sum += p_w;
+            // prob_sum += p_w;
             self.chpylm_sampling_probability_table[table_index] = p_w;
             self.chpylm_sampling_id_table[table_index] = *c;
             table_index += 1;
@@ -127,7 +127,7 @@ impl Trainer {
                 .npylm
                 .chpylm
                 .compute_p_w_given_h_with_target(EOW, context_chars, 0, context_length - 1);
-            prob_sum += p_w;
+            // prob_sum += p_w;
             self.chpylm_sampling_probability_table[table_index] = p_w;
             self.chpylm_sampling_id_table[table_index] = EOW;
         }
@@ -169,6 +169,8 @@ impl Trainer {
                 }
                 cur_word_length += 1;
             }
+
+            num_words_sampled += 1;
 
             if cur_word_length == 0 {
                 continue;
@@ -231,7 +233,6 @@ impl Trainer {
                     let mut old_segment_lengths = vec![0; max_sentence_length + 3];
                     let mut num_old_segments = 0;
                     let mut old_log_p_s = 0.0;
-                    let mut new_log_p_s = 0.0;
 
                     for n in 2..sentence.num_segments {
                         self.model
@@ -258,7 +259,7 @@ impl Trainer {
                     sentence.split_sentence(new_segment_lengths);
 
                     if !self.always_accept_new_segmentation {
-                        new_log_p_s = self
+                        let new_log_p_s = self
                             .model
                             .sampler
                             .npylm

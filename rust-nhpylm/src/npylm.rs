@@ -3,9 +3,8 @@ use def::*;
 use either::*;
 use hpylm::HPYLM;
 use pyp::*;
-use rand::distributions::{Bernoulli, Beta, Distribution, Gamma, WeightedIndex};
+use rand::distributions::{Distribution, Gamma};
 use rand::prelude::*;
-use rand::Rng;
 use sentence::*;
 use statrs::distribution::{Discrete, Poisson};
 use std::collections::hash_map::Entry;
@@ -34,7 +33,7 @@ pub struct NPYLM {
     pub chpylm: CHPYLM,
     recorded_depth_arrays_for_tablegroups_of_token: HashMap<u64, Vec<Vec<usize>>>,
     whpylm_g_0_cache: HashMap<u64, f64>,
-    chpylm_g_0_cache: HashMap<usize, f64>,
+    // chpylm_g_0_cache: HashMap<usize, f64>,
     pub lambda_for_types: Vec<f64>,
     pub p_k_chpylm: Vec<f64>,
     pub max_word_length: usize,
@@ -60,14 +59,14 @@ impl NPYLM {
             // chpylm: Box::new(CHPYLM::new(
             //     g_0,
             //     max_sentence_length,
-            //     chpylm_beta_stop,
+            //     CHPYLM_BETA_STOP,
             //     chpylm_beta_pass,
             // )),
             whpylm: WHPYLM::new(3),
             chpylm: CHPYLM::new(g_0, max_sentence_length, chpylm_beta_stop, chpylm_beta_pass),
             recorded_depth_arrays_for_tablegroups_of_token: HashMap::new(),
             whpylm_g_0_cache: HashMap::new(),
-            chpylm_g_0_cache: HashMap::new(),
+            // chpylm_g_0_cache: HashMap::new(),
             lambda_for_types: vec![0.0; WORDTYPE_NUM_TYPES + 1],
             whpylm_parent_p_w_cache: vec![0.0; 3],
             lambda_a: initial_lambda_a,
@@ -176,7 +175,7 @@ impl NPYLM {
 
     pub fn remove_customer_at_index_n(&mut self, sentence: &Sentence, n: usize) -> bool {
         let token_n = sentence.get_nth_word_id(n);
-        let mut pyp = self
+        let pyp = self
             .find_node_with_word_ids(&sentence.word_ids, n, false, false)
             .unwrap();
         let num_tables_before_removal = self.whpylm.root.ntables;
@@ -264,7 +263,7 @@ impl NPYLM {
         unsafe {
             for depth in 1..3 {
                 let mut context = BOS;
-                if n - depth >= 0 {
+                if n >= depth {
                     context = word_ids[n - depth];
                 }
                 let child = (*cur_node).find_child_pyp(context, generate_if_not_found);
@@ -325,9 +324,9 @@ impl NPYLM {
         self.whpylm_parent_p_w_cache[0] = parent_p_w;
         unsafe {
             for depth in 1..3 {
-                let context = BOS;
-                if n - depth >= 0 {
-                    let context = word_ids[n - depth];
+                let mut context = BOS;
+                if n >= depth {
+                    context = word_ids[n - depth];
                 }
                 let p_w = (*cur_node).compute_p_w_with_parent_p_w(
                     word_n_id,
@@ -366,7 +365,7 @@ impl NPYLM {
                     word_begin_index,
                     word_end_index,
                 );
-                let word_length_with_symbols = word_length + 2;
+                // let word_length_with_symbols = word_length + 2;
                 let p_w = self.chpylm.compute_p_w(&self.most_recent_word);
                 if word_length > self.max_word_length {
                     // self.whpylm_g_0_cache[&word_n_id] = p_w;
@@ -405,13 +404,14 @@ impl NPYLM {
         }
     }
 
-    fn compute_p_k_given_chpylm(&self, k: usize) -> f64 {
-        if k > self.max_word_length {
-            return 0.0;
-        } else {
-            return self.p_k_chpylm[k];
-        }
-    }
+    // Had to inline this one due to compiler constraints
+    // fn compute_p_k_given_chpylm(&self, k: usize) -> f64 {
+    //     if k > self.max_word_length {
+    //         return 0.0;
+    //     } else {
+    //         return self.p_k_chpylm[k];
+    //     }
+    // }
 
     pub fn sample_hyperparameters(&mut self) {
         self.whpylm.sample_hyperparameters();

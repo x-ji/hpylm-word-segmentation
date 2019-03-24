@@ -26,12 +26,12 @@ impl WHPYLM {
         Self {
             root: PYP::new(0),
             depth: 0.max(order - 1),
-            d_array: vec![HPYLM_INITIAL_d; order],
-            theta_array: vec![HPYLM_INITIAL_theta; order],
-            a_array: vec![HPYLM_a; order],
-            b_array: vec![HPYLM_b; order],
-            alpha_array: vec![HPYLM_alpha; order],
-            beta_array: vec![HPYLM_beta; order],
+            d_array: vec![HPYLM_INITIAL_D; order],
+            theta_array: vec![HPYLM_INITIAL_THETA; order],
+            a_array: vec![HPYLM_A; order],
+            b_array: vec![HPYLM_B; order],
+            alpha_array: vec![HPYLM_ALPHA; order],
+            beta_array: vec![HPYLM_BETA; order],
             g_0: 0.0,
         }
     }

@@ -2,7 +2,6 @@ use ndarray::{Array2, Array3, Array4};
 
 use def::*;
 use npylm::*;
-use rand::prelude::*;
 use rand::Rng;
 use sentence::*;
 
@@ -210,6 +209,8 @@ impl Sampler {
             sum_length += k + j;
             next_word_length = j;
         }
+        assert!(sum_length == sentence.length());
+
         segment_lengths.reverse();
         return segment_lengths;
     }
@@ -240,18 +241,17 @@ impl Sampler {
                 self.word_ids[0] = word_j_id;
                 self.word_ids[1] = word_k_id;
                 self.word_ids[2] = word_t_id;
-                let mut p_w_h = 0.0;
-                if t == sentence_length {
-                    p_w_h = self.npylm.compute_p_w_of_nth_word_as_chars(
+                let mut p_w_h = if t == sentence_length {
+                    self.npylm.compute_p_w_of_nth_word_as_chars(
                         &sentence.characters,
                         &self.word_ids,
                         2,
                         t,
                         t,
-                    );
+                    )
                 } else {
-                    p_w_h = self.p_w_h_cache[[t + third_gram_length, third_gram_length, k, j]];
-                }
+                    self.p_w_h_cache[[t + third_gram_length, third_gram_length, k, j]]
+                };
                 let p = p_w_h * self.alpha_tensor[[t, k, j]];
                 self.backward_sampling_table[table_index] = p;
                 sum_p += p;
@@ -273,18 +273,17 @@ impl Sampler {
                 self.word_ids[0] = word_j_id;
                 self.word_ids[1] = word_k_id;
                 self.word_ids[2] = word_t_id;
-                let mut p_w_h = 0.0;
-                if t == sentence_length {
-                    p_w_h = self.npylm.compute_p_w_of_nth_word_as_chars(
+                let mut p_w_h = if t == sentence_length {
+                    self.npylm.compute_p_w_of_nth_word_as_chars(
                         &sentence.characters,
                         &self.word_ids,
                         2,
                         t,
                         t,
-                    );
+                    )
                 } else {
-                    p_w_h = self.p_w_h_cache[[t + third_gram_length, third_gram_length, k, j]];
-                }
+                    self.p_w_h_cache[[t + third_gram_length, third_gram_length, k, j]]
+                };
                 let p = p_w_h * self.alpha_tensor[[t, k, j]];
                 self.backward_sampling_table[table_index] = p;
                 sum_p += p;
@@ -391,7 +390,7 @@ impl Sampler {
                 );
                 // Here are the differences compared with the non viterbi method.
                 let temp = p_w_h.ln() + self.alpha_tensor[[t - k, j, i]];
-                if (argmax == 0 || temp > max_log_p) {
+                if argmax == 0 || temp > max_log_p {
                     argmax = i;
                     max_log_p = temp;
                 }
@@ -424,7 +423,8 @@ impl Sampler {
         &mut self,
         sentence: &Sentence,
         t: usize,
-        third_gram_length: usize,
+        // This is actually not used in this function.
+        _third_gram_length: usize,
         argmax_k: &mut usize,
         argmax_j: &mut usize,
     ) {
@@ -573,8 +573,8 @@ impl Sampler {
         self.forward_filtering(sentence, with_scaling);
 
         let mut alpha_eos = 0.0;
-        let mut t = sentence.length() + 1;
-        let mut k = 1;
+        let t = sentence.length() + 1;
+        let k = 1;
         for j in 1..self.max_word_length.min(t - k) + 1 {
             let mut prob_sum = 0.0;
             for i in if t - k - j == 0 { 0 } else { 1 }..self.max_word_length.min(t - k - j) + 1 {

@@ -6,7 +6,6 @@ use hpylm::{init_hyperparameters_at_depth_if_needed, sum_auxiliary_variables_rec
 use rand::distributions::WeightedIndex;
 use rand::distributions::{Beta, Gamma};
 use rand::prelude::*;
-use rand::Rng;
 
 pub struct CHPYLM {
     pub root: PYP<char>,
@@ -197,7 +196,7 @@ impl CHPYLM {
         return self.compute_log_p_w(characters).exp();
     }
 
-    fn compute_log_p_w(&mut self, characters: &Vec<char>) -> f64 {
+    pub fn compute_log_p_w(&mut self, characters: &Vec<char>) -> f64 {
         let char = characters[0];
         let mut log_p_w = 0.0 as f64;
 
@@ -247,7 +246,7 @@ impl CHPYLM {
         let mut end_reached = false;
 
         unsafe {
-            while (p_stop > CHPYLM_epsilon) {
+            while p_stop > CHPYLM_EPSILON {
                 if end_reached {
                     p_stop = self.beta_stop / (self.beta_pass + self.beta_stop)
                         * parent_pass_probability;
@@ -291,11 +290,11 @@ impl CHPYLM {
 
         let mut sampling_table = vec![0.0; n + 1];
         let char_n = characters[n];
-        let mut sum: f64 = 0.0;
-        let mut parent_p_w = self.g_0;
+        // let mut sum: f64 = 0.0;
+        let parent_p_w = self.g_0;
         let mut parent_pass_probability = 1.0 as f64;
         self.parent_p_w_cache[0] = parent_p_w;
-        let mut sampling_table_size = 0;
+        // let mut sampling_table_size = 0;
         let mut cur_node = Some(&mut self.root as *mut PYP<char>);
 
         unsafe {
@@ -308,11 +307,11 @@ impl CHPYLM {
                         self.parent_p_w_cache[index + 1] = parent_p_w;
                         sampling_table[index] = p;
                         self.path_nodes[index] = None;
-                        sampling_table_size += 1;
-                        sum += p;
+                        // sampling_table_size += 1;
+                        // sum += p;
                         parent_pass_probability *=
                             self.beta_pass / (self.beta_pass + self.beta_stop);
-                        if p_stop < CHPYLM_epsilon {
+                        if p_stop < CHPYLM_EPSILON {
                             break;
                         }
                     }
@@ -330,11 +329,11 @@ impl CHPYLM {
                         self.parent_p_w_cache[index + 1] = parent_p_w;
                         sampling_table[index] = p;
                         self.path_nodes[index] = cur_node;
-                        sampling_table_size += 1;
+                        // sampling_table_size += 1;
                         parent_pass_probability *=
                             self.beta_pass / (self.beta_pass + self.beta_stop);
-                        sum += p;
-                        if (p_stop < CHPYLM_epsilon) {
+                        // sum += p;
+                        if p_stop < CHPYLM_EPSILON {
                             break;
                         }
                         if index < n {
