@@ -1,0 +1,10 @@
+name = "JuliaNHPYLM"
+uuid = "b1cf239f-af32-5310-bfa5-b83a48c027a7"
+authors = ["Xiang Ji <hi@xiangji.me>"]
+version = "0.1.0"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+# [targets]
+# test = ["Test"]

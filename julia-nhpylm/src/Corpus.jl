@@ -109,6 +109,7 @@ mutable struct Dataset
             corpus_length += length(sentence_string)
         end
         
+        # Is this actually sentences or segments?
         num_supervised_sentences = get_num_already_segmented_sentences(corpus)
 
         for i in 1:num_supervised_sentences
