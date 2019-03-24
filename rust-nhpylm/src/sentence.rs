@@ -1,5 +1,7 @@
 use def::*;
+use std::collections::hash_map::DefaultHasher;
 use std::fmt;
+use std::hash::{Hash, Hasher};
 
 // pub const BOS: u64 = calculate_hash(&BOS_CHAR);
 // pub const EOS: u64 = calculate_hash(&EOS_CHAR);
@@ -65,10 +67,10 @@ impl Sentence {
 
     pub fn get_substr_word_id(&self, start_index: usize, end_index: usize) -> u64 {
         // It seems that we need to + 1
-        let substr: String = self.characters[start_index..end_index + 1]
-            .into_iter()
-            .collect();
-        calculate_hash(&substr)
+        let substr = &self.characters[start_index..end_index + 1];
+        let mut s = DefaultHasher::new();
+        substr.hash(&mut s);
+        s.finish()
     }
 
     pub fn get_nth_word_chars(&self, n: usize) -> &[char] {
