@@ -295,7 +295,7 @@ impl CHPYLM {
         let mut parent_pass_probability = 1.0 as f64;
         self.parent_p_w_cache[0] = parent_p_w;
         // let mut sampling_table_size = 0;
-        let mut cur_node = Some(&mut self.root as *mut PYP<char>);
+        let mut cur_node: Option<*mut PYP<char>> = Some(&mut self.root as *mut PYP<char>);
 
         unsafe {
             for index in 0..n + 1 {
@@ -338,7 +338,11 @@ impl CHPYLM {
                         }
                         if index < n {
                             let context_char = characters[n - index - 1];
-                            cur_node = Some((*node).find_child_pyp(context_char, false).unwrap());
+                            // TODO: This is a bit awkward. Might refactor this function.
+                            cur_node = match (*node).find_child_pyp(context_char, false) {
+                                None => None,
+                                Some(n) => Some(n as *mut PYP<char>),
+                            };
                         }
                     }
                 }
