@@ -423,7 +423,7 @@ where
     self.stop_count += 1;
     match self.parent {
       None => {}
-      Some(p) => unsafe { (*p).decrement_pass_count() },
+      Some(p) => unsafe { (*p).increment_pass_count() },
     }
   }
 
