@@ -71,18 +71,15 @@ impl Sentence {
         calculate_hash(&substr)
     }
 
-    pub fn get_nth_word_string(&self, n: usize) -> String {
-        println!("Characters: {:?}", self.characters);
+    pub fn get_nth_word_chars(&self, n: usize) -> &[char] {
+        // println!("Characters: {:?}", self.characters);
         if n < 2 {
-            return String::from("<BOS>");
+            return &['<', 'B', 'O', 'S', '>'];
         } else {
             let start_position: usize = self.segment_begin_positions[n];
             let end_position: usize = start_position + self.segment_lengths[n];
             // Note that Rust's slicing is [a, b) interval, while Julia's is [a, b] interval!
-            return self.characters[start_position..end_position]
-                .iter()
-                .cloned()
-                .collect::<String>();
+            return &self.characters[start_position..end_position];
         }
     }
 
@@ -131,7 +128,7 @@ impl Sentence {
 
     // pub fn print_sentence(&self, f: &mut fmt::Formatter) {
     //     for index in 2..self.num_segments - 1 {
-    //         write!(f, "{}", self.get_nth_word_string(index));
+    //         write!(f, "{}", self.get_nth_word_chars(index));
     //     }
     // }
 }
@@ -140,7 +137,7 @@ impl fmt::Display for Sentence {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // let mut r: fmt::Result = std::result::Result::Err;
         for index in 2..self.num_segments - 1 {
-            write!(f, "{}", self.get_nth_word_string(index));
+            write!(f, "{:?}", self.get_nth_word_chars(index));
         }
         // ???
         write!(f, "")

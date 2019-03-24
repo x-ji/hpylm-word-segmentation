@@ -72,27 +72,27 @@ impl Model {
     }
 
     // Well this method doesn't seem to be used anyways...
-    fn segment_sentence(&mut self, sentence_chars: Vec<char>) -> Vec<String> {
-        // This is a bit silly...
-        let max_word_length = self.sampler.npylm.max_word_length.clone();
-        self.sampler
-            .extend_capacity(max_word_length, sentence_chars.len());
+    // fn segment_sentence(&mut self, sentence_chars: Vec<char>) -> Vec<String> {
+    //     // This is a bit silly...
+    //     let max_word_length = self.sampler.npylm.max_word_length.clone();
+    //     self.sampler
+    //         .extend_capacity(max_word_length, sentence_chars.len());
 
-        self.sampler.npylm.extend_capacity(sentence_chars.len());
+    //     self.sampler.npylm.extend_capacity(sentence_chars.len());
 
-        let mut segmented_sentence: Vec<String> = Vec::new();
+    //     let mut segmented_sentence: Vec<String> = Vec::new();
 
-        let mut sentence = Sentence::new(sentence_chars, false);
-        let segment_lengths = self.sampler.viterbi_decode(&sentence);
+    //     let mut sentence = Sentence::new(sentence_chars, false);
+    //     let segment_lengths = self.sampler.viterbi_decode(&sentence);
 
-        // This is really convoluted. Let's see if we can do better.
-        sentence.split_sentence(segment_lengths);
-        for i in 0..sentence.get_num_segments_without_special_tokens() {
-            segmented_sentence.push(sentence.get_nth_word_string(i + 2));
-        }
+    //     // This is really convoluted. Let's see if we can do better.
+    //     sentence.split_sentence(segment_lengths);
+    //     for i in 0..sentence.get_num_segments_without_special_tokens() {
+    //         segmented_sentence.push(sentence.get_nth_word_chars(i + 2));
+    //     }
 
-        segmented_sentence
-    }
+    //     segmented_sentence
+    // }
 
     pub fn compute_log_forward_probability(
         &mut self,

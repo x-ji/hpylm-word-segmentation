@@ -62,7 +62,7 @@ impl Trainer {
         // This method of storing the dataset is hugely problematic. Surely we've got some better ways then. Let's go on of course go on.
         for sentence in &self.dataset.train_sentences {
             for index in 2..sentence.num_segments - 1 {
-                let word = sentence.get_nth_word_string(index);
+                let word = sentence.get_nth_word_chars(index);
                 let word_id = sentence.get_nth_word_id(index);
                 let word_length = sentence.get_nth_segment_length(index);
                 if word_length > self.model.sampler.npylm.max_word_length {
@@ -82,7 +82,7 @@ impl Trainer {
                         .unwrap();
                     // .unwrap_or(&Vec::new());
                     let num_tablegroups = tablegroups.len();
-                    let t = detect_word_type(&word);
+                    let t = detect_word_type(word);
                     a_array[t] += (num_tablegroups * word_length) as f64;
                     b_array[t] += num_tablegroups as f64;
                     word_ids.insert(word_id);

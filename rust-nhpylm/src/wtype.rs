@@ -129,11 +129,11 @@ pub fn is_symbol(c: char) -> bool {
   return true;
 }
 
-pub fn detect_word_type(word: &String) -> usize {
-  return detect_word_type_substr(&word.chars().collect(), 0, word.len() - 1);
+pub fn detect_word_type(word: &[char]) -> usize {
+  return detect_word_type_substr(word, 0, word.len() - 1);
 }
 
-pub fn detect_word_type_substr(chars: &Vec<char>, start: usize, end: usize) -> usize {
+pub fn detect_word_type_substr(chars: &[char], start: usize, end: usize) -> usize {
   let mut num_alphabet = 0;
   let mut num_number = 0;
   let mut num_symbol = 0;
@@ -142,6 +142,8 @@ pub fn detect_word_type_substr(chars: &Vec<char>, start: usize, end: usize) -> u
   let mut num_kanji = 0;
   let mut num_dash = 0;
   let size = end - start + 1;
+
+  // println!("start is {}, end is {}, chars is {:?}", start, end, chars);
   for i in start..end + 1 {
     let target = chars[i];
     if is_alphabet(target) {
