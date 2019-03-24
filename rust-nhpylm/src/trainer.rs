@@ -25,7 +25,7 @@ pub struct Trainer {
 }
 
 impl Trainer {
-    fn new(dataset: Dataset, model: Model, always_accept_new_segmentation: bool) -> Self {
+    pub fn new(dataset: Dataset, model: Model, always_accept_new_segmentation: bool) -> Self {
         let mut rand_indices_train = vec![0; dataset.train_sentences.len()];
         for i in 0..dataset.train_sentences.len() {
             rand_indices_train[i] = i;
@@ -52,11 +52,11 @@ impl Trainer {
         }
     }
 
-    fn sample_hyperparameters(&mut self) {
+    pub fn sample_hyperparameters(&mut self) {
         self.model.sampler.npylm.sample_hyperparameters();
     }
 
-    fn sample_lambda(&mut self) {
+    pub fn sample_lambda(&mut self) {
         let mut a_array = vec![self.model.sampler.npylm.lambda_a; WORDTYPE_NUM_TYPES];
         let mut b_array = vec![self.model.sampler.npylm.lambda_b; WORDTYPE_NUM_TYPES];
         let mut word_ids: HashSet<u64> = HashSet::new();
@@ -137,7 +137,11 @@ impl Trainer {
         return self.chpylm_sampling_id_table[index_of_char];
     }
 
-    fn update_p_k_given_chpylm(&mut self, num_samples: usize, early_stopping_threshold: usize) {
+    pub fn update_p_k_given_chpylm_default(&mut self) {
+        self.update_p_k_given_chpylm(20000, 10);
+    }
+
+    pub fn update_p_k_given_chpylm(&mut self, num_samples: usize, early_stopping_threshold: usize) {
         let max_word_length = self.model.get_max_word_length() + 1;
         for i in 0..max_word_length + 1 {
             self.model.sampler.npylm.p_k_chpylm[i] = 0.0;

@@ -68,7 +68,7 @@ impl NPYLM {
             recorded_depth_arrays_for_tablegroups_of_token: HashMap::new(),
             whpylm_g_0_cache: HashMap::new(),
             chpylm_g_0_cache: HashMap::new(),
-            lambda_for_types: vec![0.0; WORDTYPE_NUM_TYPES],
+            lambda_for_types: vec![0.0; WORDTYPE_NUM_TYPES + 1],
             whpylm_parent_p_w_cache: vec![0.0; 3],
             lambda_a: initial_lambda_a,
             lambda_b: initial_lambda_b,

@@ -1,11 +1,14 @@
 use rand::seq::SliceRandom;
-use rand::{thread_rng, Rng};
+use rand::{thread_rng, Rng, SeedableRng, StdRng};
 
 use sentence::*;
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufReader;
+use std::path::{Path, PathBuf};
+
+use regex::Regex;
 
 pub struct Vocabulary {
     pub all_characters: HashSet<char>,
@@ -33,7 +36,7 @@ pub struct Corpus {
 }
 
 impl Corpus {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             sentence_list: Vec::new(),
             segmented_word_list: Vec::new(),
@@ -44,16 +47,19 @@ impl Corpus {
         self.sentence_list.push(sentence_string);
     }
 
-    pub fn read_corpus(&mut self, input_file_path: String) {
+    // Don't think this function was ever used???
+    pub fn read_corpus(&mut self, input_file_path: &Path) {
         let input_file = File::open(input_file_path).unwrap();
         let reader = &mut BufReader::new(input_file);
+        let spaces = Regex::new(r"\s").unwrap();
         // let mut line = String::new();
         for line in reader.lines() {
             let l = line.unwrap();
             if l.is_empty() {
                 continue;
             }
-            self.add_sentence(l.trim().to_owned());
+            let no_whitespaces = spaces.replace_all(&l, "");
+            self.add_sentence(no_whitespaces.to_string());
         }
     }
 
@@ -77,7 +83,7 @@ pub struct Dataset {
 }
 
 impl Dataset {
-    fn new(corpus: Corpus, train_proportion: f64) -> Self {
+    pub fn new(corpus: Corpus, train_proportion: f64, seed: u64) -> Self {
         let mut corpus_length = 0;
         let num_sentences = corpus.get_num_sentences();
         let mut vocabulary = Vocabulary::new();
@@ -89,7 +95,9 @@ impl Dataset {
         for i in 0..num_sentences {
             sentence_indices[i] = i;
         }
-        sentence_indices.shuffle(&mut thread_rng());
+        // sentence_indices.shuffle(&mut thread_rng());
+        let mut rng: StdRng = SeedableRng::seed_from_u64(seed);
+        sentence_indices.shuffle(&mut rng);
 
         let train_proportion = (1.0 as f64).min((0.0 as f64).max(train_proportion));
         let num_train_sentences = corpus.get_num_sentences() * train_proportion.floor() as usize;
@@ -139,11 +147,11 @@ impl Dataset {
         }
     }
 
-    fn get_num_train_sentences(&self) -> usize {
+    pub fn get_num_train_sentences(&self) -> usize {
         self.train_sentences.len()
     }
 
-    fn get_num_dev_sentences(&self) -> usize {
+    pub fn get_num_dev_sentences(&self) -> usize {
         self.dev_sentences.len()
     }
 
