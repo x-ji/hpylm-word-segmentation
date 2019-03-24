@@ -12,31 +12,33 @@ pub struct Sentence {
     pub supervised: bool,
     pub characters: Vec<char>,
     pub word_ids: Vec<u64>,
-    pub sentence_string: String,
 }
 
 impl Sentence {
-    pub fn new(sentence_string: String, supervised: bool) -> Self {
-        let mut word_ids: Vec<u64> = vec![0; sentence_string.len() + 3];
+    pub fn new_from_string(sentence_string: String, supervised: bool) -> Self {
+        return Self::new(sentence_string.chars().collect(), supervised);
+    }
+
+    pub fn new(characters: Vec<char>, supervised: bool) -> Self {
+        let mut word_ids: Vec<u64> = vec![0; characters.len() + 3];
         word_ids[0] = BOS;
         word_ids[1] = BOS;
         word_ids[3] = EOS;
 
-        let mut segment_lengths: Vec<usize> = vec![0; sentence_string.len() + 3];
+        let mut segment_lengths: Vec<usize> = vec![0; characters.len() + 3];
         segment_lengths[0] = 1;
         segment_lengths[1] = 1;
-        segment_lengths[2] = sentence_string.len();
+        segment_lengths[2] = characters.len();
         segment_lengths[3] = 1;
 
-        let mut segment_begin_positions: Vec<usize> = vec![0; sentence_string.len() + 3];
+        let mut segment_begin_positions: Vec<usize> = vec![0; characters.len() + 3];
         segment_begin_positions[0] = 0;
         segment_begin_positions[1] = 0;
         segment_begin_positions[2] = 0;
-        segment_begin_positions[3] = sentence_string.len();
+        segment_begin_positions[3] = characters.len();
 
         Self {
-            characters: sentence_string.chars().collect(),
-            sentence_string: sentence_string,
+            characters: characters,
             word_ids: word_ids,
             segment_lengths: segment_lengths,
             segment_begin_positions: segment_begin_positions,
@@ -46,7 +48,7 @@ impl Sentence {
     }
 
     pub fn length(&self) -> usize {
-        self.sentence_string.len()
+        self.characters.len()
     }
 
     pub fn get_num_segments_without_special_tokens(&self) -> usize {
@@ -62,18 +64,15 @@ impl Sentence {
     }
 
     pub fn get_substr_word_id(&self, start_index: usize, end_index: usize) -> u64 {
-        // Why don't you just directly index the characters?
-        // calculate_hash(&s.characters[start_index..end_index])
-        let substr: String = self
-            .sentence_string
-            .chars()
-            .take(end_index)
-            .skip(start_index)
+        // It seems that we need to + 1
+        let substr: String = self.characters[start_index..end_index + 1]
+            .into_iter()
             .collect();
         calculate_hash(&substr)
     }
 
     pub fn get_nth_word_string(&self, n: usize) -> String {
+        println!("Characters: {:?}", self.characters);
         if n < 2 {
             return String::from("<BOS>");
         } else {
@@ -108,7 +107,7 @@ impl Sentence {
             index += 1;
         }
 
-        assert!(sum_length == self.sentence_string.len());
+        assert!(sum_length == self.characters.len());
 
         // EOS
         self.segment_lengths[index + 2] = 1;
@@ -116,7 +115,7 @@ impl Sentence {
         self.segment_begin_positions[index + 2] = self.segment_begin_positions[index + 1];
         index += 1;
 
-        while index < self.sentence_string.len() {
+        while index < self.characters.len() {
             self.segment_lengths[index + 2] = 0;
             self.segment_begin_positions[index + 2] = 0;
             index += 1;

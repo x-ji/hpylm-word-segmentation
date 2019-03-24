@@ -32,7 +32,7 @@ impl Vocabulary {
 }
 
 pub struct Corpus {
-    sentence_list: Vec<String>,
+    sentence_list: Vec<Vec<char>>,
     segmented_word_list: Vec<Vec<String>>,
 }
 
@@ -44,8 +44,8 @@ impl Corpus {
         }
     }
 
-    pub fn add_sentence(&mut self, sentence_string: String) {
-        self.sentence_list.push(sentence_string);
+    pub fn add_sentence(&mut self, sentence_chars: Vec<char>) {
+        self.sentence_list.push(sentence_chars);
     }
 
     // Don't think this function was ever used???
@@ -60,7 +60,8 @@ impl Corpus {
                 continue;
             }
             let no_whitespaces = spaces.replace_all(&l, "");
-            self.add_sentence(no_whitespaces.to_string());
+            // self.add_sentence(no_whitespaces.to_string());
+            self.add_sentence(no_whitespaces.chars().collect());
         }
     }
 
@@ -107,26 +108,18 @@ impl Dataset {
 
         for i in 0..num_sentences {
             // It is actually a reference to something stored in the Corpus struct.
-            let sentence_string = &corpus.sentence_list[sentence_indices[i]];
+            let sentence_chars = &corpus.sentence_list[sentence_indices[i]];
 
             if i < num_train_sentences {
-                add_sentence(
-                    &mut vocabulary,
-                    &mut train_sentences,
-                    sentence_string.to_owned(),
-                );
+                add_sentence(&mut vocabulary, &mut train_sentences, sentence_chars);
             } else {
-                add_sentence(
-                    &mut vocabulary,
-                    &mut dev_sentences,
-                    sentence_string.to_owned(),
-                );
+                add_sentence(&mut vocabulary, &mut dev_sentences, sentence_chars);
             }
 
-            if sentence_string.len() > max_sentence_length {
-                max_sentence_length = sentence_string.len();
+            if sentence_chars.len() > max_sentence_length {
+                max_sentence_length = sentence_chars.len();
             }
-            corpus_length += sentence_string.len();
+            corpus_length += sentence_chars.len();
         }
 
         let avg_sentence_length = corpus_length as f64 / num_sentences as f64;
@@ -157,29 +150,16 @@ impl Dataset {
     pub fn get_num_dev_sentences(&self) -> usize {
         self.dev_sentences.len()
     }
-
-    // This design is bonkers, at least for Rust, the below version taking in each component individually is much cleaner!
-    // fn add_sentence(&mut self, sentence_string: String, is_train: bool) {
-    //     for c in sentence_string.chars() {
-    //         self.vocabulary.add_character(c);
-    //     }
-    //     let s = Sentence::new(sentence_string, false);
-    //     if is_train {
-    //         self.train_sentences.push(s);
-    //     } else {
-    //         self.dev_sentences.push(s);
-    //     }
-    // }
 }
 
 fn add_sentence(
     vocabulary: &mut Vocabulary,
     sentences: &mut Vec<Sentence>,
-    sentence_string: String,
+    sentence_chars: &Vec<char>,
 ) {
-    for c in sentence_string.chars() {
-        vocabulary.add_character(c);
+    for c in sentence_chars {
+        vocabulary.add_character(*c);
     }
-    let s = Sentence::new(sentence_string, false);
+    let s = Sentence::new(sentence_chars.clone(), false);
     sentences.push(s);
 }

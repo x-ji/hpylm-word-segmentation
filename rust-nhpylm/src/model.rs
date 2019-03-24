@@ -71,17 +71,18 @@ impl Model {
         self.sampler.npylm.chpylm.beta_pass = pass;
     }
 
-    pub fn segment_sentence(&mut self, sentence_string: String) -> Vec<String> {
+    // Well this method doesn't seem to be used anyways...
+    fn segment_sentence(&mut self, sentence_chars: Vec<char>) -> Vec<String> {
         // This is a bit silly...
         let max_word_length = self.sampler.npylm.max_word_length.clone();
         self.sampler
-            .extend_capacity(max_word_length, sentence_string.len());
+            .extend_capacity(max_word_length, sentence_chars.len());
 
-        self.sampler.npylm.extend_capacity(sentence_string.len());
+        self.sampler.npylm.extend_capacity(sentence_chars.len());
 
         let mut segmented_sentence: Vec<String> = Vec::new();
 
-        let mut sentence = Sentence::new(sentence_string, false);
+        let mut sentence = Sentence::new(sentence_chars, false);
         let segment_lengths = self.sampler.viterbi_decode(&sentence);
 
         // This is really convoluted. Let's see if we can do better.
@@ -95,16 +96,16 @@ impl Model {
 
     pub fn compute_log_forward_probability(
         &mut self,
-        sentence_string: String,
+        sentence_chars: Vec<char>,
         with_scaling: bool,
     ) -> f64 {
         let max_word_length = self.sampler.npylm.max_word_length.clone();
         self.sampler
-            .extend_capacity(max_word_length, sentence_string.len());
+            .extend_capacity(max_word_length, sentence_chars.len());
 
-        self.sampler.npylm.extend_capacity(sentence_string.len());
+        self.sampler.npylm.extend_capacity(sentence_chars.len());
 
-        let sentence = Sentence::new(sentence_string, false);
+        let sentence = Sentence::new(sentence_chars, false);
 
         return self
             .sampler
