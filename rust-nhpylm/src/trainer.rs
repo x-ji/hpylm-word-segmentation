@@ -56,8 +56,8 @@ impl Trainer {
     }
 
     pub fn sample_lambda(&mut self) {
-        let mut a_array = vec![self.model.sampler.npylm.lambda_a; WORDTYPE_NUM_TYPES];
-        let mut b_array = vec![self.model.sampler.npylm.lambda_b; WORDTYPE_NUM_TYPES];
+        let mut a_array = vec![self.model.sampler.npylm.lambda_a; WORDTYPE_NUM_TYPES + 1];
+        let mut b_array = vec![self.model.sampler.npylm.lambda_b; WORDTYPE_NUM_TYPES + 1];
         let mut word_ids: HashSet<u64> = HashSet::new();
         // This method of storing the dataset is hugely problematic. Surely we've got some better ways then. Let's go on of course go on.
         for sentence in &self.dataset.train_sentences {
