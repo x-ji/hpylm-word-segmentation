@@ -567,7 +567,8 @@ function get_num_customers(pyp::PYP{T})::Int where T
     temp = pyp.ncustomers
     for child in values(pyp.children)
         # if !isempty(child)
-            temp += child.ncustomers
+            # temp += child.ncustomers
+            temp += get_num_customers(child)
         # end
     end
     return temp

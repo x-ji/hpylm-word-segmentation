@@ -433,12 +433,12 @@ function viterbi_argmax_calculate_α_t_k_j(sampler::Sampler, sentence::Sentence,
         sampler.word_ids[2] = word_k_id
         # Compute the probability of this word with length k
         # Why do we - 1 in the end though? We probably shouldn't do so here since the indexing system is different. Eh.
-        # TODO: Just use 0-based index anyways if things don't work out.
         p_w_h = compute_p_w_of_nth_word(sampler.npylm, sentence_as_chars, sampler.word_ids, 2, t - k, t - 1)
         @assert(p_w_h > 0.0)
         # I think the scaling is to make sure that this thing doesn't underflow.
         # Store the values in the cache
         sampler.α_tensor[t,k,0] = log(p_w_h)
+        # Here is the difference.
         sampler.viterbi_backward_indices[t,k,0] = 0
         return
     # Special case 2: This is the case where i == 0 but j != 0, i.e. the first gram is BOS (but the second gram is a normal word)
@@ -574,7 +574,7 @@ function viterbi_backward_sampling(sampler::Sampler, sentence::Sentence)
 
     # There's only one word in total for the sentence.
     if j == 0 && k == t
-        return segment_lengths
+        return OffsetArray(reverse(segment_lengths), 0:length(segment_lengths) - 1)
     end
 
     @assert(k > 0 && j > 0)
@@ -594,7 +594,7 @@ function viterbi_backward_sampling(sampler::Sampler, sentence::Sentence)
     # The sentence is already fully segmented.
     if i == 0
         @assert sum_length == length(sentence)
-        return
+        return OffsetArray(reverse(segment_lengths), 0:length(segment_lengths) - 1)
     end
 
     push!(segment_lengths, i)

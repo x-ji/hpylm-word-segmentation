@@ -264,6 +264,8 @@ function update_p_k_given_chpylm(trainer::Trainer, num_samples::Int = 20000, ear
             cur_word_length += 1
         end
 
+        num_words_sampled += 1;
+
         # In this case we just sampled an empty word, i.e. <BOW><EOW>. It cannot be used. Continue to the next round of sampling.
         if cur_word_length == 0
             continue
@@ -344,7 +346,7 @@ function blocked_gibbs_sampling(trainer::Trainer)
                     for i in 0:num_old_segments - 1
                         # We save the old segmentation but get rid of the BOS and EOS tokens
                         # Two BOS in the beginning.
-                        old_segment_lengths[i] = sentence.segments[i + 2]
+                        old_segment_lengths[i] = sentence.segment_lengths[i + 2]
                     end
                     old_log_p_s = compute_log_probability_of_sentence(trainer.model.npylm, sentence)
                 end
@@ -435,6 +437,7 @@ function print_segmentations(trainer::Trainer, num_to_print::Int, sentences::Vec
     num_to_print = min(length(sentences), num_to_print)
     for n in 1:num_to_print
         sentence_index = rand_indices[n]
+        # I think this should really be clone, not just create a new sentence based on the string. Let's see then.
         sentence = Sentence(sentences[sentence_index].sentence_string)
         # I don't think I fully understood why it's necessary to decode the sentence again if it's already segmented... Let's see.
         segment_lengths = viterbi_decode(trainer.model.sampler, sentence)
