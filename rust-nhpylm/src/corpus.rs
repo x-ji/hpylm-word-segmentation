@@ -100,7 +100,9 @@ impl Dataset {
         sentence_indices.shuffle(&mut rng);
 
         let train_proportion = (1.0 as f64).min((0.0 as f64).max(train_proportion));
-        let num_train_sentences = corpus.get_num_sentences() * train_proportion.floor() as usize;
+        // let train_proportion = train_proportion.max(0.0);
+        let num_train_sentences =
+            (corpus.get_num_sentences() as f64 * train_proportion).floor() as usize;
 
         for i in 0..num_sentences {
             // It is actually a reference to something stored in the Corpus struct.

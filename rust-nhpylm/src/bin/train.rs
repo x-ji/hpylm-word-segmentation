@@ -153,7 +153,7 @@ fn main() {
         dataset.get_num_train_sentences()
     );
     println!(
-        "Number of train sentences {}",
+        "Number of dev sentences {}",
         dataset.get_num_dev_sentences()
     );
 
