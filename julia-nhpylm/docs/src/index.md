@@ -52,22 +52,6 @@ Order = [:constant, :type, :function]
 Pages = ["HPYLM.jl"]
 ```
 
-<!-- ## WHPYLM.jl
-
-```@autodocs
-Modules = [NHPYLM]
-Order = [:constant, :type, :function]
-Pages = ["WHPYLM.jl"]
-```
-
-## CHPYLM.jl
-
-```@autodocs
-Modules = [NHPYLM]
-Order = [:constant, :type, :function]
-Pages = ["CHPYLM.jl"]
-``` -->
-
 ## Sampler.jl
 
 ```@autodocs
@@ -75,19 +59,3 @@ Modules = [NHPYLM]
 Order = [:constant, :type, :function]
 Pages = ["Sampler.jl"]
 ```
-<!-- 
-## Model.jl
-
-```@autodocs
-Modules = [NHPYLM]
-Order = [:constant, :type, :function]
-Pages = ["NHPYLM.jl"]
-```
-
-## Train.jl
-
-```@autodocs
-Modules = [NHPYLM]
-Order = [:constant, :type, :function]
-Pages = ["Train.jl"]
-``` -->
