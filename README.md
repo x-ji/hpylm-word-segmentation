@@ -1,5 +1,10 @@
 # HPYLM Word Segmentation
 
+There are three main foci of this project:
+- Evaluate the applicability and performance of the nested Pitman-Yor model for word segmentation, not only on non-space-separated languages, but also on other languages stripped of spaces.
+- Evaluate the suitability of different styles of programming languages (Julia and Rust) for such a task.
+- Provide detailed documentation and comments for each module and function, so that others who are interested in Pitman-Yor model might find the implementations useful.
+
 <!-- Note: The old code is in `julia-hpylm`. However, it is very inefficient and still contains some errors. The new code currently being worked upon (which tries to properly implement the infinite-gram character-level HPYLM model) is in the folder `julia-nhpylm`. -->
 
 - The folder `julia-hpylm` contains some old code, which is obsolete.
@@ -14,7 +19,9 @@ Mochihashi et al. (2009) applied the model on Chinese/Japanese text segmentation
 
 Granted, the state-of-the-art results on language modeling and word segmentation are still achieved by supervised learning methods, just as is the case with many other tasks. However, unsupervised learning methods could still be interesting, especially on languages for which transcriptions/gold standard data are lacking or inherently harder to obtain.
 
-This project attempts to implement the model as described by Mochihashi et al. (2009). Besides testing on data from the languages mentioned in the original paper, attention will also be paid on testing other languages, as well as potentially incorporating supervised learning methods into the model.
+This project attempts to implement the model as described by Mochihashi et al. (2009).
+
+<!-- Besides testing on data from the languages mentioned in the original paper, attention will also be paid on testing other languages -->
 
 <!-- The minimum expectation would be to successfully build the hierarchical Bayesian model as described by Teh (2006). Testing would be performed at least on the publicly available AP News data, which is originally used by Teh, and the Brown corpus and the State of the Union corpus, which are used by Dr. Dyer and his colleagues in their testing. Additional testing on different languages might also be performed to observe differences in performances. -->
 
