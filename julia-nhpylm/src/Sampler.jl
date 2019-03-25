@@ -619,7 +619,7 @@ function viterbi_backward_sampling(sampler::Sampler, sentence::Sentence)
     return OffsetArray(reverse(segment_lengths), 0:length(segment_lengths) - 1)
 end
 
-"This function uses viterbi algorithm to sample the segmentation of a sentence, instead of the approach in the `blocked_gibbs_segment` function above. They should both be valid approaches."
+"Viterbi decoding algorithm is used to find the best segmentation of a sentence, given an **already learned** model. This method is used when we want to perform evaluation on test data."
 function viterbi_decode(sampler::Sampler, sentence::Sentence)
     # array_length = length(sentence) + 1
     sampler.α_tensor[0,0,0] = 0.0

@@ -1,6 +1,6 @@
 # Put all necessary imports here.
 __precompile__()
-module NHPYLM
+module Model 
 using Serialization
 
 include("Def.jl")
@@ -181,7 +181,6 @@ function sample_lambda(trainer::Trainer)
                 # IMO this word should always be present in the root of the WHPYLM. If not then it's a bug. Anyways the [] there is just a failsafe measure.
                 tablegroups = get(trainer.model.npylm.whpylm.root.tablegroups, word_id, [])
                 num_tablegroups = length(tablegroups)
-                # TODO: Need to properly detect the word type.
                 t = detect_word_type(word)
                 a_array[t] += num_tablegroups * word_length
                 b_array[t] += num_tablegroups
@@ -299,7 +298,7 @@ end
 
 function blocked_gibbs_sampling(trainer::Trainer)
     # Yeah I think we're not doing any segmentation in the first round at all. Segmentations only start from the second round. So the behavior is normal.
-    # Still then the problem is why on only certain sentences they try to remove EOS twice from the table. Fucking hell this just simply doesn't make the least bit of sense whatsoever let's just go on and see then. Such a load of total jokes inded thoasdf otasd foatsdfas taosdfast aosdfasdftreadsfasdftadsfasdf total absdfoatr toasdlfasetrdf.
+    # Still then the problem is why on only certain sentences they try to remove EOS twice from the table. Fucking hell this just simply doesn't make the least bit of sense whatsoever let's just go on and see then.
     # temp_sentence = trainer.dataset.train_sentences[1]
     # println("In blocked_gibbs_sampling, temp_sentence is $temp_sentence, temp_sentence.num_segments is $(temp_sentence.num_segments), temp_sentence.segment_lengths is $(temp_sentence.segment_lengths) ")
     num_sentences = length(trainer.dataset.train_sentences)
@@ -372,7 +371,7 @@ function blocked_gibbs_sampling(trainer::Trainer)
             end
 
             # Put the sentence data into the NPYLM
-            # Note that if the sentence has never been added to CHPYLM before, ? what was I going to write here?
+            # Yeah I think I get it. All the sampling process we're basically trying to alter the model parameters. We're not really storing the segmentation results of the training sentences anyways, as that would be quite pointless and irrelevant. Let's go then.
             for n in 2:sentence.num_segments - 1
                 add_customer_at_index_n(trainer.model.npylm, sentence, n)
             end
@@ -438,8 +437,9 @@ function print_segmentations(trainer::Trainer, num_to_print::Int, sentences::Vec
     for n in 1:num_to_print
         sentence_index = rand_indices[n]
         # I think this should really be clone, not just create a new sentence based on the string. Let's see then.
+        # OK I don't think it makes a difference because the sentence provided to it as trainer.dataset.train_sentences and trainer.dataset.dev_sentences are probably still non-segmented anyways.
         sentence = Sentence(sentences[sentence_index].sentence_string)
-        # I don't think I fully understood why it's necessary to decode the sentence again if it's already segmented... Let's see.
+        # Use the viterbi_decode method to segment sentences, given an already trained model.
         segment_lengths = viterbi_decode(trainer.model.sampler, sentence)
         split_sentence(sentence, segment_lengths)
         show(sentence)
