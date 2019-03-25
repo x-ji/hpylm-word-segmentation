@@ -16,9 +16,9 @@ To run the program (with Julia version >= 1.0):
     Pkg.add("Distributions")
     Pkg.add("OffsetArrays")
     ```
-3. Run `include("Model.jl")`
-4. To train a model, run `Model.train([training-data-path], [model-output-path], [split_proportion], [epochs], [max_word_length])`
-5. To evaluate a model, run `Model.evaluate("test-data-path", "previously-saved-model-path")`
+3. Run `include("./src/JuliaNhpylm.jl")`
+4. To train a model, run `JuliaNhpylm.train([training-data-path], [model-output-path], [split_proportion], [epochs], [max_word_length])`
+5. To evaluate a model, run `JuliaNhpylm.evaluate("test-data-path", "previously-saved-model-path")`
 
 For steps 3 to 6, I've alternatively provided two scripts `Train.jl` and `Eval.jl` which can be directly invoked from the command line:
 

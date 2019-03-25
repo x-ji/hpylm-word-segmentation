@@ -1,6 +1,6 @@
 # Put all necessary imports here.
 __precompile__()
-module Model 
+module JuliaNhpylm
 using Serialization
 
 include("Def.jl")

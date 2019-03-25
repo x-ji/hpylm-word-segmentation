@@ -1,13 +1,13 @@
 # Julia-NHPYLM Documentation
 
 ```@meta
-CurrentModule = NHPYLM
+CurrentModule = JuliaNhpylm
 ```
 
 ## Corpus.jl
 
 ```@autodocs
-Modules = [NHPYLM]
+Modules = [JuliaNhpylm]
 Order = [:constant, :type, :function]
 Pages = ["Corpus.jl"]
 ```
@@ -15,7 +15,7 @@ Pages = ["Corpus.jl"]
 ## CType.jl
 
 ```@autodocs
-Modules = [NHPYLM]
+Modules = [JuliaNhpylm]
 Order = [:constant, :type, :function]
 Pages = ["CType.jl"]
 ```
@@ -23,7 +23,7 @@ Pages = ["CType.jl"]
 ## WType.jl
 
 ```@autodocs
-Modules = [NHPYLM]
+Modules = [JuliaNhpylm]
 Order = [:constant, :type, :function]
 Pages = ["WType.jl"]
 ```
@@ -31,7 +31,7 @@ Pages = ["WType.jl"]
 ## Sentence.jl
 
 ```@autodocs
-Modules = [NHPYLM]
+Modules = [JuliaNhpylm]
 Order = [:constant, :type, :function]
 Pages = ["Sentence.jl"]
 ```
@@ -39,7 +39,7 @@ Pages = ["Sentence.jl"]
 ## PYP.jl
 
 ```@autodocs
-Modules = [NHPYLM]
+Modules = [JuliaNhpylm]
 Order = [:constant, :type, :function]
 Pages = ["PYP.jl"]
 ```
@@ -47,7 +47,7 @@ Pages = ["PYP.jl"]
 ## HPYLM.jl
 
 ```@autodocs
-Modules = [NHPYLM]
+Modules = [JuliaNhpylm]
 Order = [:constant, :type, :function]
 Pages = ["HPYLM.jl"]
 ```
@@ -55,7 +55,7 @@ Pages = ["HPYLM.jl"]
 ## Sampler.jl
 
 ```@autodocs
-Modules = [NHPYLM]
+Modules = [JuliaNhpylm]
 Order = [:constant, :type, :function]
 Pages = ["Sampler.jl"]
-```
+``
