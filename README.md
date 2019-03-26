@@ -6,7 +6,7 @@ There are three main foci of this project:
 - Provide detailed documentation and comments for each module and function, so that others who are interested in Pitman-Yor model might find the implementations useful.
 
 <!-- Note: The old code is in `julia-hpylm`. However, it is very inefficient and still contains some errors. The new code currently being worked upon (which tries to properly implement the infinite-gram character-level HPYLM model) is in the folder `julia-nhpylm`. -->
-
+Implementations:
 - The folder `julia-hpylm` contains some old code, which is obsolete.
 - The folder `julia-nhpylm` contains the Julia implementation of the model. For details on running the program, please refer to the README.md file in that folder.
 - The folder `rust-nhpylm` contains the Rust implementation of the model. For details on running the program, please refer to the README.md file in that folder.
