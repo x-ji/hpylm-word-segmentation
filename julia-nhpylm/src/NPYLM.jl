@@ -397,7 +397,7 @@ function compute_G_0_of_word_at_index_n(npylm::NPYLM, sentence_as_chars::OffsetV
             G_0 = p_w / p_k_given_chpylm * poisson_sample
 
             # Very rarely the result will exceed 1
-            # if !(0 < G_0 && G_0 < 1)
+            if !(0 < G_0 && G_0 < 1)
                 # Now there is a bug and this branch is triggered all the time.
                 println("Very rarely the result will exceed 1")
                 for i in word_begin_index:word_end_index
@@ -409,7 +409,7 @@ function compute_G_0_of_word_at_index_n(npylm::NPYLM, sentence_as_chars::OffsetV
                 println(p_k_given_chpylm)
                 println(G_0)
                 println(word_length)
-            # end
+            end
             npylm.whpylm_G_0_cache[word_n_id] = G_0
             return G_0
         end
