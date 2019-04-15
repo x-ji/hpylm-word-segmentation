@@ -134,6 +134,10 @@ impl Sampler {
         j: usize,
         prod_scaling: f64,
     ) {
+        assert!(t <= self.max_sentence_length + 1);
+        assert!(k <= self.max_word_length);
+        assert!(j <= self.max_word_length);
+        assert!(t - k >= 0);
         let word_k_id = self.get_substring_word_id_at_t_k(sentence, t, k);
         // let sentence_as_chars = &sentence.characters;
 
@@ -185,10 +189,14 @@ impl Sampler {
                     t - k,
                     t - 1,
                 );
+                assert!(p_w_h > 0.0);
+                assert!(i <= self.max_word_length);
+                assert!(self.alpha_tensor[[t - k, j, i]] > 0.0);
                 self.p_w_h_cache[[t, k, j, i]] = p_w_h;
                 sum += p_w_h * self.alpha_tensor[[t - k, j, i]];
             }
 
+            assert!(sum > 0.0);
             self.alpha_tensor[[t, k, j]] = sum * prod_scaling;
             return;
         }
@@ -225,7 +233,7 @@ impl Sampler {
             segment_lengths.push(k);
             t -= k;
             if j == 0 {
-                println!("t is {}", t);
+                // println!("t is {}", t);
                 assert!(t == 0);
             } else {
                 assert!(j <= self.max_word_length);
@@ -235,6 +243,7 @@ impl Sampler {
             sum_length += k + j;
             next_word_length = j;
         }
+        assert!(t == 0);
         assert!(sum_length == sentence.length());
 
         segment_lengths.reverse();
@@ -258,8 +267,8 @@ impl Sampler {
                 let mut word_k_id = self.get_substring_word_id_at_t_k(sentence, t, k);
                 let mut word_t_id = EOS;
                 if t < sentence_length {
-                    assert!(third_gram_length > 0);
                     assert!(t + third_gram_length <= sentence_length);
+                    assert!(third_gram_length > 0);
                     word_t_id = self.get_substring_word_id_at_t_k(
                         sentence,
                         t + third_gram_length,
@@ -295,8 +304,8 @@ impl Sampler {
                 let mut word_k_id = self.get_substring_word_id_at_t_k(sentence, t, k);
                 let mut word_t_id = EOS;
                 if t < sentence_length {
-                    assert!(third_gram_length > 0);
                     assert!(t + third_gram_length <= sentence_length);
+                    assert!(third_gram_length > 0);
                     word_t_id = self.get_substring_word_id_at_t_k(
                         sentence,
                         t + third_gram_length,
@@ -379,6 +388,9 @@ impl Sampler {
         k: usize,
         j: usize,
     ) {
+        assert!(t <= self.max_sentence_length + 1);
+        assert!(k <= self.max_word_length);
+        assert!(j <= self.max_word_length);
         let word_k_id = self.get_substring_word_id_at_t_k(sentence, t, k);
 
         if j == 0 {
@@ -392,6 +404,7 @@ impl Sampler {
                 t - k,
                 t - 1,
             );
+            assert!(p_w_h > 0.0);
             // Here two are the differences compared with the non viterbi method.
             self.alpha_tensor[[t, k, 0]] = p_w_h.ln();
             self.viterbi_backward_indices[[t, k, 0]] = 0;
@@ -408,6 +421,8 @@ impl Sampler {
                 t - k,
                 t - 1,
             );
+            assert!(p_w_h > 0.0);
+            assert!(self.alpha_tensor[[t - k, j, 0]] != 0.0);
             // Here two are the differences compared with the non viterbi method.
             self.alpha_tensor[[t, k, j]] = p_w_h.ln() + self.alpha_tensor[[t - k, j, 0]];
             self.viterbi_backward_indices[[t, k, j]] = 0;
@@ -430,13 +445,18 @@ impl Sampler {
                     t - k,
                     t - 1,
                 );
+                assert!(p_w_h > 0.0);
+                assert!(i <= self.max_word_length);
+                assert!(self.alpha_tensor[[t - k, j, i]] <= 0.0);
                 // Here are the differences compared with the non viterbi method.
                 let temp = p_w_h.ln() + self.alpha_tensor[[t - k, j, i]];
+                assert!(temp <= 0.0);
                 if argmax == 0 || temp > max_log_p {
                     argmax = i;
                     max_log_p = temp;
                 }
             }
+            assert!(argmax > 0);
 
             self.alpha_tensor[[t, k, j]] = max_log_p;
             // We use the viterbi_backward_indices matrix to store the i value that maximizes the possibility of the trigram.
@@ -470,6 +490,7 @@ impl Sampler {
         argmax_k: &mut usize,
         argmax_j: &mut usize,
     ) {
+        assert!(t == sentence.length());
         let mut max_log_p = 0.0;
         *argmax_k = 0;
         *argmax_j = 0;
@@ -487,7 +508,9 @@ impl Sampler {
                     t,
                     t,
                 );
+                assert!(self.alpha_tensor[[t, k, j]] <= 0.0);
                 let temp = p_w_h.ln() + self.alpha_tensor[[t, k, j]];
+                assert!(temp <= 0.0);
                 if *argmax_k == 0 || temp > max_log_p {
                     max_log_p = temp;
                     *argmax_k = k;
@@ -509,7 +532,9 @@ impl Sampler {
                     t,
                     t,
                 );
+                assert!(self.alpha_tensor[[t, k, 0]] <= 0.0);
                 let temp = p_w_h.ln() + self.alpha_tensor[[t, k, 0]];
+                assert!(temp <= 0.0);
                 if *argmax_k == 0 || temp > max_log_p {
                     max_log_p = temp;
                     *argmax_k = k;
@@ -526,6 +551,9 @@ impl Sampler {
         let mut k = 0;
         let mut j = 0;
         self.viterbi_argmax_backward_sample_k_and_j_to_eos(sentence, t, 1, &mut k, &mut j);
+
+        assert!(k <= self.max_word_length);
+
         segment_lengths.push(k);
         sum_length += k;
 
@@ -534,8 +562,14 @@ impl Sampler {
             return segment_lengths;
         }
 
+        assert!(k > 0 && j > 0);
+        assert!(j <= self.max_word_length);
+
         segment_lengths.push(j);
         let mut i = self.viterbi_backward_indices[[t, k, j]];
+
+        assert!(i >= 0);
+        assert!(i <= self.max_word_length);
 
         sum_length += j + i;
 
@@ -555,6 +589,8 @@ impl Sampler {
         // TODO: This is more or less a repeat of the above. Should be able to refactor it?
         while t > 0 {
             i = self.viterbi_backward_indices[[t, k, j]];
+            assert!(i >= 0);
+            assert!(i <= self.max_word_length);
             if i != 0 {
                 segment_lengths.push(i);
             }
@@ -563,6 +599,9 @@ impl Sampler {
             j = i;
             sum_length += i;
         }
+        assert!(t == 0);
+        assert!(sum_length == sentence.length());
+        assert!(segment_lengths.len() > 0);
 
         segment_lengths.reverse();
         return segment_lengths;
@@ -592,8 +631,10 @@ impl Sampler {
             let k = 1;
             let mut alpha_eos = 0.0;
             for j in 1..self.max_word_length.min(t - k) {
+                assert!(self.alpha_tensor[[t, k, j]] > 0.0);
                 alpha_eos += self.alpha_tensor[[t, k, j]];
             }
+            assert!(alpha_eos > 0.0);
             return alpha_eos.ln();
         } else {
             let mut log_p_x = 0.0;
@@ -630,6 +671,7 @@ impl Sampler {
                     t,
                     t,
                 );
+                assert!(p_w_h > 0.0);
                 prob_sum += p_w_h * self.alpha_tensor[[t - k, j, i]];
             }
             self.alpha_tensor[[t, k, j]] = prob_sum;

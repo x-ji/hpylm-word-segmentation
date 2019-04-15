@@ -202,13 +202,14 @@ impl CHPYLM {
 
         // I'm not sure if this scenario ever happens.
         if char != BOW {
-            log_p_w +=
-                self.root
-                    .compute_p_w(char, self.g_0, &mut self.d_array, &mut self.theta_array);
+            log_p_w += self
+                .root
+                .compute_p_w(char, self.g_0, &mut self.d_array, &mut self.theta_array)
+                .ln();
         }
 
         for n in 1..characters.len() {
-            log_p_w += self.compute_p_w_given_h(characters, 0, n - 1);
+            log_p_w += self.compute_p_w_given_h(characters, 0, n - 1).ln();
         }
 
         log_p_w

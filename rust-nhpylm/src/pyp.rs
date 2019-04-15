@@ -130,7 +130,7 @@ where
     match self.parent {
       None => return true,
       Some(p) => unsafe {
-        return (*p).add_customer(
+        let success = (*p).add_customer(
           dish,
           g0_or_parent_p_ws,
           d_array,
@@ -138,6 +138,8 @@ where
           false,
           table_index_in_root,
         );
+        assert!(success == true);
+        return success;
       },
     }
   }
@@ -164,15 +166,18 @@ where
   ) -> bool {
     let is_empty = {
       let mut tablegroup = self.tablegroups.get_mut(&dish).unwrap();
+      assert!(table_index < tablegroup.len());
       tablegroup[table_index] -= 1;
       self.ncustomers -= 1;
+      assert!(tablegroup[table_index] >= 0);
 
       // If there are no customers anymore at this table, we need to remove this table.
       if tablegroup[table_index] == 0 {
         match self.parent {
           None => {}
           Some(p) => unsafe {
-            (*p).remove_customer(dish, false, table_index_in_root);
+            let success = (*p).remove_customer(dish, false, table_index_in_root);
+            assert!(success == true);
           },
         }
 
@@ -444,7 +449,7 @@ where
   }
 
   pub fn decrement_pass_count(&mut self) {
-    // println!("Pass count {}", self.pass_count);
+    println!("Pass count {}", self.pass_count);
     self.pass_count -= 1;
     match self.parent {
       None => {}
@@ -557,6 +562,7 @@ where
       let mut sum = 0;
       for i in 1..self.ntables - 1 {
         let denom = theta_u + d_u * i as f64;
+        assert!(denom > 0.0);
         let prob = theta_u / denom;
         let dist = Bernoulli::new(prob);
         let mut y_ui = dist.sample(&mut rand::thread_rng());
@@ -580,6 +586,7 @@ where
       for customercount in tablegroup {
         if customercount >= &2 {
           for j in 1..customercount - 1 {
+            assert!(j as f64 - d_u > 0.0);
             let prob = (j - 1) as f64 / (j as f64 - d_u);
             let dist = Bernoulli::new(prob);
             let result = if dist.sample(&mut rand::thread_rng()) {

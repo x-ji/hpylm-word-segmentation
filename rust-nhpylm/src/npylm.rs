@@ -101,6 +101,7 @@ impl NPYLM {
     }
 
     pub fn add_customer_at_index_n(&mut self, sentence: &Sentence, n: usize) -> bool {
+        assert!(n >= 2);
         let token_n = sentence.get_nth_word_id(n);
         let pyp = self
             .find_node_with_sentence(sentence, n, true, false)
@@ -134,6 +135,8 @@ impl NPYLM {
                     return true;
                 }
 
+                // assert!(index_of_table_added_to_in_root != 0);
+
                 let mut recorded_depth_array = vec![0; word_end_index - word_begin_index + 3];
                 self.add_word_to_chpylm(
                     &sentence.characters,
@@ -142,10 +145,14 @@ impl NPYLM {
                     &mut recorded_depth_array,
                 );
 
+                assert!(recorded_depth_array.len() == word_end_index - word_begin_index + 3);
+
                 let depth_arrays_for_the_tablegroup = self
                     .recorded_depth_arrays_for_tablegroups_of_token
                     .entry(token_n)
                     .or_insert(Vec::new());
+
+                assert!(depth_arrays_for_the_tablegroup.len() <= index_of_table_added_to_in_root);
 
                 depth_arrays_for_the_tablegroup.push(recorded_depth_array);
             }
@@ -160,6 +167,8 @@ impl NPYLM {
         word_end_index: usize,
         recorded_depth_array: &mut Vec<usize>,
     ) {
+        assert!(word_end_index >= word_begin_index);
+        assert!(word_end_index < self.max_sentence_length);
         self.most_recent_word =
             produce_word_with_bow_and_eow(sentence_as_chars, word_begin_index, word_end_index);
         let word_length_with_symbols = word_end_index - word_begin_index + 1 + 2;
@@ -174,6 +183,7 @@ impl NPYLM {
     }
 
     pub fn remove_customer_at_index_n(&mut self, sentence: &Sentence, n: usize) -> bool {
+        assert!(n >= 2);
         let token_n = sentence.get_nth_word_id(n);
         let pyp = self
             .find_node_with_word_ids(&sentence.word_ids, n, false, false)
@@ -198,6 +208,8 @@ impl NPYLM {
                 return true;
             }
 
+            // assert!(index_of_table_removed_from != 0);
+
             // Eventually there doesn't seem to be any other way than to clone the Vec.
             // It's not modified anyways.
             let recorded_depths = self
@@ -209,6 +221,8 @@ impl NPYLM {
                 .unwrap()[index_of_table_removed_from]
                 // Clone the Vec<usize>
                 .clone();
+
+            assert!(recorded_depths.len() > 0);
 
             self.remove_word_from_chpylm(
                 &sentence.characters,
@@ -241,10 +255,17 @@ impl NPYLM {
         word_end_index: usize,
         recorded_depths: &Vec<usize>,
     ) {
+        assert!(recorded_depths.len() > 0);
+        assert!(word_end_index >= word_begin_index);
+        assert!(word_end_index < self.max_sentence_length);
+
         self.most_recent_word =
             produce_word_with_bow_and_eow(sentence_as_chars, word_begin_index, word_end_index);
         // + 2 because of bow and eow.
         let word_length_with_symbols = word_end_index - word_begin_index + 1 + 2;
+
+        assert!(recorded_depths.len() == word_length_with_symbols);
+
         for n in 0..word_length_with_symbols {
             self.chpylm
                 .remove_customer_at_index_n(&self.most_recent_word, n, recorded_depths[n]);
@@ -258,6 +279,9 @@ impl NPYLM {
         generate_if_not_found: bool,
         return_middle_node: bool,
     ) -> Option<*mut PYP<u64>> {
+        assert!(n >= 2);
+        assert!(n < word_ids.len());
+
         let mut cur_node = &mut self.whpylm.root as *mut PYP<u64>;
 
         unsafe {
@@ -278,6 +302,7 @@ impl NPYLM {
                     Some(c) => cur_node = c,
                 }
             }
+            assert!((*cur_node).depth == 2);
         }
 
         return Some(cur_node);
@@ -290,6 +315,10 @@ impl NPYLM {
         generate_if_not_found: bool,
         return_middle_node: bool,
     ) -> Option<*mut PYP<u64>> {
+        assert!(n >= 2);
+        assert!(n < sentence.num_segments);
+        assert!(sentence.segment_lengths[n] > 0);
+
         let word_begin_index = sentence.segment_begin_positions[n];
         let word_end_index = word_begin_index + sentence.segment_lengths[n] - 1;
         return self.find_node_with_sentence_as_chars(
@@ -313,6 +342,11 @@ impl NPYLM {
         generate_if_not_found: bool,
         return_middle_node: bool,
     ) -> Option<*mut PYP<u64>> {
+        assert!(n >= 2);
+        assert!(n < word_ids.len());
+        assert!(word_begin_index >= 0);
+        assert!(word_end_index >= word_begin_index);
+
         let mut cur_node = &mut self.whpylm.root as *mut PYP<u64>;
         let word_n_id = word_ids[n];
         let mut parent_p_w = self.compute_g_0_of_word_at_index_n(
@@ -342,6 +376,7 @@ impl NPYLM {
                 parent_p_w = p_w;
                 cur_node = child.unwrap();
             }
+            assert!((*cur_node).depth == 2);
         }
         return Some(cur_node);
     }
@@ -357,6 +392,10 @@ impl NPYLM {
             return self.chpylm.g_0;
         }
 
+        assert!(word_end_index < self.max_sentence_length);
+        assert!(word_begin_index >= 0);
+        assert!(word_end_index >= word_begin_index);
+
         let word_length = word_end_index - word_begin_index + 1;
         match self.whpylm_g_0_cache.entry(word_n_id) {
             Entry::Vacant(e) => {
@@ -367,6 +406,7 @@ impl NPYLM {
                 );
                 // let word_length_with_symbols = word_length + 2;
                 let p_w = self.chpylm.compute_p_w(&self.most_recent_word);
+                // println!("p_w is {}", p_w);
                 if word_length > self.max_word_length {
                     // self.whpylm_g_0_cache[&word_n_id] = p_w;
                     e.insert(p_w);
@@ -386,6 +426,7 @@ impl NPYLM {
                     );
                     let lambda = self.lambda_for_types[t];
                     let poisson_sample = sample_poisson_k_lambda(word_length, lambda);
+                    assert!(poisson_sample > 0.0);
                     let g_0 = p_w / p_k_given_chpylm * poisson_sample;
 
                     // Very rarely the result will exceed 1.
@@ -437,6 +478,9 @@ impl NPYLM {
     }
 
     pub fn compute_p_w_of_nth_word(&mut self, sentence: &Sentence, n: usize) -> f64 {
+        assert!(n >= 2);
+        assert!(n < sentence.num_segments);
+        assert!(sentence.segment_lengths[n] > 0);
         let word_begin_index = sentence.segment_begin_positions[0];
         let word_end_index = word_begin_index + sentence.segment_lengths[n] - 1;
         return self.compute_p_w_of_nth_word_as_chars(

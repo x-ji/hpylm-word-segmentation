@@ -58,10 +58,12 @@ impl Sentence {
     }
 
     pub fn get_nth_segment_length(&self, n: usize) -> usize {
+        assert!(n <= self.num_segments);
         self.segment_lengths[n]
     }
 
     pub fn get_nth_word_id(&self, n: usize) -> u64 {
+        assert!(n <= self.num_segments);
         self.word_ids[n]
     }
 
@@ -75,9 +77,11 @@ impl Sentence {
 
     pub fn get_nth_word_chars(&self, n: usize) -> &[char] {
         // println!("Characters: {:?}", self.characters);
+        assert!(n < self.num_segments);
         if n < 2 {
             return &['<', 'B', 'O', 'S', '>'];
         } else {
+            assert!(n < self.num_segments - 1);
             let start_position: usize = self.segment_begin_positions[n];
             let end_position: usize = start_position + self.segment_lengths[n];
             // Note that Rust's slicing is [a, b) interval, while Julia's is [a, b] interval!
@@ -95,6 +99,7 @@ impl Sentence {
         let mut index = 0;
 
         while index < num_segments_without_special_tokens {
+            assert!(segment_lengths[index] > 0);
             sum_length += segment_lengths[index];
             let cur_length = segment_lengths[index];
 
