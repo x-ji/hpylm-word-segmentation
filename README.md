@@ -1,7 +1,7 @@
 # HPYLM Word Segmentation
 
 There are three main foci of this project:
-- Evaluate the applicability and performance of the nested Pitman-Yor model for word segmentation, not only on non-space-separated languages, but also on other languages stripped of spaces.
+- Evaluate the applicability and performance of the nested Pitman-Yor model for word segmentation.
 - Evaluate the suitability of different styles of programming languages (Julia and Rust) for such a task.
 - Provide detailed documentation and comments for each module and function, so that others who are interested in Pitman-Yor model might find the implementations useful.
 
@@ -40,7 +40,6 @@ This project attempts to implement the model as described by Mochihashi et al. (
 ## Data
 
 - Data
-
-  - [AP News](https://ibm.ent.box.com/s/ls61p8ovc1y87w45oa02zink2zl7l6z4)
+  - [CHILDES corpora](https://childes.talkbank.org/access/) [(the subset used in this project is obtained from Prof. Goldwater's homepage)](https://homepages.inf.ed.ac.uk/sgwater/software/br_data.zip)
   - [Brown & State of the Union corpus](http://demo.clab.cs.cmu.edu/cdyer/dhpyplm-data.tar.gz)
   - [the 4th SIGHAN workshop](http://sighan.cs.uchicago.edu/bakeoff2005/)
