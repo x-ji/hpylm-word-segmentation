@@ -72,10 +72,10 @@ function set_chpylm_beta_pass(model::Model, pass::Float64)
     model.npylm.chpylm.beta_pass = pass
 end
 
-function segment_sentence(model::Model, sentence_string::UTF32String)::OffsetVector{UTF32String}
+function segment_sentence(model::Model, sentence_string::UTF32String)
     extend_capacity(model.sampler, model.npylm.max_word_length, length(sentence_string))
     extend_capacity(model.npylm, length(sentence_string))
-    segmented_sentence = OffsetVector{UTF32String}(undef, 0:-1)
+    segmented_sentence = []
     sentence = Sentence(sentence_string)
     segment_lengths = viterbi_decode(model.sampler, sentence)
 
@@ -86,14 +86,13 @@ function segment_sentence(model::Model, sentence_string::UTF32String)::OffsetVec
     # start_index = 3
 
     start_index = 1
-    # for (index, length) in enumerate(segment_lengths)
     for length in segment_lengths
-        word = sentence_string[start_index, start_index + length - 1]
+        word = sentence_string[start_index:start_index + length - 1]
         push!(segmented_sentence, word)
         start_index += length
     end
 
-    return segmented_sentence
+    return join(segmented_sentence, " ")
 end
 
 "Compute the log forward probability of any sentence given the whole NHPYLM model"
@@ -520,10 +519,32 @@ function train(corpus_path, output_path, split_proportion = 0.9, epochs = 100000
             print_segmentations_train(trainer, 10)
             println("Perplexity_dev: $(compute_perplexity_dev(trainer))")
         end
+
+        out = open(output_path, "w")
+        serialize(out, model)
+        close(out)
     end
+end
+
+export segment
+"""
+Decodes the provided (test) sentences and writes the results to an output file.
+"""
+function segment(corpus_path, model_path, output_path)
+    m_in = open(model_path)
+    model = deserialize(m_in)
+    close(m_in)
+
+    corpus = build_corpus(corpus_path)
 
     out = open(output_path, "w")
-    serialize(out, model)
+    for sentence in corpus.sentence_list 
+        segmentation = segment_sentence(model, sentence)
+        if length(segmentation) > 0
+            println(out, segmentation)
+        end
+    end
     close(out)
 end
+
 end
